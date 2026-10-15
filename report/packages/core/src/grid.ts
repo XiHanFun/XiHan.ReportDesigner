@@ -127,7 +127,7 @@ function settle(items: readonly GridItem[], anchor: number, options: GridOptions
  * 向下拖时，顶边不低于它新顶边的被压卡片先挪到它的上方，压实后两者对调。
  * 之后缺省整体压实，同位置时被拖的卡片优先。id 不存在时抛出 unknown-card。
  */
-export function moveGridItem(items: readonly GridItem[], id: string, target: Partial<CardLayout>, columns: number, options: GridOptions = {}): GridItem[] {
+export function setGridItemRect(items: readonly GridItem[], id: string, target: Partial<CardLayout>, columns: number, options: GridOptions = {}): GridItem[] {
   const index = indexOf(items, id)
   const origin = clampToGrid(items[index]!, columns)
   const moved = clampToGrid({ ...items[index]!, ...target }, columns)
