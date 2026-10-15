@@ -12,10 +12,10 @@ import {
   gridCollides,
   gridItems,
   layoutOperations,
-  moveGridItem,
   placeGridItem,
   removeGridItem,
   ReportComputeError,
+  setGridItemRect,
   validateDocument,
 } from '../src'
 import { dashboardDocument } from './documents'
@@ -75,36 +75,36 @@ describe('compactLayout', () => {
   })
 })
 
-describe('moveGridItem', () => {
+describe('setGridItemRect', () => {
   const base = [item('a', 0, 0, 6, 2), item('b', 6, 0, 6, 2), item('c', 0, 2, 6, 2)]
 
   it('拖到别的卡片上：被压的卡片向下推开并连锁推开', () => {
-    expect(boxes(moveGridItem(base, 'b', { x: 0, y: 0 }, 12))).toEqual({ a: [0, 2, 6, 2], b: [0, 0, 6, 2], c: [0, 4, 6, 2] })
+    expect(boxes(setGridItemRect(base, 'b', { x: 0, y: 0 }, 12))).toEqual({ a: [0, 2, 6, 2], b: [0, 0, 6, 2], c: [0, 4, 6, 2] })
   })
 
   it('向下拖过下方卡片的顶边时两者对调；拖不到顶边时压实回原位', () => {
     const stack = [item('a', 0, 0, 6, 2), item('b', 0, 2, 6, 2)]
-    expect(boxes(moveGridItem(stack, 'a', { y: 2 }, 12))).toEqual({ a: [0, 2, 6, 2], b: [0, 0, 6, 2] })
-    expect(boxes(moveGridItem(stack, 'a', { y: 1 }, 12))).toEqual({ a: [0, 0, 6, 2], b: [0, 2, 6, 2] })
+    expect(boxes(setGridItemRect(stack, 'a', { y: 2 }, 12))).toEqual({ a: [0, 2, 6, 2], b: [0, 0, 6, 2] })
+    expect(boxes(setGridItemRect(stack, 'a', { y: 1 }, 12))).toEqual({ a: [0, 0, 6, 2], b: [0, 2, 6, 2] })
   })
 
   it('向上拖到上方卡片上时被压的卡片让到下面', () => {
     const stack = [item('a', 0, 0, 6, 2), item('b', 0, 2, 6, 2)]
-    expect(boxes(moveGridItem(stack, 'b', { y: 0 }, 12))).toEqual({ a: [0, 2, 6, 2], b: [0, 0, 6, 2] })
+    expect(boxes(setGridItemRect(stack, 'b', { y: 0 }, 12))).toEqual({ a: [0, 2, 6, 2], b: [0, 0, 6, 2] })
   })
 
   it('改大小压到旁边的卡片时把它推下去', () => {
-    expect(boxes(moveGridItem(base, 'a', { w: 8 }, 12))).toEqual({ a: [0, 0, 8, 2], b: [6, 2, 6, 2], c: [0, 2, 6, 2] })
+    expect(boxes(setGridItemRect(base, 'a', { w: 8 }, 12))).toEqual({ a: [0, 0, 8, 2], b: [6, 2, 6, 2], c: [0, 2, 6, 2] })
   })
 
   it('compact: false 时不压实', () => {
-    expect(boxes(moveGridItem(base, 'c', { y: 10 }, 12, { compact: false }))).toEqual({ a: [0, 0, 6, 2], b: [6, 0, 6, 2], c: [0, 10, 6, 2] })
-    expect(boxes(moveGridItem(base, 'c', { y: 10 }, 12))).toEqual({ a: [0, 0, 6, 2], b: [6, 0, 6, 2], c: [0, 2, 6, 2] })
+    expect(boxes(setGridItemRect(base, 'c', { y: 10 }, 12, { compact: false }))).toEqual({ a: [0, 0, 6, 2], b: [6, 0, 6, 2], c: [0, 10, 6, 2] })
+    expect(boxes(setGridItemRect(base, 'c', { y: 10 }, 12))).toEqual({ a: [0, 0, 6, 2], b: [6, 0, 6, 2], c: [0, 2, 6, 2] })
   })
 
   it('目标越界时夹回网格内，id 不存在时抛出', () => {
-    expect(boxes(moveGridItem(base, 'a', { x: 9 }, 12)).a).toEqual([6, 0, 6, 2])
-    expect(code(() => moveGridItem(base, 'nope', { x: 0 }, 12))).toBe('unknown-card')
+    expect(boxes(setGridItemRect(base, 'a', { x: 9 }, 12)).a).toEqual([6, 0, 6, 2])
+    expect(code(() => setGridItemRect(base, 'nope', { x: 0 }, 12))).toBe('unknown-card')
   })
 })
 
@@ -135,7 +135,7 @@ describe('layoutOperations', () => {
   it('只为位置变了的卡片产出 set，应用后文档仍然合法', () => {
     const dashboard = dashboardDocument.body as DashboardView
     const before = gridItems(dashboard)
-    const after = moveGridItem(before, 'pivot', { x: 0, y: 0, w: 12 }, dashboard.grid.columns)
+    const after = setGridItemRect(before, 'pivot', { x: 0, y: 0, w: 12 }, dashboard.grid.columns)
     const operations = layoutOperations(['body', 'cards'], before, after)
     expect(operations.every(operation => operation.type === 'set' && operation.path.at(-1) === 'layout')).toBe(true)
     expect(operations.map(operation => operation.path[2])).toContain('pivot')
