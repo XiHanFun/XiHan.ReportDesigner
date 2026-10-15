@@ -68,7 +68,7 @@ describe('tableSheet', () => {
       ['soon', 'West', 20, 3],
       ['Total', null, 250, 4],
     ])
-    expect(sheet.rows[1]![0]).toEqual({ type: 'date', value: { year: 2026, month: 1, day: 15 }, format: 'yyyy-mm-dd' })
+    expect(sheet.rows[1]![0]).toEqual({ type: 'date', value: { year: 2026, month: 1, day: 15 } })
     expect(sheet.rows[4]![0]).toEqual({ type: 'text', value: 'soon' })
     expect(sheet.rows[1]![2]).toEqual({ type: 'number', value: 100, format: '#,##0.00' })
     expect(sheet.rows[5]![2]).toEqual({ type: 'number', value: 250, format: '#,##0.00', bold: true })
@@ -92,8 +92,36 @@ describe('tableSheet', () => {
     expect(sheet.rows[2]![0]).toEqual({
       type: 'date',
       value: { year: 2026, month: 10, day: 16, hour: 16, minute: 30, second: 0, millisecond: 0 },
-      format: 'yyyy-mm-dd hh:mm:ss',
     })
+  })
+
+  it('格式说明经 formatCode 换成格式代码，Excel 表达不了时写成 formatValue 的文本', () => {
+    const rows: DatasetRows = {
+      kind: 'rows',
+      rows: [{ date: '2026-10-16T08:30:00', amount: 1001.5, qty: 2.345 }],
+    }
+    const stamped: DatasetSchema = { ...dataset, fields: dataset.fields.map(field => (field.name === 'date' ? { ...field, type: 'datetime' as const } : field)) }
+    const view: TableView = {
+      type: 'table',
+      dataset: 'sales',
+      columns: [
+        { id: 'day', field: 'date', format: { kind: 'date', pattern: 'yyyy年M月d日' } },
+        { id: 'clock', field: 'date', format: { kind: 'date', pattern: 'HH:MM' } },
+        { id: 'upper', field: 'amount', format: { kind: 'rmb-upper' } },
+        { id: 'share', field: 'amount', format: { kind: 'percent' } },
+        { id: 'even', field: 'qty', format: { kind: 'number', decimals: 2, rounding: 'half-even' } },
+        { id: 'plain', field: 'qty', format: { kind: 'number', decimals: 2 } },
+      ],
+    }
+    const [cells] = tableSheet(view, buildTable(view, stamped, rows), { dataset: stamped }).rows.slice(1)
+    expect(cells).toEqual([
+      { type: 'date', value: { year: 2026, month: 10, day: 16, hour: 8, minute: 30, second: 0, millisecond: 0 }, format: 'yyyy"年"m"月"d"日"' },
+      { type: 'text', value: '08:10' },
+      { type: 'text', value: '壹仟零壹元伍角' },
+      { type: 'text', value: '100150%' },
+      { type: 'number', value: 2.34, format: '0.00' },
+      { type: 'number', value: 2.345, format: '0.00' },
+    ])
   })
 
   it('内建文字可以替换', () => {

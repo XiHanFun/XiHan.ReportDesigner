@@ -25,8 +25,8 @@ import type {
 } from '@xihan-report/core'
 import type { XlsxCell, XlsxMerge, XlsxRow, XlsxSheet } from '@xihan-ui/xlsx'
 import { createDateTools, isAggregateMeasure, isMissing, valueKey } from '@xihan-report/core'
-import { sheetName } from '@xihan-ui/xlsx'
-import { dateFormatCode, numberFormatCode } from './format'
+import { formatValue } from '@xihan-ui/expression'
+import { formatCode, sheetName } from '@xihan-ui/xlsx'
 
 /** 工作表里的内建文字。 */
 export interface XlsxTranslations {
@@ -57,6 +57,7 @@ type Cells = (XlsxCell | null | undefined)[]
 interface Context {
   readonly dataset: DatasetSchema
   readonly dates: DateTools
+  readonly timeZone: string
   readonly t: XlsxTranslations
 }
 
@@ -64,6 +65,7 @@ function context(options: SheetOptions): Context {
   return {
     dataset: options.dataset,
     dates: createDateTools(options.timeZone),
+    timeZone: options.timeZone ?? 'UTC',
     t: { ...DEFAULT_TRANSLATIONS, ...options.translations },
   }
 }
@@ -76,41 +78,76 @@ function fieldTitle(ctx: Context, name: string, title: string | undefined): stri
   return title ?? fieldOf(ctx, name)?.title ?? name
 }
 
-function dateCell(value: unknown, type: FieldType | undefined, format: FormatSpec | undefined, ctx: Context, bold: boolean): XlsxCell | null {
-  if (typeof value !== 'string' && typeof value !== 'number' && !(value instanceof Date))
-    return null
+function text(value: string, bold: boolean): XlsxCell {
+  return bold ? { type: 'text', value, bold } : { type: 'text', value }
+}
+
+/** formatValue 的文本；格式说明或值不合法时为 null。 */
+function formatted(value: unknown, format: FormatSpec, ctx: Context): string | null {
   try {
-    const parts = ctx.dates.parts(value)
-    if (!parts || parts.year < 1900 || parts.year > 9999)
-      return null
-    const kind = type === 'date' || type === 'datetime' ? type : parts.hour === null ? 'date' : 'datetime'
-    const time = kind === 'datetime'
-      ? { hour: parts.hour ?? 0, minute: parts.minute ?? 0, second: parts.second ?? 0, millisecond: parts.millisecond ?? 0 }
-      : {}
-    return {
-      type: 'date',
-      value: { year: parts.year, month: parts.month ?? 1, day: parts.day ?? 1, ...time },
-      format: dateFormatCode(format?.kind === 'date' ? format : undefined, kind),
-      ...(bold ? { bold } : {}),
-    }
+    return formatValue(value, format, { timeZone: ctx.timeZone })
   }
   catch {
     return null
   }
 }
 
-function text(value: string, bold: boolean): XlsxCell {
-  return bold ? { type: 'text', value, bold } : { type: 'text', value }
+function dateCell(value: unknown, type: FieldType | undefined, format: FormatSpec | undefined, ctx: Context, bold: boolean): XlsxCell | null {
+  if (typeof value !== 'string' && typeof value !== 'number' && !(value instanceof Date))
+    return null
+  let parts: ReturnType<DateTools['parts']>
+  try {
+    parts = ctx.dates.parts(value)
+  }
+  catch {
+    return null
+  }
+  if (!parts || parts.year < 1900 || parts.year > 9999)
+    return null
+  const code = format?.kind === 'date' ? formatCode(format) : undefined
+  if (code === null) {
+    const shown = formatted(value, format!, ctx)
+    return shown === null ? null : text(shown, bold)
+  }
+  const kind = type === 'date' || type === 'datetime' ? type : parts.hour === null ? 'date' : 'datetime'
+  const time = kind === 'datetime'
+    ? { hour: parts.hour ?? 0, minute: parts.minute ?? 0, second: parts.second ?? 0, millisecond: parts.millisecond ?? 0 }
+    : {}
+  return {
+    type: 'date',
+    value: { year: parts.year, month: parts.month ?? 1, day: parts.day ?? 1, ...time },
+    ...(code === undefined ? {} : { format: code }),
+    ...(bold ? { bold } : {}),
+  }
 }
 
 /**
- * 一个值写成单元格：缺失值为空；date / datetime 字段与日期格式的值写成日期单元格，解析不了或不在 1900–9999 年的按原文写成文本；
- * 有限数按数字格式写成数字单元格，Infinity 写成文本；布尔值写成布尔单元格，其余写成文本。
+ * 数字配格式说明：Excel 表达不了（formatCode 为 null）时写成 formatValue 的文本；
+ * rounding 不是 half-up 时先按 formatValue 的十进制运算舍入好再写成数字，因为 Excel 显示时一律四舍五入。
+ */
+function numberCell(value: number, format: FormatSpec, ctx: Context, bold: boolean): XlsxCell {
+  const code = formatCode(format)
+  if (code === null)
+    return text(formatted(value, format, ctx) ?? String(value), bold)
+  let shown = value
+  if ((format.kind === 'number' || format.kind === 'percent') && format.rounding !== undefined && format.rounding !== 'half-up'
+    && (format.decimals !== undefined || format.maxDecimals !== undefined)) {
+    const rounded = formatted(value, { ...format, grouping: false }, ctx)
+    if (rounded !== null)
+      shown = format.kind === 'percent' ? Number(rounded.replace('%', '')) / 100 : Number(rounded)
+  }
+  return bold ? { type: 'number', value: shown, format: code, bold } : { type: 'number', value: shown, format: code }
+}
+
+/**
+ * 一个值写成单元格：缺失值为空；date / datetime 字段与日期格式的值写成日期单元格（格式代码由 formatCode 换出，
+ * 表达不了时写成 formatValue 的文本），解析不了或不在 1900–9999 年的按原文写成文本；有限数配格式说明见 numberCell，
+ * Infinity 写成文本；布尔值写成布尔单元格，其余写成文本。
  */
 function valueCell(value: unknown, type: FieldType | undefined, format: FormatSpec | undefined, ctx: Context, bold = false): XlsxCell | null {
   if (isMissing(value))
     return null
-  const numeric = format?.kind === 'number' || format?.kind === 'percent'
+  const numeric = format?.kind === 'number' || format?.kind === 'percent' || format?.kind === 'rmb-upper'
   const dateLike = value instanceof Date || format?.kind === 'date' || ((type === 'date' || type === 'datetime') && !numeric)
   if (dateLike) {
     const cell = dateCell(value, type, format, ctx, bold)
@@ -120,8 +157,9 @@ function valueCell(value: unknown, type: FieldType | undefined, format: FormatSp
   if (typeof value === 'number') {
     if (!Number.isFinite(value))
       return text(String(value), bold)
-    const cell: XlsxCell = numeric ? { type: 'number', value, format: numberFormatCode(format) } : { type: 'number', value }
-    return bold ? { ...cell, bold } : cell
+    if (numeric)
+      return numberCell(value, format!, ctx, bold)
+    return bold ? { type: 'number', value, bold } : { type: 'number', value }
   }
   if (typeof value === 'boolean')
     return bold ? { type: 'boolean', value, bold } : { type: 'boolean', value }
