@@ -60,6 +60,7 @@ XiHan.ReportDesigner 是框架无关的报表设计器，以原生 Web Component
 - **无全局状态**：不往 `window` 上挂对象，不读写固定键名的 localStorage，不在模块顶层产生副作用；同一页面放多个实例互不影响。
 - **数据由使用方提供**：组件不发网络请求，数据、存储与权限都经回调或属性交给使用方。
 - **对外契约**：复杂数据走 property 不走 attribute；事件用 `CustomEvent`；公开方法、事件和属性都要有类型声明。
+- **命名（四款设计器统一）**：元素名一律 `xh-report-*`，查看器是 `<xh-report-viewer>`；报表定义的属性叫 `schema`，表达式引擎叫 `expressionEngine`（core 的计算与校验选项同名），格式化叫 `formatter`；事件名照 XiHan.UI 的写法，不带前缀、用短横线，如 `value-change`。内建文案按产品出一份语言包 `reportZhCN`，宿主用 `mergeXhConfig` 与 UI 的语言包合并，类型经 `XhTranslationOverrides` 的模块扩充补进去。
 - **样式**：Light DOM，样式只消费 `@xihan-ui` 设计令牌，不写颜色、间距、圆角等散值。
 - **注释**：只写代码做什么，不写为什么这样设计、也不写任何参考项目名称；设计理由写进提交说明。
 - **源码文件头**：

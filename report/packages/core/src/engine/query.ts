@@ -30,7 +30,7 @@ export function runQuery(query: ReportQuery, dataset: DatasetSchema, data: Datas
   const env = createEnvironment(dataset, options)
   const input = prepareInput(data, query.filter, env)
   const dimensions = query.dimensions
-  const plan = planFormulas(env.formula, measureFormulas(query.measures), 'measure')
+  const plan = planFormulas(env.expressionEngine, measureFormulas(query.measures), 'measure')
   const [leaf, all] = buildCube({
     input,
     dimensions,

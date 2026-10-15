@@ -20,7 +20,7 @@ export interface ComputeOptions {
   /** 报表参数的取值：筛选条件与参数绑定从这里取，公式里以 $名字 引用。 */
   readonly parameters?: ParameterValues
   /** 表达式引擎：数据集有计算字段或视图有公式时必须提供。 */
-  readonly formula?: ExpressionEngine
+  readonly expressionEngine?: ExpressionEngine
   /** 日期粒度与日期比较所在的时区（IANA 名），缺省 UTC。 */
   readonly timeZone?: string
   /** 字符串比较，缺省按 UTF-16 码元。 */
@@ -33,7 +33,7 @@ export interface ComputeOptions {
 export interface ComputeEnvironment extends FilterEnvironment {
   readonly dataset: DatasetSchema
   readonly dates: DateTools
-  readonly formula: ExpressionEngine | undefined
+  readonly expressionEngine: ExpressionEngine | undefined
   readonly filters: readonly FilterCondition[]
   /** 公式里可引用的报表参数：$名字到取值。 */
   readonly formulaScope: Readonly<Record<string, unknown>>
@@ -58,7 +58,7 @@ export function createEnvironment(dataset: DatasetSchema, options: ComputeOption
     dates: createDateTools(options.timeZone),
     fieldType: field => types.get(field),
     collate: options.collate,
-    formula: options.formula,
+    expressionEngine: options.expressionEngine,
     filters: options.filters ?? [],
     formulaScope: parameterScope(options.parameters ?? {}),
   }
@@ -74,7 +74,7 @@ export function prepareInput(data: DatasetData, filter: FilterGroup | undefined,
       throw new ReportComputeError('aggregated-input-unsupported', { dataset: env.dataset.id })
     return { rows: data.rows, aggregated: true, rollups: data.rollups ?? [] }
   }
-  const rows = applyCalculatedFields(data.rows, env.dataset, env.formula, env.parameters)
+  const rows = applyCalculatedFields(data.rows, env.dataset, env.expressionEngine, env.parameters)
   const predicate = compileFilter(filter, env.filters, env)
   return { rows: rows.filter(row => predicate(row)), aggregated: false, rollups: [] }
 }

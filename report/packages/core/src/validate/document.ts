@@ -19,7 +19,7 @@ import { checkAxisSort, checkFormat, checkFormulas, checkSortOrder, isParameterR
 /** 校验选项。 */
 export interface ValidateOptions {
   /** 表达式引擎：提供时检查公式能否编译、引用是否存在、有没有循环引用。 */
-  readonly formula?: ExpressionEngine
+  readonly expressionEngine?: ExpressionEngine
 }
 
 interface DatasetInfo {
@@ -36,7 +36,7 @@ interface Scope {
   readonly c: Checker
   readonly datasets: ReadonlyMap<string, DatasetInfo>
   readonly parameters: ReadonlyMap<string, ParameterInfo>
-  readonly formula: ExpressionEngine | undefined
+  readonly expressionEngine: ExpressionEngine | undefined
   /** 公式里可引用的报表参数变量：$名字。 */
   readonly variables: ReadonlySet<string>
 }
@@ -263,7 +263,7 @@ function checkMeasures(scope: Scope, measures: readonly KeyedItem[], dataset: Da
     if (formula !== undefined && key !== undefined)
       formulas.push({ name: key, expression: formula, path: [...path, 'formula'] })
   }
-  checkFormulas(c, scope.formula, formulas, withVariables(keys, scope.variables))
+  checkFormulas(c, scope.expressionEngine, formulas, withVariables(keys, scope.variables))
   return keys
 }
 
@@ -318,7 +318,7 @@ function checkColumns(scope: Scope, owner: JsonObject, path: ReportPath, dataset
     if (formula !== undefined && key !== undefined)
       formulas.push({ name: key, expression: formula, path: [...sp, 'formula'] })
   }
-  checkFormulas(c, scope.formula, formulas, withVariables(summaries, scope.variables))
+  checkFormulas(c, scope.expressionEngine, formulas, withVariables(summaries, scope.variables))
   return { columns, summaries }
 }
 
@@ -508,7 +508,7 @@ function checkParameterValue(scope: Scope, value: unknown, path: ReportPath, typ
 
 function checkReportParameters(c: Checker, document: JsonObject): Map<string, ParameterInfo> {
   const result = new Map<string, ParameterInfo>()
-  const scope: Scope = { c, datasets: new Map(), parameters: new Map(), formula: undefined, variables: new Set() }
+  const scope: Scope = { c, datasets: new Map(), parameters: new Map(), expressionEngine: undefined, variables: new Set() }
   for (const { item, path, key } of c.keyed(document, 'parameters', [], 'name')) {
     const type = c.oneOf(item, 'type', path, FIELD_TYPES, true)
     c.string(item, 'title', path)
@@ -533,7 +533,7 @@ function checkReportParameters(c: Checker, document: JsonObject): Map<string, Pa
   return result
 }
 
-function checkDatasets(c: Checker, document: JsonObject, formula: ExpressionEngine | undefined, variables: ReadonlySet<string>): Map<string, DatasetInfo> {
+function checkDatasets(c: Checker, document: JsonObject, expressionEngine: ExpressionEngine | undefined, variables: ReadonlySet<string>): Map<string, DatasetInfo> {
   const result = new Map<string, DatasetInfo>()
   for (const { item, path, key } of c.keyed(document, 'datasets', [], 'id', { required: true })) {
     c.string(item, 'title', path)
@@ -549,7 +549,7 @@ function checkDatasets(c: Checker, document: JsonObject, formula: ExpressionEngi
       if (field.key !== undefined && expression !== undefined)
         formulas.push({ name: field.key, expression, path: [...field.path, 'formula'] })
     }
-    checkFormulas(c, formula, formulas, withVariables(new Set(fields.keys()), variables))
+    checkFormulas(c, expressionEngine, formulas, withVariables(new Set(fields.keys()), variables))
     const parameters = new Map<string, { type: FieldType, required: boolean, multiple: boolean }>()
     for (const parameter of c.keyed(item, 'parameters', path, 'name')) {
       const type = c.oneOf(parameter.item, 'type', parameter.path, FIELD_TYPES, true)
@@ -585,9 +585,9 @@ export function validateDocument(document: unknown, options: ValidateOptions = {
   c.string(document, 'description', [])
   const parameters = checkReportParameters(c, document)
   const variables = new Set([...parameters.keys()].map(name => `$${name}`))
-  const datasets = checkDatasets(c, document, options.formula, variables)
+  const datasets = checkDatasets(c, document, options.expressionEngine, variables)
   const body = c.objectAt(document, 'body', [], true)
   if (body)
-    checkDataView({ c, datasets, parameters, formula: options.formula, variables }, body, ['body'], ['table', 'group', 'crosstab', 'dashboard'])
+    checkDataView({ c, datasets, parameters, expressionEngine: options.expressionEngine, variables }, body, ['body'], ['table', 'group', 'crosstab', 'dashboard'])
   return c.issues
 }

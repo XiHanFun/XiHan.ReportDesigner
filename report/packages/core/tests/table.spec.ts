@@ -57,7 +57,7 @@ describe('buildTable', () => {
       type: 'table',
       dataset: 'sales',
       columns: [...columns, { id: 'unit', field: 'amount', summary: { formula: 'amount / qty' } }],
-    }, salesDataset, salesData, { formula: lookupEngine(formulas) })
+    }, salesDataset, salesData, { expressionEngine: lookupEngine(formulas) })
     expect(result.summary).toEqual({ amount: 280, qty: 12, unit: 280 / 12 })
   })
 

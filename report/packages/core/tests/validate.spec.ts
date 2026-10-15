@@ -35,7 +35,7 @@ describe('validateDocument：合法文档', () => {
   })
 
   it('带上表达式引擎也没有问题', () => {
-    expect(validateDocument(dashboardDocument, { formula: lookupEngine(formulas) })).toEqual([])
+    expect(validateDocument(dashboardDocument, { expressionEngine: lookupEngine(formulas) })).toEqual([])
   })
 
   it('明细表与交叉表作为主体没有问题', () => {
@@ -311,7 +311,7 @@ describe('validateDocument：公式', () => {
         ],
       }],
     }
-    expect(validateDocument(document, { formula: engine })).toEqual([
+    expect(validateDocument(document, { expressionEngine: engine })).toEqual([
       { code: 'formula-invalid', path: ['datasets', 'sales', 'fields', 'bad', 'formula'], params: { issue: 'XH_EXPR_UNEXPECTED_TOKEN' } },
       { code: 'formula-unknown-reference', path: ['datasets', 'sales', 'fields', 'twice', 'formula'], params: { name: 'double' } },
       { code: 'formula-cycle', path: ['datasets', 'sales', 'fields', 'b', 'formula'], params: { names: 'a,b' } },
@@ -321,7 +321,7 @@ describe('validateDocument：公式', () => {
   it('公式度量只能引用同一查询的度量', () => {
     const issues = validateDocument(edit(dashboardDocument, (d) => {
       card(d, 'trend').query.measures[2].formula = 'double + 1'
-    }), { formula: engine })
+    }), { expressionEngine: engine })
     expect(issues).toEqual([
       { code: 'formula-unknown-reference', path: ['body', 'cards', 'trend', 'query', 'measures', 'unit', 'formula'], params: { name: 'double' } },
     ])
@@ -337,11 +337,11 @@ describe('validateDocument：公式里的报表参数', () => {
       d.datasets[0].fields.push({ name: 'taxed', type: 'number', formula: '$rate * amount' })
       d.body.columns.push({ id: 'gap', field: 'amount', summary: { formula: 'amount - $target' } })
     })
-    expect(validateDocument(declared, { formula: engine })).toEqual([])
+    expect(validateDocument(declared, { expressionEngine: engine })).toEqual([])
     const undeclared = edit(groupDocument, (d) => {
       d.datasets[0].fields.push({ name: 'taxed', type: 'number', formula: '$rate * amount' })
     })
-    expect(validateDocument(undeclared, { formula: engine })).toEqual([
+    expect(validateDocument(undeclared, { expressionEngine: engine })).toEqual([
       { code: 'formula-unknown-reference', path: ['datasets', 'sales', 'fields', 'taxed', 'formula'], params: { name: '$rate' } },
     ])
   })

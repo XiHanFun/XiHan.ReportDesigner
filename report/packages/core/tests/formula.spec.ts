@@ -47,7 +47,7 @@ describe('applyCalculatedFields', () => {
     const result = runQuery({
       dimensions: [{ id: 'region', field: 'region' }],
       measures: [{ id: 'plus', aggregate: 'sum', field: 'plus' }],
-    }, withCalculated, salesData, { formula: lookupEngine(formulas) })
+    }, withCalculated, salesData, { expressionEngine: lookupEngine(formulas) })
     expect(result.rows[0]).toEqual({ region: 'East', plus: 363 })
   })
 
@@ -92,7 +92,7 @@ describe('公式里的报表参数', () => {
         { id: 'amount', aggregate: 'sum', field: 'taxed' },
         { id: 'gap', formula: 'amount - $target' },
       ],
-    }, dataset, salesData, { formula: engine, parameters: { rate: 2, target: 500 } })
+    }, dataset, salesData, { expressionEngine: engine, parameters: { rate: 2, target: 500 } })
     expect(result.total).toEqual({ amount: 560, gap: 60 })
     expect(result.total).not.toHaveProperty('$target')
   })

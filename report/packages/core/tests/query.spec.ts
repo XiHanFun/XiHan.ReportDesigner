@@ -92,7 +92,7 @@ describe('runQuery', () => {
         { id: 'double', formula: 'amount * 2' },
         { id: 'amount', aggregate: 'sum', field: 'amount' },
       ],
-    }, salesDataset, salesData, { formula: engine })
+    }, salesDataset, salesData, { expressionEngine: engine })
     expect(result.rows[0]).toEqual({ region: 'East', amount: 180, double: 360, plus: 361 })
     expect(result.total).toEqual({ amount: 280, double: 560, plus: 561 })
   })

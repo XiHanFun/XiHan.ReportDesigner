@@ -83,7 +83,7 @@ export function buildTable(view: TableView, dataset: DatasetSchema, data: Datase
   const formulas = summaryFormulas(view.columns)
   let summary: DataRow | null = null
   if (measures.length > 0 || formulas.length > 0) {
-    const plan = planFormulas(env.formula, formulas, 'column')
+    const plan = planFormulas(env.expressionEngine, formulas, 'column')
     const [total] = buildCube({ input, dimensions: [], measures, sets: [[]], dates: env.dates, collate: env.collate })
     const values = total!.cells.get(tupleKey([]))!.values
     evaluatePlan(plan, values, { total: true }, env.formulaScope)
@@ -108,7 +108,7 @@ export function buildGroupReport(view: GroupView, dataset: DatasetSchema, data: 
   const input = detail && view.sort ? { ...prepared, rows: sortRows(prepared.rows, view.sort, env) } : prepared
   const groups = view.groups
   const depth = groups.length
-  const plan = planFormulas(env.formula, summaryFormulas(view.columns), 'column')
+  const plan = planFormulas(env.expressionEngine, summaryFormulas(view.columns), 'column')
   const levels = buildCube({
     input,
     dimensions: groups.map(group => ({ id: group.id, field: group.field, bucket: group.bucket })),
