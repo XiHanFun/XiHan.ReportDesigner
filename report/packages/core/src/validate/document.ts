@@ -5,12 +5,15 @@
 
 // 报表文档的自校验：结构、取值范围与引用关系，只给出问题码、定位与参数。
 
+import type { JsonPath } from '@xihan-ui/core/json'
+import type { SchemaIssueTarget } from '@xihan-ui/designer-kit/schema'
 import type { ExpressionEngine } from '../expression'
-import type { ReportPath } from '../issue'
 import type { DateBucket, FieldType } from '../schema'
 import type { JsonObject, KeyedItem, ValidationIssue } from './checker'
 import type { FormulaSite } from './common'
 import { isPlainObject } from '@xihan-ui/core/json'
+import { withSeverity } from '@xihan-ui/designer-kit/schema'
+import { itemKey } from '../operations'
 import { AGGREGATE_KINDS, DATE_BUCKETS, FIELD_TYPES, FILTER_OPERATORS, REPORT_SCHEMA_VERSION } from '../schema'
 import { checkChart, checkMetric } from './chart'
 import { Checker } from './checker'
@@ -52,7 +55,7 @@ const ORDER_OPERATORS = new Set(['gt', 'gte', 'lt', 'lte', 'between'])
 const DATE_TYPES: readonly FieldType[] = ['date', 'datetime']
 
 /** 以 $ 开头的名字留给公式里的报表参数。 */
-function checkReserved(scope: { readonly c: Checker }, key: string | undefined, path: ReportPath, keyName: 'id' | 'name'): void {
+function checkReserved(scope: { readonly c: Checker }, key: string | undefined, path: JsonPath, keyName: 'id' | 'name'): void {
   if (key?.startsWith('$'))
     scope.c.report('reserved-name', [...path, keyName], { key })
 }
@@ -61,7 +64,7 @@ function withVariables(keys: ReadonlySet<string>, variables: ReadonlySet<string>
   return new Set([...keys, ...variables])
 }
 
-function checkField(scope: Scope, owner: JsonObject, key: string, path: ReportPath, dataset: DatasetInfo | undefined, required = true): { name: string, type: FieldType | undefined } | undefined {
+function checkField(scope: Scope, owner: JsonObject, key: string, path: JsonPath, dataset: DatasetInfo | undefined, required = true): { name: string, type: FieldType | undefined } | undefined {
   const name = scope.c.string(owner, key, path, required)
   if (name === undefined)
     return undefined
@@ -71,14 +74,14 @@ function checkField(scope: Scope, owner: JsonObject, key: string, path: ReportPa
   return { name, type }
 }
 
-function checkBucket(scope: Scope, owner: JsonObject, path: ReportPath, type: FieldType | undefined): DateBucket | undefined {
+function checkBucket(scope: Scope, owner: JsonObject, path: JsonPath, type: FieldType | undefined): DateBucket | undefined {
   const bucket = scope.c.oneOf(owner, 'bucket', path, DATE_BUCKETS)
   if (bucket !== undefined && type !== undefined && !DATE_TYPES.includes(type))
     scope.c.report('bucket-type-mismatch', [...path, 'bucket'], { type })
   return bucket
 }
 
-function checkParameterRef(scope: Scope, value: { readonly parameter: unknown }, path: ReportPath): ParameterInfo | undefined {
+function checkParameterRef(scope: Scope, value: { readonly parameter: unknown }, path: JsonPath): ParameterInfo | undefined {
   if (typeof value.parameter !== 'string') {
     scope.c.report('invalid-type', [...path, 'parameter'], { expected: 'string' })
     return undefined
@@ -89,7 +92,7 @@ function checkParameterRef(scope: Scope, value: { readonly parameter: unknown },
   return info
 }
 
-function checkLiteral(scope: Scope, value: unknown, path: ReportPath, expected: FieldType | undefined): void {
+function checkLiteral(scope: Scope, value: unknown, path: JsonPath, expected: FieldType | undefined): void {
   if (!isScalar(value)) {
     scope.c.report('invalid-type', path, { expected: 'string|number|boolean|null' })
     return
@@ -99,7 +102,7 @@ function checkLiteral(scope: Scope, value: unknown, path: ReportPath, expected: 
 }
 
 /** 校验绑定给数据集参数的操作数。 */
-function checkBindingValue(scope: Scope, value: unknown, path: ReportPath, target: { readonly type: FieldType, readonly multiple: boolean } | undefined): void {
+function checkBindingValue(scope: Scope, value: unknown, path: JsonPath, target: { readonly type: FieldType, readonly multiple: boolean } | undefined): void {
   if (isParameterRef(value)) {
     const info = checkParameterRef(scope, value, path)
     if (info && target) {
@@ -124,7 +127,7 @@ function checkBindingValue(scope: Scope, value: unknown, path: ReportPath, targe
 }
 
 /** 校验视图或卡片的数据集与参数绑定。 */
-function checkBinding(scope: Scope, owner: JsonObject, path: ReportPath): DatasetInfo | undefined {
+function checkBinding(scope: Scope, owner: JsonObject, path: JsonPath): DatasetInfo | undefined {
   const { c } = scope
   const id = c.string(owner, 'dataset', path, true)
   const dataset = id === undefined ? undefined : scope.datasets.get(id)
@@ -144,7 +147,7 @@ function checkBinding(scope: Scope, owner: JsonObject, path: ReportPath): Datase
   return dataset
 }
 
-function checkConditionValue(scope: Scope, condition: JsonObject, path: ReportPath, operator: string, valueType: FieldType | undefined): void {
+function checkConditionValue(scope: Scope, condition: JsonObject, path: JsonPath, operator: string, valueType: FieldType | undefined): void {
   const { c } = scope
   const value = condition.value
   const at = [...path, 'value']
@@ -195,7 +198,7 @@ function checkConditionValue(scope: Scope, condition: JsonObject, path: ReportPa
 }
 
 /** 校验条件组；ids 收集整棵树里的条件与子组 id。 */
-function checkFilterGroup(scope: Scope, group: JsonObject, path: ReportPath, dataset: DatasetInfo | undefined, ids: Set<string>): void {
+function checkFilterGroup(scope: Scope, group: JsonObject, path: JsonPath, dataset: DatasetInfo | undefined, ids: Set<string>): void {
   const { c } = scope
   c.oneOf(group, 'logic', path, ['and', 'or'] as const, true)
   for (const node of c.keyed(group, 'conditions', path, 'id', { required: true, scope: ids })) {
@@ -219,13 +222,13 @@ function checkFilterGroup(scope: Scope, group: JsonObject, path: ReportPath, dat
   }
 }
 
-function checkFilter(scope: Scope, owner: JsonObject, path: ReportPath, dataset: DatasetInfo | undefined): void {
+function checkFilter(scope: Scope, owner: JsonObject, path: JsonPath, dataset: DatasetInfo | undefined): void {
   const group = scope.c.objectAt(owner, 'filter', path)
   if (group)
     checkFilterGroup(scope, group, [...path, 'filter'], dataset, new Set())
 }
 
-function checkRowSort(scope: Scope, owner: JsonObject, path: ReportPath, dataset: DatasetInfo | undefined): void {
+function checkRowSort(scope: Scope, owner: JsonObject, path: JsonPath, dataset: DatasetInfo | undefined): void {
   scope.c.array(owner, 'sort', path)?.forEach((value, index) => {
     const at = [...path, 'sort', index]
     const rule = scope.c.object(value, at)
@@ -283,7 +286,7 @@ function checkDimensions(scope: Scope, dimensions: readonly KeyedItem[], dataset
 }
 
 /** 校验表格列，返回列 id 到字段与带汇总的列 id。 */
-function checkColumns(scope: Scope, owner: JsonObject, path: ReportPath, dataset: DatasetInfo | undefined, ids: Set<string>, nonEmpty: boolean): { columns: Map<string, string>, summaries: Set<string> } {
+function checkColumns(scope: Scope, owner: JsonObject, path: JsonPath, dataset: DatasetInfo | undefined, ids: Set<string>, nonEmpty: boolean): { columns: Map<string, string>, summaries: Set<string> } {
   const { c } = scope
   const columns = new Map<string, string>()
   const summaries = new Set<string>()
@@ -326,7 +329,7 @@ function fieldDimensions(columns: ReadonlyMap<string, string>): Map<string, Date
   return new Map([...columns.keys()].map(key => [key, undefined]))
 }
 
-function checkTable(scope: Scope, view: JsonObject, path: ReportPath): ViewInfo {
+function checkTable(scope: Scope, view: JsonObject, path: JsonPath): ViewInfo {
   const dataset = checkBinding(scope, view, path)
   const { columns } = checkColumns(scope, view, path, dataset, new Set(), true)
   checkFilter(scope, view, path, dataset)
@@ -335,7 +338,7 @@ function checkTable(scope: Scope, view: JsonObject, path: ReportPath): ViewInfo 
   return { dataset, dimensions: fieldDimensions(columns) }
 }
 
-function checkGroup(scope: Scope, view: JsonObject, path: ReportPath): ViewInfo {
+function checkGroup(scope: Scope, view: JsonObject, path: JsonPath): ViewInfo {
   const { c } = scope
   const dataset = checkBinding(scope, view, path)
   const ids = new Set<string>()
@@ -360,7 +363,7 @@ function checkGroup(scope: Scope, view: JsonObject, path: ReportPath): ViewInfo 
   return { dataset, dimensions }
 }
 
-function checkCrosstab(scope: Scope, view: JsonObject, path: ReportPath): ViewInfo {
+function checkCrosstab(scope: Scope, view: JsonObject, path: JsonPath): ViewInfo {
   const { c } = scope
   const dataset = checkBinding(scope, view, path)
   const ids = new Set<string>()
@@ -380,7 +383,7 @@ function checkCrosstab(scope: Scope, view: JsonObject, path: ReportPath): ViewIn
   return { dataset, dimensions }
 }
 
-function checkQuery(scope: Scope, card: JsonObject, path: ReportPath, dataset: DatasetInfo | undefined): { dimensions: Map<string, DateBucket | undefined>, measures: Set<string> } {
+function checkQuery(scope: Scope, card: JsonObject, path: JsonPath, dataset: DatasetInfo | undefined): { dimensions: Map<string, DateBucket | undefined>, measures: Set<string> } {
   const { c } = scope
   const query = c.objectAt(card, 'query', path, true)
   if (!query)
@@ -405,7 +408,7 @@ function checkQuery(scope: Scope, card: JsonObject, path: ReportPath, dataset: D
   return { dimensions, measures }
 }
 
-function checkDataView(scope: Scope, view: JsonObject, path: ReportPath, types: readonly ('table' | 'group' | 'crosstab' | 'dashboard')[]): ViewInfo | undefined {
+function checkDataView(scope: Scope, view: JsonObject, path: JsonPath, types: readonly ('table' | 'group' | 'crosstab' | 'dashboard')[]): ViewInfo | undefined {
   const type = scope.c.oneOf(view, 'type', path, types, true)
   switch (type) {
     case 'table':
@@ -422,7 +425,7 @@ function checkDataView(scope: Scope, view: JsonObject, path: ReportPath, types: 
   }
 }
 
-function checkDashboard(scope: Scope, view: JsonObject, path: ReportPath): void {
+function checkDashboard(scope: Scope, view: JsonObject, path: JsonPath): void {
   const { c } = scope
   const grid = c.objectAt(view, 'grid', path, true)
   const columns = grid ? c.number(grid, 'columns', [...path, 'grid'], { required: true, integer: true, min: 1 }) : undefined
@@ -496,7 +499,7 @@ function checkDashboard(scope: Scope, view: JsonObject, path: ReportPath): void 
   }
 }
 
-function checkParameterValue(scope: Scope, value: unknown, path: ReportPath, type: FieldType | undefined, multiple: boolean): void {
+function checkParameterValue(scope: Scope, value: unknown, path: JsonPath, type: FieldType | undefined, multiple: boolean): void {
   if (Array.isArray(value)) {
     if (!multiple)
       scope.c.report('operand-shape', path)
@@ -565,16 +568,64 @@ function checkDatasets(c: Checker, document: JsonObject, expressionEngine: Expre
   return result
 }
 
+/** 带键数组所在的属性名到问题 target 的 kind。 */
+const TARGET_KINDS: Readonly<Record<string, string>> = {
+  cards: 'card',
+  columns: 'column',
+  conditions: 'condition',
+  datasets: 'dataset',
+  dimensions: 'dimension',
+  fields: 'field',
+  groups: 'group',
+  links: 'link',
+  measures: 'measure',
+  parameters: 'parameter',
+  rows: 'row',
+  series: 'series',
+}
+
+/** 问题所在的带键对象：沿路径取最内层带 id（没有时取 name）的数组项，kind 按它所在的属性名取。 */
+function targetOf(document: unknown, path: JsonPath): SchemaIssueTarget | undefined {
+  let node = document
+  let target: SchemaIssueTarget | undefined
+  for (let i = 0; i < path.length; i++) {
+    const segment = path[i]!
+    if (Array.isArray(node) && typeof segment === 'number' && segment < node.length) {
+      node = node[segment]
+      const owner = path[i - 1]
+      const key = itemKey(node)
+      if (key !== undefined && typeof owner === 'string' && Object.hasOwn(TARGET_KINDS, owner))
+        target = { kind: TARGET_KINDS[owner]!, id: key }
+    }
+    else if (isPlainObject(node) && typeof segment === 'string' && Object.hasOwn(node, segment)) {
+      node = node[segment]
+    }
+    else {
+      break
+    }
+  }
+  return target
+}
+
 /**
  * 校验报表文档，返回全部问题；没有问题时为空数组。不会抛出。
- * 定位路径里对象属性写属性名，带 id（或 name）的数组项写它的键，其余数组项写下标。
+ * 问题的 path 只用对象属性名与数组下标；落在带 id（或 name）的数组项里时，target 给出最内层那一项的 kind 与键。
+ * 报表的问题都是 error。
  */
 export function validateDocument(document: unknown, options: ValidateOptions = {}): ValidationIssue[] {
   const c = new Checker()
-  if (!isPlainObject(document)) {
+  if (isPlainObject(document))
+    checkDocument(c, document, options)
+  else
     c.report('invalid-type', [], { expected: 'object' })
-    return c.issues
-  }
+  const located = c.issues.map((issue) => {
+    const target = targetOf(document, issue.path)
+    return target ? { ...issue, target } : issue
+  })
+  return withSeverity(located, {})
+}
+
+function checkDocument(c: Checker, document: JsonObject, options: ValidateOptions): void {
   const version = document.schemaVersion
   if (version === undefined)
     c.report('required', ['schemaVersion'])
@@ -589,5 +640,4 @@ export function validateDocument(document: unknown, options: ValidateOptions = {
   const body = c.objectAt(document, 'body', [], true)
   if (body)
     checkDataView({ c, datasets, parameters, expressionEngine: options.expressionEngine, variables }, body, ['body'], ['table', 'group', 'crosstab', 'dashboard'])
-  return c.issues
 }

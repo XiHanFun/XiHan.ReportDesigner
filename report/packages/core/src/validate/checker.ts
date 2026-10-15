@@ -3,25 +3,23 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 校验用的读取器：按类型读取属性，不合格时记下问题。
+// 校验用的读取器：问题形状与按类型读取用 @xihan-ui/designer-kit/schema，这里补上报表的必填写法与带键数组。
 
-import type { ReportIssue, ReportPath } from '../issue'
-import type { ScalarValue } from '../schema'
+import type { JsonPath } from '@xihan-ui/core/json'
+import type { CommonIssueCode, IssueParamValue, IssueSink, NumberRule as ReadNumberRule, SchemaIssue } from '@xihan-ui/designer-kit/schema'
 import { isPlainObject } from '@xihan-ui/core/json'
+import { createIssueSink, readArray, readBoolean, readNumber, readObject, readOneOf, readString } from '@xihan-ui/designer-kit/schema'
 
-/** 校验问题码。 */
+/** 校验问题码：designer-kit/schema 的通用问题码，加上报表自己的。 */
 export type ValidationIssueCode
-  = | 'aggregate-type-mismatch'
+  = | CommonIssueCode
+    | 'aggregate-type-mismatch'
     | 'bucket-type-mismatch'
     | 'chart-reference-role'
-    | 'duplicate-key'
-    | 'empty'
     | 'format-invalid'
     | 'formula-cycle'
     | 'formula-invalid'
     | 'formula-unknown-reference'
-    | 'invalid-type'
-    | 'invalid-value'
     | 'layout-out-of-bounds'
     | 'layout-overlap'
     | 'link-target-type-mismatch'
@@ -30,21 +28,19 @@ export type ValidationIssueCode
     | 'operand-shape'
     | 'operand-type-mismatch'
     | 'operator-type-mismatch'
-    | 'required'
     | 'reserved-name'
     | 'unknown-card'
     | 'unknown-dataset'
     | 'unknown-dataset-parameter'
     | 'unknown-dimension'
     | 'unknown-field'
-    | 'unknown-key'
     | 'unknown-measure'
     | 'unknown-parameter'
     | 'unknown-series'
     | 'unsupported-schema-version'
 
-/** 一条校验问题。 */
-export type ValidationIssue = ReportIssue<ValidationIssueCode>
+/** 一条校验问题：path 只用对象键与数组下标，target 指出所在的带键对象。 */
+export type ValidationIssue = SchemaIssue<ValidationIssueCode>
 
 /** 一个对象值。 */
 export type JsonObject = Readonly<Record<string, unknown>>
@@ -52,7 +48,8 @@ export type JsonObject = Readonly<Record<string, unknown>>
 /** 一个带键的数组项。 */
 export interface KeyedItem {
   readonly item: JsonObject
-  readonly path: ReportPath
+  /** 项的路径，最后一段是下标。 */
+  readonly path: JsonPath
   /** 合法且不重复的键；缺失、不是字符串或重复时为 undefined。 */
   readonly key: string | undefined
 }
@@ -67,127 +64,77 @@ export interface NumberRule {
   readonly exclusiveMin?: boolean
 }
 
-/** 收集问题并按类型读取属性。 */
+/** 收集问题并按类型读取属性；required 为真时，属性缺失报 required。 */
 export class Checker {
-  readonly issues: ValidationIssue[] = []
+  private readonly sink: IssueSink<ValidationIssueCode> = createIssueSink<ValidationIssueCode>()
 
-  report(code: ValidationIssueCode, path: ReportPath, params?: Readonly<Record<string, ScalarValue>>): void {
-    this.issues.push(params ? { code, path, params } : { code, path })
+  get issues(): readonly ValidationIssue[] {
+    return this.sink.issues
+  }
+
+  report(code: ValidationIssueCode, path: JsonPath, params?: Readonly<Record<string, IssueParamValue>>): void {
+    this.sink.report(code, path, params ? { params } : undefined)
+  }
+
+  private missing(owner: JsonObject, key: string, path: JsonPath, required: boolean | undefined): boolean {
+    if (owner[key] !== undefined)
+      return false
+    if (required)
+      this.report('required', [...path, key])
+    return true
   }
 
   /** 读取对象；不是对象时记 invalid-type。 */
-  object(value: unknown, path: ReportPath): JsonObject | undefined {
-    if (isPlainObject(value))
-      return value
-    this.report('invalid-type', path, { expected: 'object' })
-    return undefined
+  object(value: unknown, path: JsonPath): JsonObject | undefined {
+    return readObject(this.sink, value, path)
   }
 
   /** 读取对象属性里的对象。 */
-  objectAt(owner: JsonObject, key: string, path: ReportPath, required = false): JsonObject | undefined {
-    const value = owner[key]
-    if (value === undefined) {
-      if (required)
-        this.report('required', [...path, key])
-      return undefined
-    }
-    return this.object(value, [...path, key])
+  objectAt(owner: JsonObject, key: string, path: JsonPath, required = false): JsonObject | undefined {
+    return this.missing(owner, key, path, required) ? undefined : readObject(this.sink, owner[key], [...path, key])
   }
 
-  string(owner: JsonObject, key: string, path: ReportPath, required = false): string | undefined {
-    const value = owner[key]
-    if (value === undefined) {
-      if (required)
-        this.report('required', [...path, key])
-      return undefined
-    }
-    if (typeof value !== 'string') {
-      this.report('invalid-type', [...path, key], { expected: 'string' })
-      return undefined
-    }
-    if (required && value === '') {
-      this.report('required', [...path, key])
-      return undefined
-    }
-    return value
+  /** 读取字符串；required 时空串报 empty。 */
+  string(owner: JsonObject, key: string, path: JsonPath, required = false): string | undefined {
+    return this.missing(owner, key, path, required) ? undefined : readString(this.sink, owner[key], [...path, key], { nonEmpty: required })
   }
 
-  boolean(owner: JsonObject, key: string, path: ReportPath): boolean | undefined {
-    const value = owner[key]
-    if (value === undefined)
-      return undefined
-    if (typeof value !== 'boolean') {
-      this.report('invalid-type', [...path, key], { expected: 'boolean' })
-      return undefined
-    }
-    return value
+  boolean(owner: JsonObject, key: string, path: JsonPath): boolean | undefined {
+    return readBoolean(this.sink, owner[key], [...path, key])
   }
 
-  number(owner: JsonObject, key: string, path: ReportPath, rule: NumberRule = {}): number | undefined {
-    const value = owner[key]
-    if (value === undefined) {
-      if (rule.required)
-        this.report('required', [...path, key])
+  /** 读取有限数字：不是整数报 not-integer，越界报 out-of-range。 */
+  number(owner: JsonObject, key: string, path: JsonPath, rule: NumberRule = {}): number | undefined {
+    if (this.missing(owner, key, path, rule.required))
       return undefined
+    const bounds: ReadNumberRule = {
+      ...(rule.integer ? { integer: true } : {}),
+      ...(rule.min === undefined ? {} : rule.exclusiveMin ? { exclusiveMin: rule.min } : { min: rule.min }),
+      ...(rule.max === undefined ? {} : { max: rule.max }),
     }
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
-      this.report('invalid-type', [...path, key], { expected: rule.integer ? 'integer' : 'number' })
-      return undefined
-    }
-    if (rule.integer && !Number.isInteger(value)) {
-      this.report('invalid-type', [...path, key], { expected: 'integer' })
-      return undefined
-    }
-    const tooSmall = rule.min !== undefined && (rule.exclusiveMin ? value <= rule.min : value < rule.min)
-    const tooLarge = rule.max !== undefined && value > rule.max
-    if (tooSmall || tooLarge) {
-      const params: Record<string, ScalarValue> = {}
-      if (rule.min !== undefined)
-        params.min = rule.min
-      if (rule.max !== undefined)
-        params.max = rule.max
-      this.report('invalid-value', [...path, key], params)
-      return undefined
-    }
-    return value
+    return readNumber(this.sink, owner[key], [...path, key], bounds)
   }
 
-  /** 读取取值限定在 values 里的字符串。 */
-  oneOf<T extends string>(owner: JsonObject, key: string, path: ReportPath, values: readonly T[], required = false): T | undefined {
-    const value = owner[key]
-    if (value === undefined) {
-      if (required)
-        this.report('required', [...path, key])
-      return undefined
-    }
-    if (typeof value !== 'string' || !(values as readonly string[]).includes(value)) {
-      this.report('invalid-value', [...path, key], { expected: values.join('|') })
-      return undefined
-    }
-    return value as T
+  /** 读取取值限定在 values 里的字符串；不在其中报 invalid-option。 */
+  oneOf<T extends string>(owner: JsonObject, key: string, path: JsonPath, values: readonly T[], required = false): T | undefined {
+    return this.missing(owner, key, path, required) ? undefined : readOneOf(this.sink, owner[key], [...path, key], values)
   }
 
-  array(owner: JsonObject, key: string, path: ReportPath, required = false, nonEmpty = false): readonly unknown[] | undefined {
-    const value = owner[key]
-    if (value === undefined) {
-      if (required)
-        this.report('required', [...path, key])
+  /** 读取数组；nonEmpty 时空数组报 empty。 */
+  array(owner: JsonObject, key: string, path: JsonPath, required = false, nonEmpty = false): readonly unknown[] | undefined {
+    if (this.missing(owner, key, path, required))
       return undefined
-    }
-    if (!Array.isArray(value)) {
-      this.report('invalid-type', [...path, key], { expected: 'array' })
-      return undefined
-    }
-    if (nonEmpty && value.length === 0)
+    const items = readArray(this.sink, owner[key], [...path, key])
+    if (items && nonEmpty && items.length === 0)
       this.report('empty', [...path, key])
-    return value
+    return items
   }
 
   /**
    * 读取带键的数组：每项须是对象且 keyName 是非空字符串，键在 scope 里不重复。
-   * 项的路径用键；键不合法或重复时用下标。
+   * 项的路径一律用下标；键重复的项报 duplicate-key。
    */
-  keyed(owner: JsonObject, key: string, path: ReportPath, keyName: 'id' | 'name', options: { required?: boolean, nonEmpty?: boolean, scope?: Set<string> } = {}): KeyedItem[] {
+  keyed(owner: JsonObject, key: string, path: JsonPath, keyName: 'id' | 'name', options: { required?: boolean, nonEmpty?: boolean, scope?: Set<string> } = {}): KeyedItem[] {
     const items = this.array(owner, key, path, options.required, options.nonEmpty)
     if (!items)
       return []
@@ -195,26 +142,21 @@ export class Checker {
   }
 
   /** 读取一组带键的项，规则同 keyed。 */
-  keyedItems(items: readonly unknown[], path: ReportPath, keyName: 'id' | 'name', scope: Set<string>): KeyedItem[] {
+  keyedItems(items: readonly unknown[], path: JsonPath, keyName: 'id' | 'name', scope: Set<string>): KeyedItem[] {
     const result: KeyedItem[] = []
     items.forEach((value, index) => {
+      const at = [...path, index]
       if (!isPlainObject(value)) {
-        this.report('invalid-type', [...path, index], { expected: 'object' })
+        this.report('invalid-type', at, { expected: 'object' })
         return
       }
-      const raw = value[keyName]
-      if (typeof raw !== 'string' || raw === '') {
-        this.report(raw === undefined ? 'required' : 'invalid-type', [...path, index, keyName], raw === undefined ? undefined : { expected: 'string' })
-        result.push({ item: value, path: [...path, index], key: undefined })
-        return
-      }
-      if (scope.has(raw)) {
-        this.report('duplicate-key', [...path, index], { key: raw })
-        result.push({ item: value, path: [...path, index], key: undefined })
-        return
-      }
-      scope.add(raw)
-      result.push({ item: value, path: [...path, raw], key: raw })
+      const raw = this.string(value, keyName, at, true)
+      if (raw !== undefined && scope.has(raw))
+        this.report('duplicate-key', at, { key: raw })
+      const unique = raw !== undefined && !scope.has(raw)
+      if (unique)
+        scope.add(raw)
+      result.push({ item: value, path: at, key: unique ? raw : undefined })
     })
     return result
   }
