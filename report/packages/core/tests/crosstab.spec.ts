@@ -81,7 +81,7 @@ describe('buildCrosstab', () => {
         { id: 'qty', aggregate: 'sum', field: 'qty' },
         { id: 'unit', formula: 'amount / qty' },
       ],
-    }, salesDataset, salesData, { formula: lookupEngine(formulas) })
+    }, salesDataset, salesData, { expressionEngine: lookupEngine(formulas) })
     expect(result.cells[0]![0]).toEqual([130, 5, 26])
     expect(result.cells[0]![2]).toEqual([180, 7, 180 / 7])
     expect(result.cells[2]![1]).toEqual([null, null, null])

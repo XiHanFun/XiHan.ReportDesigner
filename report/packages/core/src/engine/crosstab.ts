@@ -108,7 +108,7 @@ export function buildCrosstab(view: CrosstabView, dataset: DatasetSchema, data: 
     dates: env.dates,
     collate: env.collate,
   })
-  const plan = planFormulas(env.formula, measureFormulas(view.measures), 'measure')
+  const plan = planFormulas(env.expressionEngine, measureFormulas(view.measures), 'measure')
   for (const level of levels) {
     for (const cell of level.cells.values())
       evaluatePlan(plan, cell.values, { members: cell.members }, env.formulaScope)
