@@ -8,3 +8,4 @@
 export * from './engine'
 export type { ReportIssue, ReportPath } from './issue'
 export * from './schema'
+export * from './validate'
