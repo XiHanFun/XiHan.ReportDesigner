@@ -35,6 +35,8 @@ interface Scope {
   readonly datasets: ReadonlyMap<string, DatasetInfo>
   readonly parameters: ReadonlyMap<string, ParameterInfo>
   readonly formula: FormulaCompiler | undefined
+  /** 公式里可引用的报表参数变量：$名字。 */
+  readonly variables: ReadonlySet<string>
 }
 
 /** 视图或卡片上可发出联动取值的维度。 */
@@ -46,6 +48,16 @@ interface ViewInfo {
 const STRING_OPERATORS = new Set(['contains', 'notContains', 'startsWith', 'endsWith'])
 const ORDER_OPERATORS = new Set(['gt', 'gte', 'lt', 'lte', 'between'])
 const DATE_TYPES: readonly FieldType[] = ['date', 'datetime']
+
+/** 以 $ 开头的名字留给公式里的报表参数。 */
+function checkReserved(scope: { readonly c: Checker }, key: string | undefined, path: ReportPath, keyName: 'id' | 'name'): void {
+  if (key?.startsWith('$'))
+    scope.c.report('reserved-name', [...path, keyName], { key })
+}
+
+function withVariables(keys: ReadonlySet<string>, variables: ReadonlySet<string>): Set<string> {
+  return new Set([...keys, ...variables])
+}
 
 function checkField(scope: Scope, owner: JsonObject, key: string, path: ReportPath, dataset: DatasetInfo | undefined, required = true): { name: string, type: FieldType | undefined } | undefined {
   const name = scope.c.string(owner, key, path, required)
@@ -230,6 +242,7 @@ function checkMeasures(scope: Scope, measures: readonly KeyedItem[], dataset: Da
   for (const { item, path, key } of measures) {
     if (key !== undefined)
       keys.add(key)
+    checkReserved(scope, key, path, 'id')
     c.string(item, 'title', path)
     checkFormat(c, item, 'format', path)
     const hasAggregate = 'aggregate' in item
@@ -248,7 +261,7 @@ function checkMeasures(scope: Scope, measures: readonly KeyedItem[], dataset: Da
     if (formula !== undefined && key !== undefined)
       formulas.push({ name: key, expression: formula, path: [...path, 'formula'] })
   }
-  checkFormulas(c, scope.formula, formulas, keys)
+  checkFormulas(c, scope.formula, formulas, withVariables(keys, scope.variables))
   return keys
 }
 
@@ -274,6 +287,7 @@ function checkColumns(scope: Scope, owner: JsonObject, path: ReportPath, dataset
   const summaries = new Set<string>()
   const formulas: FormulaSite[] = []
   for (const { item, path: at, key } of c.keyed(owner, 'columns', path, 'id', { required: true, nonEmpty, scope: ids })) {
+    checkReserved(scope, key, at, 'id')
     const field = checkField(scope, item, 'field', at, dataset)
     if (key !== undefined && field)
       columns.set(key, field.name)
@@ -302,7 +316,7 @@ function checkColumns(scope: Scope, owner: JsonObject, path: ReportPath, dataset
     if (formula !== undefined && key !== undefined)
       formulas.push({ name: key, expression: formula, path: [...sp, 'formula'] })
   }
-  checkFormulas(c, scope.formula, formulas, summaries)
+  checkFormulas(c, scope.formula, formulas, withVariables(summaries, scope.variables))
   return { columns, summaries }
 }
 
@@ -492,7 +506,7 @@ function checkParameterValue(scope: Scope, value: unknown, path: ReportPath, typ
 
 function checkReportParameters(c: Checker, document: JsonObject): Map<string, ParameterInfo> {
   const result = new Map<string, ParameterInfo>()
-  const scope: Scope = { c, datasets: new Map(), parameters: new Map(), formula: undefined }
+  const scope: Scope = { c, datasets: new Map(), parameters: new Map(), formula: undefined, variables: new Set() }
   for (const { item, path, key } of c.keyed(document, 'parameters', [], 'name')) {
     const type = c.oneOf(item, 'type', path, FIELD_TYPES, true)
     c.string(item, 'title', path)
@@ -517,13 +531,14 @@ function checkReportParameters(c: Checker, document: JsonObject): Map<string, Pa
   return result
 }
 
-function checkDatasets(c: Checker, document: JsonObject, formula: FormulaCompiler | undefined): Map<string, DatasetInfo> {
+function checkDatasets(c: Checker, document: JsonObject, formula: FormulaCompiler | undefined, variables: ReadonlySet<string>): Map<string, DatasetInfo> {
   const result = new Map<string, DatasetInfo>()
   for (const { item, path, key } of c.keyed(document, 'datasets', [], 'id', { required: true })) {
     c.string(item, 'title', path)
     const fields = new Map<string, FieldType>()
     const formulas: FormulaSite[] = []
     for (const field of c.keyed(item, 'fields', path, 'name', { required: true, nonEmpty: true })) {
+      checkReserved({ c }, field.key, field.path, 'name')
       const type = c.oneOf(field.item, 'type', field.path, FIELD_TYPES, true)
       c.string(field.item, 'title', field.path)
       const expression = c.string(field.item, 'formula', field.path)
@@ -532,7 +547,7 @@ function checkDatasets(c: Checker, document: JsonObject, formula: FormulaCompile
       if (field.key !== undefined && expression !== undefined)
         formulas.push({ name: field.key, expression, path: [...field.path, 'formula'] })
     }
-    checkFormulas(c, formula, formulas, new Set(fields.keys()))
+    checkFormulas(c, formula, formulas, withVariables(new Set(fields.keys()), variables))
     const parameters = new Map<string, { type: FieldType, required: boolean, multiple: boolean }>()
     for (const parameter of c.keyed(item, 'parameters', path, 'name')) {
       const type = c.oneOf(parameter.item, 'type', parameter.path, FIELD_TYPES, true)
@@ -567,9 +582,10 @@ export function validateDocument(document: unknown, options: ValidateOptions = {
   c.string(document, 'title', [])
   c.string(document, 'description', [])
   const parameters = checkReportParameters(c, document)
-  const datasets = checkDatasets(c, document, options.formula)
+  const variables = new Set([...parameters.keys()].map(name => `$${name}`))
+  const datasets = checkDatasets(c, document, options.formula, variables)
   const body = c.objectAt(document, 'body', [], true)
   if (body)
-    checkDataView({ c, datasets, parameters, formula: options.formula }, body, ['body'], ['table', 'group', 'crosstab', 'dashboard'])
+    checkDataView({ c, datasets, parameters, formula: options.formula, variables }, body, ['body'], ['table', 'group', 'crosstab', 'dashboard'])
   return c.issues
 }

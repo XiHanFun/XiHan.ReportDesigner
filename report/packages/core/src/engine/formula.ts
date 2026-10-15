@@ -5,7 +5,7 @@
 
 // 公式的接入点：表达式求值由使用方注入的 FormulaEngine 完成，这里只负责编译、排序与调用。
 
-import type { DataRow, DatasetSchema } from '../schema'
+import type { DataRow, DatasetSchema, ParameterValues } from '../schema'
 import { ReportComputeError } from './errors'
 
 /** 编译好的表达式。 */
@@ -79,11 +79,23 @@ export function planFormulas(engine: FormulaEngine | undefined, entries: readonl
   return { entries: ordered }
 }
 
-/** 按计划求值，结果逐个写进 scope；求值抛出时包成 formula-evaluation-failed。 */
-export function evaluatePlan(plan: FormulaPlan, scope: Record<string, unknown>, location: Readonly<Record<string, unknown>>): void {
+/** 报表参数在公式里的变量：参数名前加 $。 */
+export function parameterScope(parameters: ParameterValues): Readonly<Record<string, unknown>> {
+  const scope: Record<string, unknown> = {}
+  for (const [name, value] of Object.entries(parameters))
+    scope[`$${name}`] = value
+  return scope
+}
+
+/**
+ * 按计划求值，结果逐个写进 target；target 与 extra 里的变量都可引用，extra 不写进 target。
+ * 求值抛出时包成 formula-evaluation-failed。
+ */
+export function evaluatePlan(plan: FormulaPlan, target: Record<string, unknown>, location: Readonly<Record<string, unknown>>, extra?: Readonly<Record<string, unknown>>): void {
+  const merge = extra !== undefined && Object.keys(extra).length > 0
   for (const { name, formula } of plan.entries) {
     try {
-      scope[name] = formula.evaluate(scope)
+      target[name] = formula.evaluate(merge ? { ...extra, ...target } : target)
     }
     catch (error) {
       throw new ReportComputeError('formula-evaluation-failed', { ...location, name }, { cause: error })
@@ -103,16 +115,17 @@ export function calculatedFields(dataset: DatasetSchema): readonly FormulaEntry[
 
 /**
  * 给每行算出计算字段，返回新的行数组；数据集没有计算字段时原样返回。
- * 计算字段以同一行的其它字段（含先算出的计算字段）为变量。
+ * 计算字段以同一行的其它字段（含先算出的计算字段）与报表参数（$名字）为变量。
  */
-export function applyCalculatedFields(rows: readonly DataRow[], dataset: DatasetSchema, engine: FormulaEngine | undefined): readonly DataRow[] {
+export function applyCalculatedFields(rows: readonly DataRow[], dataset: DatasetSchema, engine: FormulaEngine | undefined, parameters: ParameterValues = {}): readonly DataRow[] {
   const entries = calculatedFields(dataset)
   if (entries.length === 0)
     return rows
   const plan = planFormulas(engine, entries, 'field')
+  const extra = parameterScope(parameters)
   return rows.map((row, index) => {
-    const scope: Record<string, unknown> = { ...row }
-    evaluatePlan(plan, scope, { dataset: dataset.id, row: index })
-    return scope
+    const values: Record<string, unknown> = { ...row }
+    evaluatePlan(plan, values, { dataset: dataset.id, row: index }, extra)
+    return values
   })
 }

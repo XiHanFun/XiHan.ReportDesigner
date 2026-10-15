@@ -9,9 +9,9 @@ import type { FilterGroup, RowSortRule } from './filter'
 import type { AggregateKind, DateBucket } from './query'
 import type { DataRow, FieldType, ParameterValues } from './value'
 
-/** 数据集里的一个字段。写了 formula 的是计算字段，按行求值，不由使用方提供。 */
+/** 数据集里的一个字段。写了 formula 的是计算字段，以同一行的字段与报表参数（$名字）为变量逐行求值，不由使用方提供。 */
 export interface DatasetField {
-  /** 字段名：数据行里的键，在数据集内唯一。 */
+  /** 字段名：数据行里的键，在数据集内唯一；不以 $ 开头。 */
   readonly name: string
   readonly type: FieldType
   /** 显示的标题，缺省同 name。 */

@@ -13,11 +13,11 @@ import type { StringCollator } from './value'
 import { createDateTools } from './date'
 import { ReportComputeError } from './errors'
 import { compileFilter } from './filter'
-import { applyCalculatedFields } from './formula'
+import { applyCalculatedFields, parameterScope } from './formula'
 
 /** 计算选项。 */
 export interface ComputeOptions {
-  /** 报表参数的取值，筛选条件里的参数引用从这里取。 */
+  /** 报表参数的取值：筛选条件与参数绑定从这里取，公式里以 $名字 引用。 */
   readonly parameters?: ParameterValues
   /** 表达式引擎：数据集有计算字段或视图有公式时必须提供。 */
   readonly formula?: FormulaEngine
@@ -35,6 +35,8 @@ export interface ComputeEnvironment extends FilterEnvironment {
   readonly dates: DateTools
   readonly formula: FormulaEngine | undefined
   readonly filters: readonly FilterCondition[]
+  /** 公式里可引用的报表参数：$名字到取值。 */
+  readonly formulaScope: Readonly<Record<string, unknown>>
 }
 
 /** 准备好参与计算的数据。 */
@@ -58,6 +60,7 @@ export function createEnvironment(dataset: DatasetSchema, options: ComputeOption
     collate: options.collate,
     formula: options.formula,
     filters: options.filters ?? [],
+    formulaScope: parameterScope(options.parameters ?? {}),
   }
 }
 
@@ -71,7 +74,7 @@ export function prepareInput(data: DatasetData, filter: FilterGroup | undefined,
       throw new ReportComputeError('aggregated-input-unsupported', { dataset: env.dataset.id })
     return { rows: data.rows, aggregated: true, rollups: data.rollups ?? [] }
   }
-  const rows = applyCalculatedFields(data.rows, env.dataset, env.formula)
+  const rows = applyCalculatedFields(data.rows, env.dataset, env.formula, env.parameters)
   const predicate = compileFilter(filter, env.filters, env)
   return { rows: rows.filter(row => predicate(row)), aggregated: false, rollups: [] }
 }

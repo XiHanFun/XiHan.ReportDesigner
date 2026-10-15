@@ -60,4 +60,6 @@ export const formulas: Readonly<Record<string, CompiledFormula>> = {
   'a + 1': { references: ['a'], evaluate: s => num(s.a) + 1 },
   'b + 1': { references: ['b'], evaluate: s => num(s.b) + 1 },
   'boom': { references: [], evaluate: () => { throw new Error('boom') } },
+  '$rate * amount': { references: ['$rate', 'amount'], evaluate: s => (s.$rate === undefined || s.amount === null ? null : num(s.$rate) * num(s.amount)) },
+  'amount - $target': { references: ['amount', '$target'], evaluate: s => num(s.amount) - num(s.$target) },
 }

@@ -29,6 +29,7 @@ export type ValidationIssueCode
     | 'operand-type-mismatch'
     | 'operator-type-mismatch'
     | 'required'
+    | 'reserved-name'
     | 'unknown-card'
     | 'unknown-dataset'
     | 'unknown-dataset-parameter'
