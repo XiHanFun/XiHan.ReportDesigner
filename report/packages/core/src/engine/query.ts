@@ -42,7 +42,7 @@ export function runQuery(query: ReportQuery, dataset: DatasetSchema, data: Datas
 
   const rows: DataRow[] = []
   for (const cell of leaf!.cells.values()) {
-    evaluatePlan(plan, cell.values, { members: cell.members })
+    evaluatePlan(plan, cell.values, { members: cell.members }, env.formulaScope)
     const row: Record<string, unknown> = {}
     dimensions.forEach((dimension, i) => {
       row[dimension.id] = cell.members[i]
@@ -50,7 +50,7 @@ export function runQuery(query: ReportQuery, dataset: DatasetSchema, data: Datas
     rows.push(Object.assign(row, cell.values))
   }
   const totalCell = all!.cells.values().next().value!
-  evaluatePlan(plan, totalCell.values, { total: true })
+  evaluatePlan(plan, totalCell.values, { total: true }, env.formulaScope)
 
   const keys = new Set([...dimensions.map(dimension => dimension.id), ...query.measures.map(measure => measure.id)])
   const sortKeys: SortKey<DataRow>[] = query.sort

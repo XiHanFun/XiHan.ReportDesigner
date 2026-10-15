@@ -72,3 +72,27 @@ describe('applyCalculatedFields', () => {
     })
   })
 })
+
+describe('公式里的报表参数', () => {
+  const engine = lookupEngine(formulas)
+  const dataset: DatasetSchema = { ...salesDataset, fields: [...salesDataset.fields, { name: 'taxed', type: 'number', formula: '$rate * amount' }] }
+
+  it('计算字段以 $名字 引用参数，参数不写进结果行', () => {
+    const rows = applyCalculatedFields(salesRows, dataset, engine, { rate: 2 })
+    expect(rows[0]).toEqual({ ...salesRows[0], taxed: 200 })
+    expect(rows[0]).not.toHaveProperty('$rate')
+    expect(applyCalculatedFields(salesRows, dataset, engine)[0]).toMatchObject({ taxed: null })
+  })
+
+  it('查询里的计算字段与公式度量都能引用参数', () => {
+    const result = runQuery({
+      dimensions: [],
+      measures: [
+        { id: 'amount', aggregate: 'sum', field: 'taxed' },
+        { id: 'gap', formula: 'amount - $target' },
+      ],
+    }, dataset, salesData, { formula: engine, parameters: { rate: 2, target: 500 } })
+    expect(result.total).toEqual({ amount: 560, gap: 60 })
+    expect(result.total).not.toHaveProperty('$target')
+  })
+})

@@ -112,7 +112,7 @@ export function buildCrosstab(view: CrosstabView, dataset: DatasetSchema, data: 
   const plan = planFormulas(env.formula, measureFormulas(view.measures), 'measure')
   for (const level of levels) {
     for (const cell of level.cells.values())
-      evaluatePlan(plan, cell.values, { members: cell.members })
+      evaluatePlan(plan, cell.values, { members: cell.members }, env.formulaScope)
   }
 
   const levelAt = (r: number, c: number): CubeLevel => levels[r * (columnCount + 1) + c]!

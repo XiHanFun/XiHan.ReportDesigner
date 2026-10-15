@@ -321,3 +321,37 @@ describe('validateDocument：公式', () => {
     ])
   })
 })
+
+describe('validateDocument：公式里的报表参数', () => {
+  const engine = lookupEngine(formulas)
+
+  it('$名字 引用已声明的报表参数，未声明的报出', () => {
+    const declared = edit(groupDocument, (d) => {
+      d.parameters = [{ name: 'rate', type: 'number' }, { name: 'target', type: 'number' }]
+      d.datasets[0].fields.push({ name: 'taxed', type: 'number', formula: '$rate * amount' })
+      d.body.columns.push({ id: 'gap', field: 'amount', summary: { formula: 'amount - $target' } })
+    })
+    expect(validateDocument(declared, { formula: engine })).toEqual([])
+    const undeclared = edit(groupDocument, (d) => {
+      d.datasets[0].fields.push({ name: 'taxed', type: 'number', formula: '$rate * amount' })
+    })
+    expect(validateDocument(undeclared, { formula: engine })).toEqual([
+      { code: 'formula-unknown-reference', path: ['datasets', 'sales', 'fields', 'taxed', 'formula'], params: { name: '$rate' } },
+    ])
+  })
+
+  it('字段名、度量 id 与列 id 不能以 $ 开头', () => {
+    const issues = validateDocument(edit(dashboardDocument, (d) => {
+      d.datasets[0].fields.push({ name: '$x', type: 'number' })
+      card(d, 'share').query.measures[0].id = '$amount'
+      card(d, 'share').chart.valueField = '$amount'
+      card(d, 'detail').view.columns[0].id = '$region'
+    }))
+    expect(issues).toEqual([
+      { code: 'reserved-name', path: ['datasets', 'sales', 'fields', '$x', 'name'], params: { key: '$x' } },
+      { code: 'reserved-name', path: ['body', 'cards', 'share', 'query', 'measures', '$amount', 'id'], params: { key: '$amount' } },
+      { code: 'unknown-measure', path: ['body', 'cards', 'share', 'query', 'dimensions', 'product', 'sort', 'by'], params: { key: 'amount' } },
+      { code: 'reserved-name', path: ['body', 'cards', 'detail', 'view', 'columns', '$region', 'id'], params: { key: '$region' } },
+    ])
+  })
+})

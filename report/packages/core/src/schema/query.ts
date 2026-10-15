@@ -61,7 +61,7 @@ export interface AggregateMeasure extends MeasureBase {
   readonly field?: string
 }
 
-/** 公式度量：在聚合之后，以同一查询其它度量的值为变量求值。 */
+/** 公式度量：在聚合之后，以同一查询其它度量的值与报表参数（$名字）为变量求值。 */
 export interface FormulaMeasure extends MeasureBase {
   readonly formula: string
 }

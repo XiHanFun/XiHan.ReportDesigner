@@ -18,7 +18,7 @@ export interface DataBinding {
   readonly parameters?: Readonly<Record<string, Operand>>
 }
 
-/** 汇总：对列的字段做聚合，或以其它列的汇总值为变量求公式。 */
+/** 汇总：对列的字段做聚合，或以其它列的汇总值与报表参数（$名字）为变量求公式。 */
 export type ColumnSummary = { readonly aggregate: AggregateKind } | { readonly formula: string }
 
 /** 表格的一列。 */

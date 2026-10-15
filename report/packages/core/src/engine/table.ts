@@ -86,7 +86,7 @@ export function buildTable(view: TableView, dataset: DatasetSchema, data: Datase
     const plan = planFormulas(env.formula, formulas, 'column')
     const [total] = buildCube({ input, dimensions: [], measures, sets: [[]], dates: env.dates, collate: env.collate })
     const values = total!.cells.get(tupleKey([]))!.values
-    evaluatePlan(plan, values, { total: true })
+    evaluatePlan(plan, values, { total: true }, env.formulaScope)
     summary = values
   }
   return {
@@ -120,7 +120,7 @@ export function buildGroupReport(view: GroupView, dataset: DatasetSchema, data: 
   })
   for (const level of levels) {
     for (const cell of level.cells.values())
-      evaluatePlan(plan, cell.values, { members: cell.members })
+      evaluatePlan(plan, cell.values, { members: cell.members }, env.formulaScope)
   }
 
   const byParent = levels.map((level, k) => {
