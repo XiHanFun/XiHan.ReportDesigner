@@ -6,7 +6,7 @@
 // 定义维度、度量、聚合方式、日期粒度与聚合查询。
 
 import type { FilterGroup, NullsPosition, SortDirection } from './filter'
-import type { ValueFormat } from './format'
+import type { FormatSpec } from './format'
 
 /** 聚合方式：求和、平均、计数、最小、最大、去重计数。 */
 export type AggregateKind = 'sum' | 'avg' | 'count' | 'min' | 'max' | 'distinctCount'
@@ -42,7 +42,7 @@ export interface Dimension {
   /** 日期粒度。 */
   readonly bucket?: DateBucket
   readonly title?: string
-  readonly format?: ValueFormat
+  readonly format?: FormatSpec
   /** 成员次序，缺省按键升序。 */
   readonly sort?: AxisSort
 }
@@ -52,7 +52,7 @@ export interface MeasureBase {
   /** 度量身份：查询结果里的键，与同一查询的维度 id 共用命名空间。 */
   readonly id: string
   readonly title?: string
-  readonly format?: ValueFormat
+  readonly format?: FormatSpec
 }
 
 /** 聚合度量：对字段做聚合；count 不写 field 时数行。 */

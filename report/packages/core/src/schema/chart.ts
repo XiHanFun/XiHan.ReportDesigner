@@ -8,7 +8,7 @@
 
 import type { Tone } from '@xihan-ui/core'
 import type { SymbolName } from '@xihan-ui/viz'
-import type { NumberFormat, ValueFormat } from './format'
+import type { FormatSpec, NumericFormatSpec } from './format'
 
 /** 语气：XiHan.UI 的 Tone。 */
 export type ChartTone = Tone
@@ -92,7 +92,7 @@ export interface CartesianAxisSpec {
   readonly zero?: boolean
   /** 刻度数量提示。 */
   readonly ticks?: number
-  readonly format?: ValueFormat
+  readonly format?: FormatSpec
   readonly title?: string
   readonly grid?: boolean
   readonly labelOverflow?: 'auto' | 'rotate' | 'truncate' | 'wrap'
@@ -146,7 +146,7 @@ export interface PieChartSpec {
   readonly maxSlices?: number
   readonly labels?: 'none' | 'inside' | 'outside'
   readonly labelContent?: 'name-share' | 'name-value' | 'name' | 'share' | 'value'
-  readonly format?: NumberFormat
+  readonly format?: NumericFormatSpec
 }
 
 /** 漏斗图：每个维度成员一个阶段。 */
@@ -162,7 +162,7 @@ export interface FunnelChartSpec {
   readonly conversion?: 'previous' | 'first' | 'none'
   readonly labels?: 'inside' | 'outside'
   readonly palette?: ChartPalette
-  readonly format?: NumberFormat
+  readonly format?: NumericFormatSpec
 }
 
 /** 雷达图的一个指标。 */
@@ -186,7 +186,7 @@ export interface RadarChartSpec {
   readonly curve?: 'linear' | 'catmull-rom'
   readonly rings?: number
   readonly ringLabels?: boolean
-  readonly format?: NumberFormat
+  readonly format?: NumericFormatSpec
 }
 
 /** 桑基图：每个维度组合一条流带。 */
@@ -202,7 +202,7 @@ export interface SankeyChartSpec {
   readonly nodeAlign?: 'justify' | 'start' | 'end' | 'center'
   readonly linkColor?: 'neutral' | 'source' | 'target' | 'gradient'
   readonly nodeSort?: 'auto' | 'input'
-  readonly format?: NumberFormat
+  readonly format?: NumericFormatSpec
 }
 
 /** 热力图共有的属性。 */
@@ -257,7 +257,7 @@ export interface HierarchyChartSpec {
   readonly colorBy?: 'branch' | 'value' | 'uniform'
   readonly palette?: ChartPalette
   readonly orientation?: 'vertical' | 'horizontal'
-  readonly format?: NumberFormat
+  readonly format?: NumericFormatSpec
 }
 
 export type ChartSpec
@@ -296,7 +296,7 @@ export interface MetricSpec {
   readonly baseline?: string
   readonly prefix?: string
   readonly suffix?: string
-  readonly format?: NumberFormat
+  readonly format?: NumericFormatSpec
   readonly size?: ChartSize
   readonly tone?: ChartTone
   readonly sparkline?: SparklineSpec

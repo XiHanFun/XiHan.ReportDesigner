@@ -7,31 +7,30 @@ import { describe, expect, it } from 'vitest'
 import { dateFormatCode, excelSerial, numberFormatCode } from '../src/xlsx'
 
 describe('numberFormatCode', () => {
-  it('没有格式或自动精度的普通数字为 General', () => {
+  it('没有格式、不舍入或不是数字类的格式为 General', () => {
     expect(numberFormatCode(undefined)).toBe('General')
     expect(numberFormatCode({ kind: 'number' })).toBe('General')
-    expect(numberFormatCode({ kind: 'number', notation: 'compact' })).toBe('General')
-    expect(numberFormatCode({ kind: 'number', precision: { type: 'significant', digits: 3 } })).toBe('General')
+    expect(numberFormatCode({ kind: 'number', grouping: true })).toBe('General')
+    expect(numberFormatCode({ kind: 'date', pattern: 'yyyy' })).toBe('General')
+    expect(numberFormatCode({ kind: 'rmb-upper' })).toBe('General')
   })
 
-  it('固定小数位、百分比、货币与单位', () => {
-    expect(numberFormatCode({ kind: 'number', precision: { type: 'fixed', digits: 2 } })).toBe('#,##0.00')
-    expect(numberFormatCode({ kind: 'number', precision: { type: 'fixed', digits: 0 } })).toBe('#,##0')
-    expect(numberFormatCode({ kind: 'number', style: 'percent' })).toBe('0%')
-    expect(numberFormatCode({ kind: 'number', style: 'percent', precision: { type: 'fixed', digits: 1 } })).toBe('0.0%')
-    expect(numberFormatCode({ kind: 'number', style: 'currency', currency: 'CNY' })).toBe('"¥"#,##0.00')
-    expect(numberFormatCode({ kind: 'number', style: 'currency', currency: 'jpy' })).toBe('"¥"#,##0')
-    expect(numberFormatCode({ kind: 'number', style: 'currency', currency: 'CHF' })).toBe('"CHF "#,##0.00')
-    expect(numberFormatCode({ kind: 'number', style: 'unit', unit: 'kilogram', precision: { type: 'fixed', digits: 1 } })).toBe('#,##0.0" kg"')
-    expect(numberFormatCode({ kind: 'number', style: 'unit', unit: 'furlong' })).toBe('General" furlong"')
+  it('固定小数位与千分位', () => {
+    expect(numberFormatCode({ kind: 'number', decimals: 2 })).toBe('0.00')
+    expect(numberFormatCode({ kind: 'number', decimals: 2, grouping: true })).toBe('#,##0.00')
+    expect(numberFormatCode({ kind: 'number', decimals: 0, grouping: true })).toBe('#,##0')
   })
 
-  it('科学记数与符号显示', () => {
-    expect(numberFormatCode({ kind: 'number', notation: 'scientific' })).toBe('0.00E+00')
-    expect(numberFormatCode({ kind: 'number', notation: 'engineering' })).toBe('##0.0E+0')
-    expect(numberFormatCode({ kind: 'number', style: 'percent', signDisplay: 'always' })).toBe('+0%;-0%;+0%')
-    expect(numberFormatCode({ kind: 'number', precision: { type: 'fixed', digits: 1 }, signDisplay: 'exceptZero' })).toBe('+#,##0.0;-#,##0.0;#,##0.0')
-    expect(numberFormatCode({ kind: 'number', signDisplay: 'never' })).toBe('General;General;General')
+  it('最少位不小于 1 时写可省位，为 0 时按最多位固定写出', () => {
+    expect(numberFormatCode({ kind: 'number', minDecimals: 1, maxDecimals: 3 })).toBe('0.0##')
+    expect(numberFormatCode({ kind: 'number', maxDecimals: 2, grouping: true })).toBe('#,##0.00')
+    expect(numberFormatCode({ kind: 'number', minDecimals: 2, maxDecimals: 2 })).toBe('0.00')
+  })
+
+  it('百分比接 %，舍入方式不影响格式代码', () => {
+    expect(numberFormatCode({ kind: 'percent' })).toBe('0%')
+    expect(numberFormatCode({ kind: 'percent', decimals: 1, rounding: 'half-even' })).toBe('0.0%')
+    expect(numberFormatCode({ kind: 'percent', minDecimals: 1, maxDecimals: 2, grouping: true })).toBe('#,##0.0#%')
   })
 })
 
@@ -39,15 +38,18 @@ describe('dateFormatCode', () => {
   it('没有格式时按字段类型', () => {
     expect(dateFormatCode(undefined, 'date')).toBe('yyyy-mm-dd')
     expect(dateFormatCode(undefined, 'datetime')).toBe('yyyy-mm-dd hh:mm:ss')
-    expect(dateFormatCode({ kind: 'date' }, 'date')).toBe('yyyy-mm-dd')
   })
 
-  it('按年月日时分秒与样式拼出格式', () => {
-    expect(dateFormatCode({ kind: 'date', year: 'numeric', month: '2-digit' }, 'date')).toBe('yyyy-mm')
-    expect(dateFormatCode({ kind: 'date', month: 'long', day: 'numeric' }, 'date')).toBe('mmmm-d')
-    expect(dateFormatCode({ kind: 'date', dateStyle: 'medium', timeStyle: 'short' }, 'datetime')).toBe('yyyy-mm-dd hh:mm')
-    expect(dateFormatCode({ kind: 'date', hour: 'numeric', minute: '2-digit', hour12: true }, 'datetime')).toBe('h:mm AM/PM')
-    expect(dateFormatCode({ kind: 'date', weekday: 'long', dateStyle: 'short' }, 'date')).toBe('dddd yyyy-mm-dd')
+  it('占位符换成 Excel 写法', () => {
+    expect(dateFormatCode({ kind: 'date', pattern: 'yyyy-MM-dd HH:mm:ss.SSS' }, 'datetime')).toBe('yyyy-mm-dd hh:mm:ss.000')
+    expect(dateFormatCode({ kind: 'date', pattern: 'yy/M/d H:m:s' }, 'datetime')).toBe('yy/m/d h:m:s')
+  })
+
+  it('其余文字与单引号括起的内容写成字面文本', () => {
+    expect(dateFormatCode({ kind: 'date', pattern: 'yyyy年M月d日' }, 'date')).toBe('yyyy"年"m"月"d"日"')
+    expect(dateFormatCode({ kind: 'date', pattern: '\'Week\' dd' }, 'date')).toBe('"Week "dd')
+    expect(dateFormatCode({ kind: 'date', pattern: 'HH \'o\'\'clock\'' }, 'datetime')).toBe('hh" o\'clock"')
+    expect(dateFormatCode({ kind: 'date', pattern: 'd"x' }, 'date')).toBe('d"\\"x"')
   })
 })
 

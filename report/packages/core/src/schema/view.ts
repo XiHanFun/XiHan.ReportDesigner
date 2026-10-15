@@ -7,7 +7,7 @@
 
 import type { ChartSpec, MetricSpec } from './chart'
 import type { FilterGroup, Operand, RowSortRule } from './filter'
-import type { ValueFormat } from './format'
+import type { FormatSpec } from './format'
 import type { AggregateKind, AxisSort, DateBucket, Dimension, Measure, ReportQuery } from './query'
 
 /** 视图取数的数据集与参数绑定。 */
@@ -28,7 +28,7 @@ export interface TableColumn {
   /** 数据集字段名。 */
   readonly field: string
   readonly title?: string
-  readonly format?: ValueFormat
+  readonly format?: FormatSpec
   /** 列宽（px）。 */
   readonly width?: number
   readonly align?: 'start' | 'center' | 'end'
@@ -56,7 +56,7 @@ export interface GroupLevel {
   readonly field: string
   readonly bucket?: DateBucket
   readonly title?: string
-  readonly format?: ValueFormat
+  readonly format?: FormatSpec
   /** 组的次序：by 写带汇总的列 id 时按该列的组小计排；缺省按键升序。 */
   readonly sort?: AxisSort
   /** 显示组头，缺省 true。 */

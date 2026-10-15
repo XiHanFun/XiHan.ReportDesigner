@@ -10,6 +10,7 @@ import type { ReportPath } from '../issue'
 import type { FieldType } from '../schema'
 import type { Checker, JsonObject } from './checker'
 import { createDateTools } from '../engine/date'
+import { FORMAT_DECIMALS_LIMIT, FORMAT_ROUNDINGS } from '../schema'
 import { isObject } from './checker'
 
 /** 一个公式：结果名、表达式与它在文档里的位置。 */
@@ -21,8 +22,6 @@ export interface FormulaSite {
 
 const DIRECTIONS = ['asc', 'desc'] as const
 const NULLS = ['first', 'last'] as const
-const DATE_STYLES = ['full', 'long', 'medium', 'short'] as const
-const NUMERIC_2DIGIT = ['numeric', '2-digit'] as const
 
 /** 两种字段类型是否可以互相比较或赋值：相同，或同为日期类。 */
 export function typeCompatible(actual: FieldType, expected: FieldType): boolean {
@@ -65,40 +64,34 @@ export function isParameterRef(value: unknown): value is { readonly parameter: u
   return isObject(value) && 'parameter' in value
 }
 
-/** 校验值格式；only 限定格式的 kind。 */
-export function checkFormat(c: Checker, owner: JsonObject, key: string, path: ReportPath, only?: 'number'): void {
+/**
+ * 校验格式说明；numeric 为真时只接受 number 与 percent。
+ * decimals 与 minDecimals / maxDecimals 同时给、minDecimals 大于 maxDecimals 时报 invalid-value。
+ */
+export function checkFormat(c: Checker, owner: JsonObject, key: string, path: ReportPath, numeric = false): void {
   const format = c.objectAt(owner, key, path)
   if (!format)
     return
   const at = [...path, key]
-  const kind = c.oneOf(format, 'kind', at, only ? [only] : ['number', 'date'] as const, true)
-  if (kind === 'number') {
-    const style = c.oneOf(format, 'style', at, ['decimal', 'percent', 'currency', 'unit'] as const)
-    c.oneOf(format, 'notation', at, ['standard', 'compact', 'scientific', 'engineering'] as const)
-    c.string(format, 'currency', at, style === 'currency')
-    c.string(format, 'unit', at, style === 'unit')
-    c.oneOf(format, 'signDisplay', at, ['auto', 'always', 'exceptZero', 'never'] as const)
-    const precision = format.precision
-    if (precision !== undefined && precision !== 'auto') {
-      const spec = c.object(precision, [...at, 'precision'])
-      if (spec) {
-        const type = c.oneOf(spec, 'type', [...at, 'precision'], ['fixed', 'significant'] as const, true)
-        c.number(spec, 'digits', [...at, 'precision'], { required: true, integer: true, min: type === 'significant' ? 1 : 0, max: type === 'significant' ? 21 : 20 })
-      }
-    }
+  const kinds = numeric ? (['number', 'percent'] as const) : (['number', 'percent', 'date', 'rmb-upper'] as const)
+  const kind = c.oneOf(format, 'kind', at, kinds, true)
+  if (kind === 'number' || kind === 'percent') {
+    const digits = { integer: true, min: 0, max: FORMAT_DECIMALS_LIMIT }
+    const decimals = c.number(format, 'decimals', at, digits)
+    const min = c.number(format, 'minDecimals', at, digits)
+    const max = c.number(format, 'maxDecimals', at, digits)
+    if (decimals !== undefined && (min !== undefined || max !== undefined))
+      c.report('invalid-value', [...at, 'decimals'], { expected: 'decimals|minDecimals,maxDecimals' })
+    if (min !== undefined && max !== undefined && min > max)
+      c.report('invalid-value', [...at, 'minDecimals'], { max })
+    c.boolean(format, 'grouping', at)
+    c.oneOf(format, 'rounding', at, FORMAT_ROUNDINGS)
   }
   else if (kind === 'date') {
-    c.oneOf(format, 'dateStyle', at, DATE_STYLES)
-    c.oneOf(format, 'timeStyle', at, DATE_STYLES)
-    c.oneOf(format, 'year', at, NUMERIC_2DIGIT)
-    c.oneOf(format, 'month', at, ['numeric', '2-digit', 'long', 'short', 'narrow'] as const)
-    c.oneOf(format, 'day', at, NUMERIC_2DIGIT)
-    c.oneOf(format, 'weekday', at, ['long', 'short', 'narrow'] as const)
-    c.oneOf(format, 'hour', at, NUMERIC_2DIGIT)
-    c.oneOf(format, 'minute', at, NUMERIC_2DIGIT)
-    c.oneOf(format, 'second', at, NUMERIC_2DIGIT)
-    c.boolean(format, 'hour12', at)
-    c.string(format, 'timeZone', at)
+    c.string(format, 'pattern', at, true)
+  }
+  else if (kind === 'rmb-upper') {
+    c.oneOf(format, 'rounding', at, FORMAT_ROUNDINGS)
   }
 }
 

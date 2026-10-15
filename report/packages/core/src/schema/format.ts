@@ -3,38 +3,52 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 定义值的显示格式：数字格式与日期格式，取值与 XiHan.UI 图表的格式参数一致。
+// 定义值的格式说明：与 @xihan-ui/expression 的 formatValue 规格一致，这里只有类型，格式化由使用方调用 formatValue。
 
-/** 数字格式，去掉 kind 即是图表的数字格式参数。 */
-export interface NumberFormat {
+/** 舍入方式：四舍五入（缺省）、四舍六入五成双、向下、向上、截断。 */
+export type FormatRounding = 'half-up' | 'half-even' | 'floor' | 'ceil' | 'down'
+
+/**
+ * 数字格式：
+ * - decimals：固定小数位，不足补 0，不能与 minDecimals / maxDecimals 同时给；
+ * - 或 minDecimals / maxDecimals：舍入到最多 maxDecimals 位，再去掉末尾的 0，至少保留 minDecimals 位；
+ * - 都不给时不舍入。
+ */
+export interface NumberFormatSpec {
   readonly kind: 'number'
-  readonly style?: 'decimal' | 'percent' | 'currency' | 'unit'
-  /** compact 即紧凑记数。 */
-  readonly notation?: 'standard' | 'compact' | 'scientific' | 'engineering'
-  /** ISO 4217 货币代码，style 为 currency 时必填。 */
-  readonly currency?: string
-  /** Intl 单位名，style 为 unit 时必填。 */
-  readonly unit?: string
-  /** 缺省 auto。 */
-  readonly precision?: 'auto' | { readonly type: 'fixed' | 'significant', readonly digits: number }
-  readonly signDisplay?: 'auto' | 'always' | 'exceptZero' | 'never'
+  readonly decimals?: number
+  readonly minDecimals?: number
+  readonly maxDecimals?: number
+  /** 每三位加千分位，缺省 false。 */
+  readonly grouping?: boolean
+  readonly rounding?: FormatRounding
 }
 
-/** 日期格式，去掉 kind 即是 Intl 日期格式参数。 */
-export interface DateFormat {
+/** 百分比：先乘 100，再按数字格式输出并接上 %。 */
+export interface PercentFormatSpec extends Omit<NumberFormatSpec, 'kind'> {
+  readonly kind: 'percent'
+}
+
+/** 日期：按模式输出，占位符为 yyyy yy MM M dd d HH H mm m ss s SSS，单引号括起的内容原样输出。 */
+export interface DateFormatSpec {
   readonly kind: 'date'
-  readonly dateStyle?: 'full' | 'long' | 'medium' | 'short'
-  readonly timeStyle?: 'full' | 'long' | 'medium' | 'short'
-  readonly year?: 'numeric' | '2-digit'
-  readonly month?: 'numeric' | '2-digit' | 'long' | 'short' | 'narrow'
-  readonly day?: 'numeric' | '2-digit'
-  readonly weekday?: 'long' | 'short' | 'narrow'
-  readonly hour?: 'numeric' | '2-digit'
-  readonly minute?: 'numeric' | '2-digit'
-  readonly second?: 'numeric' | '2-digit'
-  readonly hour12?: boolean
-  /** IANA 时区名。 */
-  readonly timeZone?: string
+  readonly pattern: string
 }
 
-export type ValueFormat = NumberFormat | DateFormat
+/** 人民币大写：舍入到分。 */
+export interface RmbUpperFormatSpec {
+  readonly kind: 'rmb-upper'
+  readonly rounding?: FormatRounding
+}
+
+/** 格式说明。 */
+export type FormatSpec = NumberFormatSpec | PercentFormatSpec | DateFormatSpec | RmbUpperFormatSpec
+
+/** 图表数值用的格式说明：数字或百分比。 */
+export type NumericFormatSpec = NumberFormatSpec | PercentFormatSpec
+
+/** 全部舍入方式。 */
+export const FORMAT_ROUNDINGS: readonly FormatRounding[] = ['half-up', 'half-even', 'floor', 'ceil', 'down']
+
+/** 小数位数的上限。 */
+export const FORMAT_DECIMALS_LIMIT = 34

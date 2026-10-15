@@ -42,7 +42,7 @@ describe('tableSheet', () => {
     columns: [
       { id: 'date', field: 'date', width: 84 },
       { id: 'region', field: 'region', title: '大区' },
-      { id: 'amount', field: 'amount', format: { kind: 'number', style: 'currency', currency: 'CNY' }, summary: { aggregate: 'sum' } },
+      { id: 'amount', field: 'amount', format: { kind: 'number', decimals: 2, grouping: true }, summary: { aggregate: 'sum' } },
       { id: 'qty', field: 'qty', summary: { aggregate: 'count' } },
     ],
   }
@@ -59,8 +59,8 @@ describe('tableSheet', () => {
       ['Total', null, 250, 4],
     ])
     expect(sheet.rows[1]![0]).toEqual({ value: 46037, format: 'yyyy-mm-dd' })
-    expect(sheet.rows[1]![2]).toEqual({ value: 100, format: '"¥"#,##0.00' })
-    expect(sheet.rows[5]![2]).toEqual({ value: 250, format: '"¥"#,##0.00', bold: true })
+    expect(sheet.rows[1]![2]).toEqual({ value: 100, format: '#,##0.00' })
+    expect(sheet.rows[5]![2]).toEqual({ value: 250, format: '#,##0.00', bold: true })
     expect(sheet.rows[5]![3]).toEqual({ value: 4, format: '#,##0', bold: true })
     expect(sheet.columnWidths).toEqual([12, undefined, undefined, undefined])
     expect(sheet.frozen).toEqual({ rows: 1, columns: 0 })
@@ -211,7 +211,7 @@ describe('crosstabSheet', () => {
 
 describe('导出整个工作簿', () => {
   it('三种视图写进同一个 xlsx，解压后结构完整', async () => {
-    const table: TableView = { type: 'table', dataset: 'sales', columns: [{ id: 'amount', field: 'amount', format: { kind: 'number', style: 'currency', currency: 'CNY' } }] }
+    const table: TableView = { type: 'table', dataset: 'sales', columns: [{ id: 'amount', field: 'amount', format: { kind: 'number', decimals: 2, grouping: true } }] }
     const group: GroupView = { type: 'group', dataset: 'sales', groups: [{ id: 'region', field: 'region' }], columns: [{ id: 'amount', field: 'amount', summary: { aggregate: 'sum' } }] }
     const crosstab: CrosstabView = { type: 'crosstab', dataset: 'sales', rows: [{ id: 'region', field: 'region' }], columns: [{ id: 'product', field: 'product' }], measures: [{ id: 'amount', aggregate: 'sum', field: 'amount' }, { id: 'qty', aggregate: 'sum', field: 'qty' }] }
     const bytes = await writeXlsx({
@@ -224,7 +224,7 @@ describe('导出整个工作簿', () => {
     const files = unzip(bytes)
     expect([...files.keys()]).toContain('xl/worksheets/sheet3.xml')
     expect(files.get('xl/workbook.xml')!.text).toContain('<sheet name="明细" sheetId="1" r:id="rId1"/><sheet name="分组" sheetId="2" r:id="rId2"/><sheet name="交叉" sheetId="3" r:id="rId3"/>')
-    expect(files.get('xl/styles.xml')!.text).toContain('formatCode="&quot;¥&quot;#,##0.00"')
+    expect(files.get('xl/styles.xml')!.text).toContain('formatCode="#,##0.00"')
     expect(files.get('xl/worksheets/sheet3.xml')!.text).toContain('<mergeCells count="3"><mergeCell ref="B1:C1"/><mergeCell ref="D1:E1"/><mergeCell ref="F1:G1"/></mergeCells>')
     expect(files.get('xl/worksheets/sheet3.xml')!.text).toContain('<pane xSplit="1" ySplit="2" topLeftCell="B3" activePane="bottomRight" state="frozen"/>')
   })

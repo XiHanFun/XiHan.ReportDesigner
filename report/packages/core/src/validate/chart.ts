@@ -221,7 +221,7 @@ export function checkChart(c: Checker, owner: JsonObject, path: ReportPath, keys
       c.number(chart, 'maxSlices', at, { integer: true, min: 1 })
       c.oneOf(chart, 'labels', at, ['none', 'inside', 'outside'] as const)
       c.oneOf(chart, 'labelContent', at, ['name-share', 'name-value', 'name', 'share', 'value'] as const)
-      checkFormat(c, chart, 'format', at, 'number')
+      checkFormat(c, chart, 'format', at, true)
       break
     case 'funnel':
       reference(c, chart, 'nameField', at, keys, 'dimension')
@@ -232,7 +232,7 @@ export function checkChart(c: Checker, owner: JsonObject, path: ReportPath, keys
       c.oneOf(chart, 'conversion', at, ['previous', 'first', 'none'] as const)
       c.oneOf(chart, 'labels', at, ['inside', 'outside'] as const)
       c.oneOf(chart, 'palette', at, PALETTES)
-      checkFormat(c, chart, 'format', at, 'number')
+      checkFormat(c, chart, 'format', at, true)
       break
     case 'radar': {
       reference(c, chart, 'nameField', at, keys, 'dimension')
@@ -255,7 +255,7 @@ export function checkChart(c: Checker, owner: JsonObject, path: ReportPath, keys
       c.oneOf(chart, 'curve', at, ['linear', 'catmull-rom'] as const)
       c.number(chart, 'rings', at, { integer: true, min: 2, max: 10 })
       c.boolean(chart, 'ringLabels', at)
-      checkFormat(c, chart, 'format', at, 'number')
+      checkFormat(c, chart, 'format', at, true)
       break
     }
     case 'sankey':
@@ -266,7 +266,7 @@ export function checkChart(c: Checker, owner: JsonObject, path: ReportPath, keys
       c.oneOf(chart, 'nodeAlign', at, ['justify', 'start', 'end', 'center'] as const)
       c.oneOf(chart, 'linkColor', at, ['neutral', 'source', 'target', 'gradient'] as const)
       c.oneOf(chart, 'nodeSort', at, ['auto', 'input'] as const)
-      checkFormat(c, chart, 'format', at, 'number')
+      checkFormat(c, chart, 'format', at, true)
       break
     case 'heatmap': {
       const variant = c.oneOf(chart, 'variant', at, ['calendar', 'month', 'matrix'] as const, true)
@@ -309,7 +309,7 @@ export function checkChart(c: Checker, owner: JsonObject, path: ReportPath, keys
       c.oneOf(chart, 'colorBy', at, ['branch', 'value', 'uniform'] as const)
       c.oneOf(chart, 'palette', at, PALETTES)
       c.oneOf(chart, 'orientation', at, ['vertical', 'horizontal'] as const)
-      checkFormat(c, chart, 'format', at, 'number')
+      checkFormat(c, chart, 'format', at, true)
       break
     }
   }
@@ -325,7 +325,7 @@ export function checkMetric(c: Checker, owner: JsonObject, path: ReportPath, key
   reference(c, metric, 'baseline', at, keys, 'measure', false)
   c.string(metric, 'prefix', at)
   c.string(metric, 'suffix', at)
-  checkFormat(c, metric, 'format', at, 'number')
+  checkFormat(c, metric, 'format', at, true)
   c.oneOf(metric, 'size', at, SIZES)
   c.oneOf(metric, 'tone', at, TONES)
   const sparkline = c.objectAt(metric, 'sparkline', at)
