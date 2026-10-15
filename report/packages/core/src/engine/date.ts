@@ -6,6 +6,7 @@
 // 日期值的解析、按粒度取键与墙上时间规范化。
 
 import type { DateBucket } from '../schema'
+import { isValidTimeZone, PlainDate, PlainDateTime, ZonedDateTime } from '@xihan-ui/core/date'
 import { ReportComputeError } from './errors'
 import { isMissing } from './value'
 
@@ -35,46 +36,22 @@ export interface DateTools {
   readonly wallClock: (value: unknown, type: 'date' | 'datetime') => string | null
 }
 
-const DAY_MS = 86_400_000
-
 const ISO_PATTERN = /^(\d{4})(?:-(\d{2})(?:-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}(?::?\d{2})?)?)?)?)?$/
-
-function utcTime(year: number, month: number, day: number, hour = 0, minute = 0, second = 0, millisecond = 0): number {
-  const date = new Date(0)
-  date.setUTCFullYear(year, month - 1, day)
-  date.setUTCHours(hour, minute, second, millisecond)
-  return date.getTime()
-}
-
-function daysInMonth(year: number, month: number): number {
-  const date = new Date(utcTime(year, month, 1))
-  date.setUTCMonth(month, 0)
-  return date.getUTCDate()
-}
 
 function pad(value: number, length: number): string {
   return String(value).padStart(length, '0')
 }
 
-function offsetMinutes(zone: string): number {
+function offsetMilliseconds(zone: string): number {
   if (zone === 'Z')
     return 0
   const digits = zone.slice(1).replace(':', '')
   const minutes = Number(digits.slice(0, 2)) * 60 + Number(digits.slice(2) || '0')
-  return zone.startsWith('-') ? -minutes : minutes
+  return (zone.startsWith('-') ? -minutes : minutes) * 60_000
 }
 
 function invalid(value: unknown, params: Readonly<Record<string, unknown>> = {}): ReportComputeError {
   return new ReportComputeError('invalid-date-value', { value, ...params })
-}
-
-function isoWeek(year: number, month: number, day: number): [number, number] {
-  const time = utcTime(year, month, day)
-  const weekday = (new Date(time).getUTCDay() + 6) % 7
-  const thursday = time + (3 - weekday) * DAY_MS
-  const weekYear = new Date(thursday).getUTCFullYear()
-  const week = Math.floor((thursday - utcTime(weekYear, 1, 1)) / DAY_MS / 7) + 1
-  return [weekYear, week]
 }
 
 function bucketKey(parts: DateParts, bucket: DateBucket, value: unknown): string {
@@ -91,8 +68,8 @@ function bucketKey(parts: DateParts, bucket: DateBucket, value: unknown): string
   if (parts.day === null)
     throw invalid(value, { bucket })
   if (bucket === 'week') {
-    const [weekYear, week] = isoWeek(parts.year, parts.month, parts.day)
-    return `${pad(weekYear, 4)}-W${pad(week, 2)}`
+    const date = new PlainDate(parts.year, parts.month, parts.day)
+    return `${pad(date.yearOfWeek, 4)}-W${pad(date.weekOfYear, 2)}`
   }
   const day = `${month}-${pad(parts.day, 2)}`
   if (bucket === 'day')
@@ -109,52 +86,22 @@ function bucketKey(parts: DateParts, bucket: DateBucket, value: unknown): string
  * 其它值抛出 invalid-date-value。
  */
 export function createDateTools(timeZone = 'UTC'): DateTools {
-  let formatter: Intl.DateTimeFormat | null = null
+  let zoneChecked = false
 
   function zonedParts(time: number): DateParts {
-    if (timeZone === 'UTC') {
-      const date = new Date(time)
-      return {
-        year: date.getUTCFullYear(),
-        month: date.getUTCMonth() + 1,
-        day: date.getUTCDate(),
-        hour: date.getUTCHours(),
-        minute: date.getUTCMinutes(),
-        second: date.getUTCSeconds(),
-        millisecond: date.getUTCMilliseconds(),
-      }
+    if (!zoneChecked) {
+      if (!isValidTimeZone(timeZone))
+        throw new ReportComputeError('invalid-time-zone', { timeZone })
+      zoneChecked = true
     }
-    if (!formatter) {
-      try {
-        formatter = new Intl.DateTimeFormat('en-US', {
-          timeZone,
-          hourCycle: 'h23',
-          year: 'numeric',
-          month: 'numeric',
-          day: 'numeric',
-          hour: 'numeric',
-          minute: 'numeric',
-          second: 'numeric',
-        })
-      }
-      catch (error) {
-        throw new ReportComputeError('invalid-time-zone', { timeZone }, { cause: error })
-      }
+    let wall: PlainDateTime
+    try {
+      wall = PlainDateTime.fromDate(time, timeZone)
     }
-    const fields: Record<string, number> = {}
-    for (const part of formatter.formatToParts(new Date(time))) {
-      if (part.type !== 'literal')
-        fields[part.type] = Number(part.value)
+    catch (error) {
+      throw new ReportComputeError('invalid-date-value', { value: time }, { cause: error })
     }
-    return {
-      year: fields.year ?? 0,
-      month: fields.month ?? 1,
-      day: fields.day ?? 1,
-      hour: fields.hour ?? 0,
-      minute: fields.minute ?? 0,
-      second: fields.second ?? 0,
-      millisecond: ((time % 1000) + 1000) % 1000,
-    }
+    return { year: wall.year, month: wall.month, day: wall.day, hour: wall.hour, minute: wall.minute, second: wall.second, millisecond: wall.millisecond }
   }
 
   function parseString(value: string): DateParts {
@@ -164,22 +111,29 @@ export function createDateTools(timeZone = 'UTC'): DateTools {
     const [, y, mo, d, h, mi, s, ms, zone] = match
     const year = Number(y)
     const month = mo === undefined ? null : Number(mo)
-    const day = d === undefined ? null : Number(d)
-    const hour = h === undefined ? null : Number(h)
-    const minute = mi === undefined ? null : Number(mi)
-    const second = s === undefined ? null : Number(s)
-    const millisecond = ms === undefined ? null : Number(ms.slice(0, 3).padEnd(3, '0'))
     if (month !== null && (month < 1 || month > 12))
       throw invalid(value)
-    if (month !== null && day !== null && (day < 1 || day > daysInMonth(year, month)))
-      throw invalid(value)
-    if ((hour !== null && hour > 23) || (minute !== null && minute > 59) || (second !== null && second > 59))
-      throw invalid(value)
-    if (zone !== undefined) {
-      const local = utcTime(year, month ?? 1, day ?? 1, hour ?? 0, minute ?? 0, second ?? 0, millisecond ?? 0)
-      return zonedParts(local - offsetMinutes(zone) * 60_000)
+    if (d === undefined)
+      return { year, month, day: null, hour: null, minute: null, second: null, millisecond: null }
+    const local = zone === undefined ? value : value.slice(0, value.length - zone.length)
+    let wall: PlainDateTime
+    try {
+      wall = PlainDateTime.from(local)
     }
-    return { year, month, day, hour, minute, second, millisecond }
+    catch (error) {
+      throw new ReportComputeError('invalid-date-value', { value }, { cause: error })
+    }
+    if (zone !== undefined)
+      return zonedParts(ZonedDateTime.fromPlainDateTime(wall, 'UTC').epochMilliseconds - offsetMilliseconds(zone))
+    return {
+      year,
+      month,
+      day: wall.day,
+      hour: h === undefined ? null : wall.hour,
+      minute: mi === undefined ? null : wall.minute,
+      second: s === undefined ? null : wall.second,
+      millisecond: ms === undefined ? null : wall.millisecond,
+    }
   }
 
   function parts(value: unknown): DateParts | null {
