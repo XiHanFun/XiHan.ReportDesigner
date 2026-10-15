@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { dateFormatCode, excelSerial, numberFormatCode } from '../src/xlsx'
+import { dateFormatCode, numberFormatCode } from '../src/xlsx'
 
 describe('numberFormatCode', () => {
   it('没有格式、不舍入或不是数字类的格式为 General', () => {
@@ -50,20 +50,5 @@ describe('dateFormatCode', () => {
     expect(dateFormatCode({ kind: 'date', pattern: '\'Week\' dd' }, 'date')).toBe('"Week "dd')
     expect(dateFormatCode({ kind: 'date', pattern: 'HH \'o\'\'clock\'' }, 'datetime')).toBe('hh" o\'clock"')
     expect(dateFormatCode({ kind: 'date', pattern: 'd"x' }, 'date')).toBe('d"\\"x"')
-  })
-})
-
-describe('excelSerial', () => {
-  it('按 1900 日期系统换算，时刻是小数部分', () => {
-    expect(excelSerial({ year: 2026, month: 10, day: 16, hour: null, minute: null, second: null, millisecond: null })).toBe(46311)
-    expect(excelSerial({ year: 2026, month: 10, day: 16, hour: 12, minute: 0, second: 0, millisecond: 0 })).toBe(46311.5)
-    expect(excelSerial({ year: 2026, month: 1, day: null, hour: null, minute: null, second: null, millisecond: null })).toBe(46023)
-  })
-
-  it('1900-03-01 之前减一，1900 年之前没有序列值', () => {
-    expect(excelSerial({ year: 1900, month: 1, day: 1, hour: null, minute: null, second: null, millisecond: null })).toBe(1)
-    expect(excelSerial({ year: 1900, month: 2, day: 28, hour: null, minute: null, second: null, millisecond: null })).toBe(59)
-    expect(excelSerial({ year: 1900, month: 3, day: 1, hour: null, minute: null, second: null, millisecond: null })).toBe(61)
-    expect(excelSerial({ year: 1899, month: 12, day: 31, hour: null, minute: null, second: null, millisecond: null })).toBeNull()
   })
 })

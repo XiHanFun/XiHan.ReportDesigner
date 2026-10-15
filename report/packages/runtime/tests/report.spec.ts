@@ -4,10 +4,11 @@
  */
 
 import type { CrosstabView, DatasetRows, DatasetSchema, GroupView, TableView } from '@xihan-report/core'
-import type { XlsxSheet } from '../src/xlsx'
+import type { XlsxCell, XlsxSheet } from '@xihan-ui/xlsx'
 import { buildCrosstab, buildGroupReport, buildTable } from '@xihan-report/core'
+import { writeXlsx } from '@xihan-ui/xlsx'
 import { describe, expect, it } from 'vitest'
-import { crosstabSheet, groupSheet, tableSheet, writeXlsx } from '../src/xlsx'
+import { crosstabSheet, groupSheet, tableSheet } from '../src/xlsx'
 import { unzip } from './unzip'
 
 const dataset: DatasetSchema = {
@@ -31,8 +32,17 @@ const data: DatasetRows = {
   ],
 }
 
+function show(cell: XlsxCell | null | undefined): unknown {
+  if (!cell)
+    return null
+  if (cell.type !== 'date')
+    return cell.value
+  const { year, month, day } = cell.value
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
 function values(sheet: XlsxSheet): unknown[][] {
-  return sheet.rows.map(row => Array.from(row, cell => cell?.value ?? null))
+  return sheet.rows.map(row => Array.from(row, show))
 }
 
 describe('tableSheet', () => {
@@ -52,23 +62,43 @@ describe('tableSheet', () => {
     expect(sheet.name).toBe('明细 2026')
     expect(values(sheet)).toEqual([
       ['日期', '大区', '金额', '数量'],
-      [46037, 'East', 100, 1],
-      [46056, 'East', 50, 2],
-      [46042, 'West', 80, 1],
+      ['2026-01-15', 'East', 100, 1],
+      ['2026-02-03', 'East', 50, 2],
+      ['2026-01-20', 'West', 80, 1],
       ['soon', 'West', 20, 3],
       ['Total', null, 250, 4],
     ])
-    expect(sheet.rows[1]![0]).toEqual({ value: 46037, format: 'yyyy-mm-dd' })
-    expect(sheet.rows[1]![2]).toEqual({ value: 100, format: '#,##0.00' })
-    expect(sheet.rows[5]![2]).toEqual({ value: 250, format: '#,##0.00', bold: true })
-    expect(sheet.rows[5]![3]).toEqual({ value: 4, format: '#,##0', bold: true })
+    expect(sheet.rows[1]![0]).toEqual({ type: 'date', value: { year: 2026, month: 1, day: 15 }, format: 'yyyy-mm-dd' })
+    expect(sheet.rows[4]![0]).toEqual({ type: 'text', value: 'soon' })
+    expect(sheet.rows[1]![2]).toEqual({ type: 'number', value: 100, format: '#,##0.00' })
+    expect(sheet.rows[5]![2]).toEqual({ type: 'number', value: 250, format: '#,##0.00', bold: true })
+    expect(sheet.rows[5]![3]).toEqual({ type: 'number', value: 4, format: '#,##0', bold: true })
     expect(sheet.columnWidths).toEqual([12, undefined, undefined, undefined])
     expect(sheet.frozen).toEqual({ rows: 1, columns: 0 })
   })
 
+  it('infinity 与 1900 年之前的日期写成文本，日期时间带时刻', () => {
+    const odd: DatasetRows = {
+      kind: 'rows',
+      rows: [
+        { date: '1899-12-31', amount: Number.POSITIVE_INFINITY },
+        { date: '2026-10-16T08:30:00Z', amount: 1 },
+      ],
+    }
+    const stamped: DatasetSchema = { ...dataset, fields: dataset.fields.map(field => (field.name === 'date' ? { ...field, type: 'datetime' as const } : field)) }
+    const view: TableView = { type: 'table', dataset: 'sales', columns: [{ id: 'date', field: 'date' }, { id: 'amount', field: 'amount' }] }
+    const sheet = tableSheet(view, buildTable(view, stamped, odd), { dataset: stamped, timeZone: 'Asia/Shanghai' })
+    expect(sheet.rows[1]).toEqual([{ type: 'text', value: '1899-12-31' }, { type: 'text', value: 'Infinity' }])
+    expect(sheet.rows[2]![0]).toEqual({
+      type: 'date',
+      value: { year: 2026, month: 10, day: 16, hour: 16, minute: 30, second: 0, millisecond: 0 },
+      format: 'yyyy-mm-dd hh:mm:ss',
+    })
+  })
+
   it('内建文字可以替换', () => {
     const translated = tableSheet(view, buildTable(view, dataset, data), { dataset, translations: { total: '合计' } })
-    expect(translated.rows.at(-1)![0]).toEqual({ value: '合计', bold: true })
+    expect(translated.rows.at(-1)![0]).toEqual({ type: 'text', value: '合计', bold: true })
     expect(translated.name).toBe('Sheet1')
   })
 })
@@ -99,8 +129,8 @@ describe('groupSheet', () => {
       ['Subtotal', null, 100, 4],
       ['Total', null, 250, 7],
     ])
-    expect(sheet.rows[1]![0]).toEqual({ value: 'East', bold: true })
-    expect(sheet.rows[4]![2]).toEqual({ value: 150, bold: true })
+    expect(sheet.rows[1]![0]).toEqual({ type: 'text', value: 'East', bold: true })
+    expect(sheet.rows[4]![2]).toEqual({ type: 'number', value: 150, bold: true })
   })
 
   it('不列明细时每组一行，关掉组头时小计行写组的键', () => {
@@ -150,8 +180,8 @@ describe('crosstabSheet', () => {
       { row: 0, column: 5, rowSpan: 1, columnSpan: 2 },
     ])
     expect(sheet.frozen).toEqual({ rows: 2, columns: 1 })
-    expect(sheet.rows[2]![5]).toEqual({ value: 150, bold: true })
-    expect(sheet.rows[2]![1]).toEqual({ value: 100 })
+    expect(sheet.rows[2]![5]).toEqual({ type: 'number', value: 150, bold: true })
+    expect(sheet.rows[2]![1]).toEqual({ type: 'number', value: 100 })
   })
 
   it('多层行维度：上层成员纵向合并，小计与总计标签向内合并', () => {
