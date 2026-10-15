@@ -9,12 +9,12 @@ import type { DataRow, DatasetData, DatasetSchema, GroupView, TableColumn, Table
 import type { ComputeOptions } from './context'
 import type { CubeCell, CubeMeasure } from './cube'
 import type { FormulaEntry } from './formula'
+import { sortBy, tupleKey } from '@xihan-ui/viz'
 import { createEnvironment, prepareInput } from './context'
 import { buildCube } from './cube'
 import { ReportComputeError } from './errors'
 import { evaluatePlan, planFormulas } from './formula'
-import { sortBy, sortRows } from './sort'
-import { tupleKey } from './value'
+import { sortRows } from './sort'
 
 /** 明细表的计算结果。 */
 export interface TableResult {
@@ -78,7 +78,7 @@ function summaryFormulas(columns: readonly TableColumn[]): FormulaEntry[] {
 export function buildTable(view: TableView, dataset: DatasetSchema, data: DatasetData, options?: ComputeOptions): TableResult {
   const env = createEnvironment(dataset, options)
   const input = prepareInput(data, view.filter, env, true)
-  const rows = view.sort ? sortRows(input.rows, view.sort, env.collate) : input.rows
+  const rows = view.sort ? sortRows(input.rows, view.sort, env) : input.rows
   const measures = summaryMeasures(view.columns)
   const formulas = summaryFormulas(view.columns)
   let summary: DataRow | null = null
@@ -105,7 +105,7 @@ export function buildGroupReport(view: GroupView, dataset: DatasetSchema, data: 
   const detail = view.detail !== false
   const env = createEnvironment(dataset, options)
   const prepared = prepareInput(data, view.filter, env, detail)
-  const input = detail && view.sort ? { ...prepared, rows: sortRows(prepared.rows, view.sort, env.collate) } : prepared
+  const input = detail && view.sort ? { ...prepared, rows: sortRows(prepared.rows, view.sort, env) } : prepared
   const groups = view.groups
   const depth = groups.length
   const plan = planFormulas(env.formula, summaryFormulas(view.columns), 'column')
@@ -146,7 +146,7 @@ export function buildGroupReport(view: GroupView, dataset: DatasetSchema, data: 
       value: cell => (by === undefined ? cell.members[level] : cell.values[by]),
       direction: group.sort?.direction,
       nulls: group.sort?.nulls,
-    }], env.collate)
+    }], env)
     return sorted.map(cell => ({
       group: group.id,
       level,

@@ -5,14 +5,13 @@
 
 // 多分组集的一遍聚合：每行按每个分组集取键，累加进对应的格子。
 
+import type { Accumulator, StringCollator } from '@xihan-ui/viz'
 import type { AggregateKind, AggregateMeasure, DataRow, DateBucket, FormulaMeasure, Measure } from '../schema'
-import type { Accumulator } from './aggregate'
 import type { PreparedInput } from './context'
 import type { DateTools } from './date'
 import type { FormulaEntry } from './formula'
-import type { StringCollator } from './value'
-import { createAccumulator, createRollupAccumulator, NEEDS_ROLLUP } from './aggregate'
-import { isMissing, tupleKey, valueKey } from './value'
+import { createAccumulator, isMissing, tupleKey, valueKey } from '@xihan-ui/viz'
+import { createRollupAccumulator, NEEDS_ROLLUP } from './aggregate'
 
 /** 参与聚合的维度。 */
 export interface CubeDimension {
@@ -113,7 +112,7 @@ export function buildCube(cube: CubeInput): CubeLevel[] {
   const builders = sets.map(() => new Map<string, CellBuilder>())
 
   function newCell(members: unknown[], memberKeys: string[]): CellBuilder {
-    return { members, memberKeys, accumulators: measures.map(measure => create(measure.aggregate, cube.collate)), count: 0, rows: [] }
+    return { members, memberKeys, accumulators: measures.map(measure => create(measure.aggregate, { collate: cube.collate })), count: 0, rows: [] }
   }
 
   sets.forEach((set, s) => {

@@ -24,8 +24,9 @@ import type {
   TableView,
 } from '@xihan-report/core'
 import type { XlsxCell, XlsxMerge, XlsxRow, XlsxSheet } from '@xihan-ui/xlsx'
-import { createDateTools, isAggregateMeasure, isMissing, valueKey } from '@xihan-report/core'
+import { createDateTools, isAggregateMeasure } from '@xihan-report/core'
 import { formatValue } from '@xihan-ui/expression'
+import { isMissing, valueKey } from '@xihan-ui/viz'
 import { formatCode, sheetName } from '@xihan-ui/xlsx'
 
 /** 工作表里的内建文字。 */

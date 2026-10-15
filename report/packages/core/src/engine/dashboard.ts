@@ -7,8 +7,8 @@
 
 import type { DashboardCard, DashboardView, DateBucket, FilterCondition, MetricSpec, ScalarValue } from '../schema'
 import type { QueryResult } from './query'
+import { isMissing } from '@xihan-ui/viz'
 import { ReportComputeError } from './errors'
-import { isMissing } from './value'
 
 /** 联动的选中值：联动 id 到源维度上选中的取值；空数组或缺项表示没有选中。 */
 export type LinkSelections = Readonly<Record<string, readonly ScalarValue[]>>

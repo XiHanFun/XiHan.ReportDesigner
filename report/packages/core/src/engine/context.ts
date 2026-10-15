@@ -5,11 +5,11 @@
 
 // 计算选项与计算环境：参数、时区、字符串比较、公式引擎与追加筛选。
 
+import type { StringCollator } from '@xihan-ui/viz'
 import type { ExpressionEngine } from '../expression'
 import type { DataRow, DatasetData, DatasetRollup, DatasetSchema, FieldType, FilterCondition, FilterGroup, ParameterValues } from '../schema'
 import type { DateTools } from './date'
 import type { FilterEnvironment } from './filter'
-import type { StringCollator } from './value'
 import { createDateTools } from './date'
 import { ReportComputeError } from './errors'
 import { compileFilter } from './filter'

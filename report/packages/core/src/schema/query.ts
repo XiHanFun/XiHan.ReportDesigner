@@ -3,16 +3,14 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 定义维度、度量、聚合方式、日期粒度与聚合查询。
+// 定义维度、度量、日期粒度与聚合查询；聚合方式取自 @xihan-ui/viz。
 
+import type { AggregateKind } from '@xihan-ui/viz'
 import type { FilterGroup, NullsPosition, SortDirection } from './filter'
 import type { FormatSpec } from './format'
 
-/** 聚合方式：求和、平均、计数、最小、最大、去重计数。 */
-export type AggregateKind = 'sum' | 'avg' | 'count' | 'min' | 'max' | 'distinctCount'
-
-/** 全部聚合方式。 */
-export const AGGREGATE_KINDS: readonly AggregateKind[] = ['sum', 'avg', 'count', 'min', 'max', 'distinctCount']
+export { AGGREGATE_KINDS } from '@xihan-ui/viz'
+export type { AggregateKind } from '@xihan-ui/viz'
 
 /**
  * 日期粒度：把日期取成分组键。

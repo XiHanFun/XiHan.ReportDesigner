@@ -3,82 +3,17 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 聚合累加器：明细值的聚合，以及已聚合值的再汇总。
+// 已聚合值的再汇总；明细值的聚合用 @xihan-ui/viz 的 createAccumulator。
 
-import type { AggregateKind } from '../schema'
-import type { StringCollator } from './value'
-import { mean, sum } from '@xihan-ui/viz'
-import { compareValues, isMissing, valueKey } from './value'
-
-/** 逐个收值、最后给出聚合结果的累加器。 */
-export interface Accumulator {
-  readonly add: (value: unknown) => void
-  readonly result: () => unknown
-}
+import type { Accumulator, AggregateKind, CollateOptions } from '@xihan-ui/viz'
+import { createAccumulator, isMissing } from '@xihan-ui/viz'
 
 /** 已聚合值无法再汇总、需要使用方另给汇总值的标记。 */
 export const NEEDS_ROLLUP: unique symbol = Symbol('needs-rollup')
 
-function finite(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value)
-}
-
-/** 收下有限数值，结果交给 summarize；一个有限数值都没有时为 emptyResult。 */
-function finiteAccumulator(summarize: (values: readonly number[]) => number | undefined, emptyResult: number | null): Accumulator {
-  const values: number[] = []
-  return {
-    add(value) {
-      if (finite(value))
-        values.push(value)
-    },
-    result: () => (values.length === 0 ? emptyResult : summarize(values) ?? emptyResult),
-  }
-}
-
-function sumAccumulator(emptyResult: number | null): Accumulator {
-  return finiteAccumulator(values => sum(values), emptyResult)
-}
-
-function avgAccumulator(): Accumulator {
-  return finiteAccumulator(values => mean(values), null)
-}
-
-function countAccumulator(): Accumulator {
-  let count = 0
-  return {
-    add(value) {
-      if (!isMissing(value))
-        count++
-    },
-    result: () => count,
-  }
-}
-
-function extremeAccumulator(direction: 1 | -1, collate?: StringCollator): Accumulator {
-  let best: unknown = null
-  let seen = false
-  return {
-    add(value) {
-      if (isMissing(value))
-        return
-      if (!seen || compareValues(value, best, collate) * direction > 0) {
-        best = value
-        seen = true
-      }
-    },
-    result: () => best,
-  }
-}
-
-function distinctAccumulator(): Accumulator {
-  const keys = new Set<string>()
-  return {
-    add(value) {
-      if (!isMissing(value))
-        keys.add(valueKey(value))
-    },
-    result: () => keys.size,
-  }
+function countRollup(): Accumulator {
+  const total = createAccumulator('sum')
+  return { add: total.add, result: () => total.result() ?? 0 }
 }
 
 function singleAccumulator(): Accumulator {
@@ -94,54 +29,21 @@ function singleAccumulator(): Accumulator {
 }
 
 /**
- * 明细值的累加器。
- * - sum / avg 只收有限数值，其余值（缺失、字符串、Infinity）跳过；一个数值都没有时结果为 null。
- * - count 数非缺失值；distinctCount 数不同的非缺失值（按 valueKey 判同）；没有值时为 0。
- * - min / max 按 compareValues 在非缺失值里取，可用于数值、日期与字符串；没有值时为 null。
- */
-export function createAccumulator(kind: AggregateKind, collate?: StringCollator): Accumulator {
-  switch (kind) {
-    case 'sum':
-      return sumAccumulator(null)
-    case 'avg':
-      return avgAccumulator()
-    case 'count':
-      return countAccumulator()
-    case 'min':
-      return extremeAccumulator(-1, collate)
-    case 'max':
-      return extremeAccumulator(1, collate)
-    case 'distinctCount':
-      return distinctAccumulator()
-  }
-}
-
-/**
- * 已聚合值的再汇总累加器：sum 与 count 相加，min / max 取最值。
+ * 已聚合值的再汇总累加器：sum 与 count 相加，min / max 取最值，规则同 createAccumulator。
  * avg 与 distinctCount 不可再汇总：只收到一个值时原样给出，收到多个时给出 NEEDS_ROLLUP。
  */
-export function createRollupAccumulator(kind: AggregateKind, collate?: StringCollator): Accumulator {
+export function createRollupAccumulator(kind: AggregateKind, options: CollateOptions = {}): Accumulator {
   switch (kind) {
     case 'sum':
-      return sumAccumulator(null)
-    case 'count':
-      return sumAccumulator(0)
     case 'min':
-      return extremeAccumulator(-1, collate)
     case 'max':
-      return extremeAccumulator(1, collate)
+      return createAccumulator(kind, options)
+    case 'count':
+      return countRollup()
     case 'avg':
     case 'distinctCount':
       return singleAccumulator()
   }
-}
-
-/** 一组值的聚合结果，规则同 createAccumulator。 */
-export function aggregateValues(kind: AggregateKind, values: Iterable<unknown>, collate?: StringCollator): unknown {
-  const accumulator = createAccumulator(kind, collate)
-  for (const value of values)
-    accumulator.add(value)
-  return accumulator.result()
 }
 
 /** 聚合方式能否由已聚合值再汇总得到。 */

@@ -5,14 +5,14 @@
 
 // 聚合查询：按维度分组、计算度量、排序与截取。
 
+import type { SortKey } from '@xihan-ui/viz'
 import type { DataRow, DatasetData, DatasetSchema, ReportQuery } from '../schema'
 import type { ComputeOptions } from './context'
-import type { SortKey } from './sort'
+import { sortBy } from '@xihan-ui/viz'
 import { createEnvironment, prepareInput } from './context'
 import { buildCube, isAggregateMeasure, measureFormulas } from './cube'
 import { ReportComputeError } from './errors'
 import { evaluatePlan, planFormulas } from './formula'
-import { sortBy } from './sort'
 
 /** 查询结果。 */
 export interface QueryResult {
@@ -65,7 +65,7 @@ export function runQuery(query: ReportQuery, dataset: DatasetSchema, data: Datas
           throw new ReportComputeError('unknown-sort-key', { key: by })
         return { value: row => row[by], direction: dimension.sort?.direction, nulls: dimension.sort?.nulls }
       })
-  const sorted = sortBy(rows, sortKeys, env.collate)
+  const sorted = sortBy(rows, sortKeys, env)
   return {
     rows: query.limit === undefined ? sorted : sorted.slice(0, Math.max(0, query.limit)),
     total: totalCell.values,
