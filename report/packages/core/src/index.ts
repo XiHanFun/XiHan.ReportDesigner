@@ -5,4 +5,4 @@
 
 // 导出 @xihanfun/report-core 的公共接口。
 
-export {}
+export * from './schema'
