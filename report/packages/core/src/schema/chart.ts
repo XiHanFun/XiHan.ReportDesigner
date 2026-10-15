@@ -6,16 +6,18 @@
 // 定义图表卡片与指标卡片的配置，取值与 XiHan.UI 的图表组件一致。
 // 凡是字段名的位置都写所在卡片查询的维度 id 或度量 id：查询结果每行以它们为键。
 
+import type { Tone } from '@xihan-ui/core'
+import type { SymbolName } from '@xihan-ui/viz'
 import type { NumberFormat, ValueFormat } from './format'
 
-/** 语气，与 XiHan.UI 的 Tone 一致。 */
-export type ChartTone = 'brand' | 'neutral' | 'success' | 'warning' | 'danger' | 'info'
+/** 语气：XiHan.UI 的 Tone。 */
+export type ChartTone = Tone
 
 /** 顺序色阶的色板，与 XiHan.UI 的 ChartPalette 一致。 */
 export type ChartPalette = 'red' | 'orange' | 'amber' | 'yellow' | 'lime' | 'green' | 'teal' | 'cyan' | 'blue' | 'indigo' | 'purple' | 'pink' | 'gray'
 
-/** 散点形状，与 XiHan.UI 的 SymbolName 一致。 */
-export type ChartSymbol = 'circle' | 'square' | 'diamond' | 'triangle' | 'triangleDown' | 'cross' | 'star' | 'wye'
+/** 散点形状：XiHan.UI 图表引擎的 SymbolName。 */
+export type ChartSymbol = SymbolName
 
 /** 尺寸档。 */
 export type ChartSize = 'sm' | 'md' | 'lg'

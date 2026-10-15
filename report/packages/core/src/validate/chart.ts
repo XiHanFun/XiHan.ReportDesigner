@@ -6,7 +6,9 @@
 // 图表与指标卡片配置的校验：取值范围与对查询维度、度量的引用。
 
 import type { ReportPath } from '../issue'
+import type { ChartTone } from '../schema'
 import type { Checker, JsonObject } from './checker'
+import { SYMBOL_NAMES } from '@xihan-ui/viz'
 import { CHART_TYPES } from '../schema'
 import { checkFormat } from './common'
 
@@ -18,9 +20,9 @@ export interface QueryKeys {
 
 type Role = 'dimension' | 'measure' | 'any'
 
-const TONES = ['brand', 'neutral', 'success', 'warning', 'danger', 'info'] as const
+const TONES = ['brand', 'neutral', 'success', 'warning', 'danger', 'info'] as const satisfies readonly ChartTone[]
 const PALETTES = ['red', 'orange', 'amber', 'yellow', 'lime', 'green', 'teal', 'cyan', 'blue', 'indigo', 'purple', 'pink', 'gray'] as const
-const SYMBOLS = ['circle', 'square', 'diamond', 'triangle', 'triangleDown', 'cross', 'star', 'wye'] as const
+const SYMBOLS = SYMBOL_NAMES
 const SIZES = ['sm', 'md', 'lg'] as const
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
