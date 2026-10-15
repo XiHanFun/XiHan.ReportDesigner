@@ -65,6 +65,9 @@ importers:
       '@xihan-ui/core':
         specifier: link:../../../../XiHan.UI/ui/packages/engine/core
         version: link:../../../../XiHan.UI/ui/packages/engine/core
+      '@xihan-ui/expression':
+        specifier: link:../../../../XiHan.UI/ui/packages/features/expression
+        version: link:../../../../XiHan.UI/ui/packages/features/expression
       '@xihan-ui/viz':
         specifier: link:../../../../XiHan.UI/ui/packages/engine/viz
         version: link:../../../../XiHan.UI/ui/packages/engine/viz
