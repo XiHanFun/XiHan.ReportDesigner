@@ -1,5 +1,5 @@
 {
-  "name": "@xihanfun/report-designer",
+  "name": "@xihan-report/designer",
   "type": "module",
   "version": "0.0.0",
   "description": "XiHan Report Designer — a visual report designer delivered as Web Components.",
@@ -49,7 +49,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@xihanfun/report-core": "workspace:^",
-    "@xihanfun/report-runtime": "workspace:^"
+    "@xihan-report/core": "workspace:^",
+    "@xihan-report/runtime": "workspace:^"
   }
 }

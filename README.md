@@ -44,9 +44,9 @@ XiHan.ReportDesigner is a framework-agnostic report designer delivered as native
 
 | Package | Description |
 | --- | --- |
-| `@xihanfun/report-core` | Model layer: report schema, dataset descriptions, calculation and edit commands; pure TypeScript, no DOM |
-| `@xihanfun/report-runtime` | Runtime: report and dashboard viewing for business pages |
-| `@xihanfun/report-designer` | Designer: visual report designer |
+| `@xihan-report/core` | Model layer: report schema, dataset descriptions, calculation and edit commands; pure TypeScript, no DOM |
+| `@xihan-report/runtime` | Runtime: report and dashboard viewing for business pages |
+| `@xihan-report/designer` | Designer: visual report designer |
 
 Dependencies point `designer → runtime → core`. Business pages only need the runtime; the designer is loaded only where templates are edited.
 

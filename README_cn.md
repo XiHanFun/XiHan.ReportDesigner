@@ -44,9 +44,9 @@ XiHan.ReportDesigner 是一款框架无关的报表设计器，以原生 Web Com
 
 | 包 | 说明 |
 | --- | --- |
-| `@xihanfun/report-core` | 模型层：报表 schema、数据集描述、计算与编辑命令，纯 TypeScript，不依赖 DOM |
-| `@xihanfun/report-runtime` | 运行时：业务页面使用的报表与看板查看 |
-| `@xihanfun/report-designer` | 设计器：可视化报表设计器 |
+| `@xihan-report/core` | 模型层：报表 schema、数据集描述、计算与编辑命令，纯 TypeScript，不依赖 DOM |
+| `@xihan-report/runtime` | 运行时：业务页面使用的报表与看板查看 |
+| `@xihan-report/designer` | 设计器：可视化报表设计器 |
 
 依赖方向为 `designer → runtime → core`。业务页面只需要 runtime，设计器只在需要编辑模板的地方加载。
 

@@ -81,7 +81,7 @@ body:
     attributes:
       label: 相关包
       description: 具体的包名或元素名，便于精确定位
-      placeholder: "@xihanfun/report-designer"
+      placeholder: "@xihan-report/designer"
     validations:
       required: false
 
