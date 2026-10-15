@@ -3,22 +3,27 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 编辑操作：按路径设置、插入、删除与移动，返回新文档与逆操作。
+// 编辑操作：把报表路径里按 id / name 写的数组项换成下标，检查键重复，再交给 @xihan-ui/designer-kit 的路径编辑操作。
 
+import type { JsonPath, JsonPathSegment } from '@xihan-ui/core/json'
+import type { PathOperation } from '@xihan-ui/designer-kit'
 import type { ReportPath } from './issue'
 import type { JsonValue, ReportDocument } from './schema'
-import { findJsonViolation, isPlainObject, jsonEquals } from '@xihan-ui/core/json'
+import { getJsonAt, isPlainObject, jsonEquals, JsonPathError } from '@xihan-ui/core/json'
+import { applyInSequence, applyPathOperation, PathOperationError } from '@xihan-ui/designer-kit'
 
 /**
  * 编辑操作；全部是纯 JSON。路径写法同问题定位：对象属性写属性名，
  * 数组项写它的 id（没有 id 时取 name），也可以写下标。
- * - set：把路径处的值换成 value；路径指向对象属性时属性可以原本不存在，空路径替换整个文档；
+ * - set：把路径处的值换成 value；value 不写时删除对象属性。路径指向对象属性时属性可以原本不存在，
+ *   createMissing 为 true 时中间缺少的对象属性补成空对象；空路径替换整个文档。
  * - insert：在路径所指的数组里插入 value，index 缺省插到末尾；
  * - remove：删除路径所指的对象属性或数组项；
  * - move：把路径所指的数组项移到同一数组的 index 处。
+ * 逆操作的路径一律按下标写。
  */
 export type ReportOperation
-  = | { readonly type: 'set', readonly path: ReportPath, readonly value: JsonValue }
+  = | { readonly type: 'set', readonly path: ReportPath, readonly value?: JsonValue, readonly createMissing?: boolean }
     | { readonly type: 'insert', readonly path: ReportPath, readonly index?: number, readonly value: JsonValue }
     | { readonly type: 'remove', readonly path: ReportPath }
     | { readonly type: 'move', readonly path: ReportPath, readonly index: number }
@@ -29,7 +34,7 @@ export interface ReportOperationResult {
   readonly inverse: readonly ReportOperation[]
 }
 
-/** 操作失败的原因。 */
+/** 操作失败的原因：duplicate-key 由报表检查，其余同 designer-kit 的路径编辑操作。 */
 export type ReportOperationErrorCode
   = | 'duplicate-key'
     | 'index-out-of-range'
@@ -44,15 +49,13 @@ export class ReportOperationError extends Error {
   readonly code: ReportOperationErrorCode
   readonly operation: ReportOperation
 
-  constructor(code: ReportOperationErrorCode, operation: ReportOperation) {
-    super(code)
+  constructor(code: ReportOperationErrorCode, operation: ReportOperation, options?: ErrorOptions) {
+    super(code, options)
     this.name = 'ReportOperationError'
     this.code = code
     this.operation = operation
   }
 }
-
-type Container = Readonly<Record<string, unknown>> | readonly unknown[]
 
 /** 数组项的键：id，没有 id 时取 name；都不是字符串时为 undefined。 */
 export function itemKey(item: unknown): string | undefined {
@@ -63,233 +66,95 @@ export function itemKey(item: unknown): string | undefined {
   return typeof item.name === 'string' ? item.name : undefined
 }
 
-function indexIn(array: readonly unknown[], segment: string | number): number {
-  if (typeof segment === 'number')
-    return Number.isInteger(segment) && segment >= 0 && segment < array.length ? segment : -1
-  return array.findIndex(item => itemKey(item) === segment)
-}
-
-function child(container: unknown, segment: string | number): { found: boolean, value: unknown } {
-  if (Array.isArray(container)) {
-    const index = indexIn(container, segment)
-    return index < 0 ? { found: false, value: undefined } : { found: true, value: container[index] }
+/** 把报表路径换成 JSON 路径：数组上写成字符串的段按 itemKey 换成下标；数组里找不到这个键时为 undefined。 */
+function resolvePath(root: JsonValue, path: ReportPath): JsonPath | undefined {
+  const resolved: JsonPathSegment[] = []
+  let node: JsonValue | undefined = root
+  for (const segment of path) {
+    let next: JsonPathSegment = segment
+    if (Array.isArray(node) && typeof segment === 'string') {
+      const index = (node as readonly JsonValue[]).findIndex(item => itemKey(item) === segment)
+      if (index < 0)
+        return undefined
+      next = index
+    }
+    resolved.push(next)
+    node = getJsonAt(node, [next])
   }
-  if (isPlainObject(container) && typeof segment === 'string' && Object.hasOwn(container, segment))
-    return { found: true, value: container[segment] }
-  return { found: false, value: undefined }
+  return resolved
 }
 
-/** 读取路径处的值；路径不存在时为 undefined。 */
+/** 读取路径处的值；路径不存在时为 undefined，路径段不合法（负数、小数、原型键）时抛 JsonPathError。 */
 export function readPath(root: unknown, path: ReportPath): unknown {
-  let current = root
-  for (const segment of path) {
-    const next = child(current, segment)
-    if (!next.found)
-      return undefined
-    current = next.value
-  }
-  return current
+  const resolved = resolvePath(root as JsonValue, path)
+  return resolved === undefined ? undefined : getJsonAt(root as JsonValue, resolved)
 }
 
-function resolveContainer(root: unknown, path: ReportPath, operation: ReportOperation): Container {
-  let current = root
-  for (const segment of path) {
-    const next = child(current, segment)
-    if (!next.found)
-      throw new ReportOperationError('path-not-found', operation)
-    current = next.value
-  }
-  if (!isPlainObject(current) && !Array.isArray(current))
-    throw new ReportOperationError('path-not-found', operation)
-  return current
-}
-
-/** 沿路径复制容器，把路径处的容器换成 replace 的结果。 */
-function replaceAt(root: unknown, path: ReportPath, replace: (container: Container) => Container): unknown {
-  if (path.length === 0)
-    return replace(root as Container)
-  const [segment, ...rest] = path
-  if (Array.isArray(root)) {
-    const index = indexIn(root, segment!)
-    const copy = root.slice()
-    copy[index] = replaceAt(root[index], rest, replace)
-    return copy
-  }
-  const record = root as Readonly<Record<string, unknown>>
-  return { ...record, [segment as string]: replaceAt(record[segment as string], rest, replace) }
-}
-
-function checkUniqueKey(array: readonly unknown[], value: unknown, except: number, operation: ReportOperation): void {
+function checkUniqueKey(array: readonly JsonValue[], value: unknown, except: number, operation: ReportOperation): void {
   const key = itemKey(value)
   if (key !== undefined && array.some((item, i) => i !== except && itemKey(item) === key))
     throw new ReportOperationError('duplicate-key', operation)
 }
 
-/** 数组项在操作之后的路径段：原来写键的改写成现在的键，原来写下标的写现在的下标。 */
-function itemSegment(original: string | number, item: unknown, index: number): string | number {
-  if (typeof original === 'number')
-    return index
-  return itemKey(item) ?? index
-}
-
-function unchanged(document: ReportDocument): ReportOperationResult {
-  return { document, inverse: [] }
-}
-
-function applySet(document: ReportDocument, operation: Extract<ReportOperation, { type: 'set' }>): ReportOperationResult {
-  const { path, value } = operation
-  if (path.length === 0) {
-    if (!isPlainObject(value))
-      throw new ReportOperationError('invalid-value', operation)
-    if (jsonEquals(document as unknown as JsonValue, value))
-      return unchanged(document)
-    return { document: value as unknown as ReportDocument, inverse: [{ type: 'set', path: [], value: document as unknown as JsonValue }] }
+/**
+ * 插入数组项、替换数组项，或改数组项的 id / name，会使同一数组里出现重复的键时抛 duplicate-key；
+ * 没有变化的替换不算。
+ */
+function checkKeys(document: JsonValue, operation: ReportOperation, path: JsonPath): void {
+  if (operation.type === 'insert') {
+    const array = getJsonAt(document, path)
+    if (Array.isArray(array))
+      checkUniqueKey(array, operation.value, -1, operation)
+    return
   }
-  const parentPath = path.slice(0, -1)
-  const last = path[path.length - 1]!
-  const parent = resolveContainer(document, parentPath, operation)
-  if (Array.isArray(parent)) {
-    const index = indexIn(parent, last)
-    if (index < 0)
-      throw new ReportOperationError('path-not-found', operation)
-    const old = parent[index]
-    if (jsonEquals(old as JsonValue | undefined, value as JsonValue | undefined))
-      return unchanged(document)
-    checkUniqueKey(parent, value, index, operation)
-    const next = replaceAt(document, parentPath, (container) => {
-      const copy = (container as readonly unknown[]).slice()
-      copy[index] = value
-      return copy
-    }) as ReportDocument
-    return { document: next, inverse: [{ type: 'set', path: [...parentPath, itemSegment(last, value, index)], value: old as JsonValue }] }
+  if (operation.type !== 'set' || path.length === 0)
+    return
+  const last = path.at(-1)!
+  const parent = getJsonAt(document, path.slice(0, -1))
+  if (Array.isArray(parent) && typeof last === 'number' && last < parent.length && !jsonEquals(parent[last], operation.value)) {
+    checkUniqueKey(parent, operation.value, last, operation)
+    return
   }
-  if (typeof last !== 'string')
-    throw new ReportOperationError('path-not-found', operation)
-  const record = parent as Readonly<Record<string, unknown>>
-  const existed = Object.hasOwn(record, last)
-  const old = record[last]
-  if (existed && jsonEquals(old as JsonValue | undefined, value as JsonValue | undefined))
-    return unchanged(document)
-
-  let inversePath: ReportPath = path
-  const itemPath = parentPath.slice(0, -1)
-  const owner = itemPath.length === parentPath.length ? undefined : resolveContainer(document, itemPath, operation)
-  if (Array.isArray(owner) && itemKey(record) !== undefined && (last === 'id' || (last === 'name' && typeof record.id !== 'string'))) {
-    const index = indexIn(owner, parentPath[parentPath.length - 1]!)
-    const renamed = { ...record, [last]: value }
-    checkUniqueKey(owner, renamed, index, operation)
-    inversePath = [...itemPath, itemSegment(parentPath[parentPath.length - 1]!, renamed, index), last]
+  const index = path.at(-2)
+  const array = path.length >= 2 ? getJsonAt(document, path.slice(0, -2)) : undefined
+  if ((last === 'id' || last === 'name') && typeof index === 'number' && Array.isArray(array) && isPlainObject(parent)) {
+    const renamed: Record<string, unknown> = { ...parent }
+    if (operation.value === undefined)
+      delete renamed[last]
+    else
+      renamed[last] = operation.value
+    if (itemKey(renamed) !== itemKey(parent))
+      checkUniqueKey(array, renamed, index, operation)
   }
-  const next = replaceAt(document, parentPath, container => ({ ...(container as Readonly<Record<string, unknown>>), [last]: value })) as ReportDocument
-  return {
-    document: next,
-    inverse: [existed ? { type: 'set', path: inversePath, value: old as JsonValue } : { type: 'remove', path: inversePath }],
-  }
-}
-
-function applyInsert(document: ReportDocument, operation: Extract<ReportOperation, { type: 'insert' }>): ReportOperationResult {
-  const { path, value } = operation
-  const array = resolveContainer(document, path, operation)
-  if (!Array.isArray(array))
-    throw new ReportOperationError('not-an-array', operation)
-  const index = operation.index ?? array.length
-  if (!Number.isInteger(index) || index < 0 || index > array.length)
-    throw new ReportOperationError('index-out-of-range', operation)
-  checkUniqueKey(array, value, -1, operation)
-  const next = replaceAt(document, path, (container) => {
-    const copy = (container as readonly unknown[]).slice()
-    copy.splice(index, 0, value)
-    return copy
-  }) as ReportDocument
-  return { document: next, inverse: [{ type: 'remove', path: [...path, itemKey(value) ?? index] }] }
-}
-
-function applyRemove(document: ReportDocument, operation: Extract<ReportOperation, { type: 'remove' }>): ReportOperationResult {
-  const { path } = operation
-  if (path.length === 0)
-    throw new ReportOperationError('invalid-path', operation)
-  const parentPath = path.slice(0, -1)
-  const last = path[path.length - 1]!
-  const parent = resolveContainer(document, parentPath, operation)
-  if (Array.isArray(parent)) {
-    const index = indexIn(parent, last)
-    if (index < 0)
-      throw new ReportOperationError('path-not-found', operation)
-    const next = replaceAt(document, parentPath, container => (container as readonly unknown[]).filter((_, i) => i !== index)) as ReportDocument
-    return { document: next, inverse: [{ type: 'insert', path: parentPath, index, value: parent[index] as JsonValue }] }
-  }
-  if (typeof last !== 'string' || !Object.hasOwn(parent, last))
-    throw new ReportOperationError('path-not-found', operation)
-  const next = replaceAt(document, parentPath, (container) => {
-    const copy = { ...(container as Readonly<Record<string, unknown>>) }
-    delete copy[last]
-    return copy
-  }) as ReportDocument
-  return { document: next, inverse: [{ type: 'set', path, value: (parent as Readonly<Record<string, unknown>>)[last] as JsonValue }] }
-}
-
-function applyMove(document: ReportDocument, operation: Extract<ReportOperation, { type: 'move' }>): ReportOperationResult {
-  const { path, index: target } = operation
-  if (path.length === 0)
-    throw new ReportOperationError('invalid-path', operation)
-  const parentPath = path.slice(0, -1)
-  const last = path[path.length - 1]!
-  const parent = resolveContainer(document, parentPath, operation)
-  if (!Array.isArray(parent))
-    throw new ReportOperationError('not-an-array', operation)
-  const index = indexIn(parent, last)
-  if (index < 0)
-    throw new ReportOperationError('path-not-found', operation)
-  if (!Number.isInteger(target) || target < 0 || target >= parent.length)
-    throw new ReportOperationError('index-out-of-range', operation)
-  if (index === target)
-    return unchanged(document)
-  const item = parent[index]
-  const next = replaceAt(document, parentPath, (container) => {
-    const copy = (container as readonly unknown[]).slice()
-    copy.splice(index, 1)
-    copy.splice(target, 0, item)
-    return copy
-  }) as ReportDocument
-  return { document: next, inverse: [{ type: 'move', path: [...parentPath, itemSegment(last, item, target)], index }] }
-}
-
-function checkOperation(operation: ReportOperation): void {
-  if (!isPlainObject(operation) || !Array.isArray(operation.path) || !operation.path.every(segment => typeof segment === 'string' || (typeof segment === 'number' && Number.isInteger(segment))))
-    throw new ReportOperationError('invalid-operation', operation)
-  if ((operation.type === 'set' || operation.type === 'insert') && findJsonViolation(operation.value) !== undefined)
-    throw new ReportOperationError('invalid-value', operation)
 }
 
 /**
  * 应用一个编辑操作，返回新文档与逆操作；不修改输入文档，没有改到的部分沿用原引用。
- * 操作没有带来变化时返回同一个文档引用与空的逆操作。
- * 插入或改名使同一数组里出现重复的键时抛出 duplicate-key；操作只保证路径与键，引用完整性由 validateDocument 检查。
+ * 操作没有带来变化时返回同一个文档引用与空的逆操作。整个文档只能换成对象，否则抛 invalid-value。
+ * 插入或替换使同一数组里出现重复的键时抛出 duplicate-key；操作只保证路径与键，引用完整性由 validateDocument 检查。
  */
 export function applyOperation(document: ReportDocument, operation: ReportOperation): ReportOperationResult {
-  checkOperation(operation)
-  switch (operation.type) {
-    case 'set':
-      return applySet(document, operation)
-    case 'insert':
-      return applyInsert(document, operation)
-    case 'remove':
-      return applyRemove(document, operation)
-    case 'move':
-      return applyMove(document, operation)
-    default:
-      throw new ReportOperationError('invalid-operation', operation)
+  if (!isPlainObject(operation) || !Array.isArray(operation.path))
+    throw new ReportOperationError('invalid-operation', operation)
+  const root = document as unknown as JsonValue
+  try {
+    const path = resolvePath(root, operation.path)
+    if (path === undefined)
+      throw new ReportOperationError('path-not-found', operation)
+    if (operation.type === 'set' && path.length === 0 && !isPlainObject(operation.value))
+      throw new ReportOperationError('invalid-value', operation)
+    checkKeys(root, operation, path)
+    const result = applyPathOperation(root, { ...operation, path } as PathOperation)
+    return { document: result.document as unknown as ReportDocument, inverse: result.inverse as readonly ReportOperation[] }
+  }
+  catch (error) {
+    if (error instanceof PathOperationError || error instanceof JsonPathError)
+      throw new ReportOperationError(error.code, operation, { cause: error })
+    throw error
   }
 }
 
 /** 依次应用一组操作；逆操作为各操作的逆操作按反序拼接。任一操作失败时抛出，输入文档保持不变。 */
 export function applyOperations(document: ReportDocument, operations: readonly ReportOperation[]): ReportOperationResult {
-  let current = document
-  const inverses: (readonly ReportOperation[])[] = []
-  for (const operation of operations) {
-    const result = applyOperation(current, operation)
-    current = result.document
-    inverses.push(result.inverse)
-  }
-  return { document: current, inverse: inverses.reverse().flat() }
+  return applyInSequence(applyOperation, document, operations)
 }
