@@ -30,6 +30,7 @@ catalogs:
 
 overrides:
   '@xihan-ui/core': link:../../XiHan.UI/ui/packages/engine/core
+  '@xihan-ui/designer-kit': link:../../XiHan.UI/ui/packages/features/designer-kit
   '@xihan-ui/expression': link:../../XiHan.UI/ui/packages/features/expression
   '@xihan-ui/viz': link:../../XiHan.UI/ui/packages/engine/viz
   '@xihan-ui/xlsx': link:../../XiHan.UI/ui/packages/features/xlsx
@@ -65,6 +66,9 @@ importers:
       '@xihan-ui/core':
         specifier: link:../../../../XiHan.UI/ui/packages/engine/core
         version: link:../../../../XiHan.UI/ui/packages/engine/core
+      '@xihan-ui/designer-kit':
+        specifier: link:../../../../XiHan.UI/ui/packages/features/designer-kit
+        version: link:../../../../XiHan.UI/ui/packages/features/designer-kit
       '@xihan-ui/expression':
         specifier: link:../../../../XiHan.UI/ui/packages/features/expression
         version: link:../../../../XiHan.UI/ui/packages/features/expression
