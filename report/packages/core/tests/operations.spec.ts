@@ -37,6 +37,13 @@ function errorCode(run: () => unknown): string | undefined {
 
 const cards = ['body', 'cards']
 
+/** 数组项在原文档里的下标。 */
+function indexOf(path: readonly (string | number)[], key: string): number {
+  return (readPath(original, path) as { id?: string, name?: string }[]).findIndex(item => (item.id ?? item.name) === key)
+}
+
+const share = indexOf(cards, 'share')
+
 describe('readPath', () => {
   it('按属性名、数组项的键或下标读取', () => {
     expect(readPath(original, ['body', 'cards', 'share', 'chart', 'type'])).toBe('pie')
@@ -53,10 +60,10 @@ describe('applyOperation：set', () => {
     expect(readPath(document, [...cards, 'share', 'chart', 'variant'])).toBe('pie')
   })
 
-  it('新增属性，逆操作删除它', () => {
+  it('新增属性，逆操作按下标删除它', () => {
     const operation: ReportOperation = { type: 'set', path: [...cards, 'share', 'title'], value: '占比' }
     const { document, inverse } = applyOperation(original, operation)
-    expect(inverse).toEqual([{ type: 'remove', path: [...cards, 'share', 'title'] }])
+    expect(inverse).toEqual([{ type: 'remove', path: [...cards, share, 'title'] }])
     expect(readPath(document, [...cards, 'share', 'title'])).toBe('占比')
     roundTrip(operation)
   })
@@ -77,9 +84,9 @@ describe('applyOperation：set', () => {
     expect(after.cards[2]).not.toBe(before.cards[2])
   })
 
-  it('改数组项的键，逆操作按新键定位', () => {
+  it('改数组项的键，逆操作按下标定位', () => {
     const { document, inverse } = applyOperation(original, { type: 'set', path: [...cards, 'share', 'id'], value: 'share2' })
-    expect(inverse).toEqual([{ type: 'set', path: [...cards, 'share2', 'id'], value: 'share' }])
+    expect(inverse).toEqual([{ type: 'set', path: [...cards, share, 'id'], value: 'share' }])
     expect(readPath(document, [...cards, 'share2', 'kind'])).toBe('chart')
     roundTrip({ type: 'set', path: ['datasets', 'sales', 'fields', 'qty', 'name'], value: 'quantity' })
   })
@@ -87,13 +94,21 @@ describe('applyOperation：set', () => {
   it('整项替换，键变了也能撤销', () => {
     const field: JsonValue = { name: 'cost', type: 'number', title: '成本' }
     const { inverse } = applyOperation(original, { type: 'set', path: ['datasets', 'sales', 'fields', 'qty'], value: field })
-    expect(inverse).toEqual([{ type: 'set', path: ['datasets', 'sales', 'fields', 'cost'], value: { name: 'qty', type: 'number', title: '数量' } }])
+    const fields = ['datasets', indexOf(['datasets'], 'sales'), 'fields']
+    expect(inverse).toEqual([{ type: 'set', path: [...fields, indexOf(fields, 'qty')], value: { name: 'qty', type: 'number', title: '数量' } }])
     roundTrip({ type: 'set', path: ['datasets', 'sales', 'fields', 'qty'], value: field })
   })
 
   it('改名撞上已有的键时抛出 duplicate-key', () => {
     expect(errorCode(() => applyOperation(original, { type: 'set', path: [...cards, 'share', 'id'], value: 'kpi' }))).toBe('duplicate-key')
     expect(errorCode(() => applyOperation(original, { type: 'set', path: [...cards, 'share'], value: { id: 'kpi' } }))).toBe('duplicate-key')
+  })
+
+  it('不写 value 时删除对象属性，属性不存在时没有变化', () => {
+    const { document, inverse } = applyOperation(original, { type: 'set', path: [...cards, 'share', 'chart', 'variant'] })
+    expect(readPath(document, [...cards, 'share', 'chart'])).not.toHaveProperty('variant')
+    expect(inverse).toEqual([{ type: 'set', path: [...cards, share, 'chart', 'variant'], value: 'donut' }])
+    expect(applyOperation(original, { type: 'set', path: [...cards, 'share', 'title'] }).document).toBe(original)
   })
 
   it('空路径替换整个文档', () => {
@@ -106,7 +121,7 @@ describe('applyOperation：set', () => {
 })
 
 describe('applyOperation：insert / remove / move', () => {
-  it('插入带键的项，逆操作按键删除', () => {
+  it('插入带键的项，逆操作按下标删除', () => {
     const operation: ReportOperation = {
       type: 'insert',
       path: [...cards, 'share', 'query', 'measures'],
@@ -114,7 +129,7 @@ describe('applyOperation：insert / remove / move', () => {
       value: { id: 'n', aggregate: 'count' },
     }
     const { document, inverse } = applyOperation(original, operation)
-    expect(inverse).toEqual([{ type: 'remove', path: [...cards, 'share', 'query', 'measures', 'n'] }])
+    expect(inverse).toEqual([{ type: 'remove', path: [...cards, share, 'query', 'measures', 0] }])
     expect(readPath(document, [...cards, 'share', 'query', 'measures', 0, 'id'])).toBe('n')
     roundTrip(operation)
   })
@@ -122,7 +137,7 @@ describe('applyOperation：insert / remove / move', () => {
   it('插入不带键的项，逆操作按下标删除；缺省插到末尾', () => {
     const operation: ReportOperation = { type: 'insert', path: [...cards, 'detail', 'view', 'sort'], value: { field: 'amount' } }
     const { inverse } = applyOperation(original, operation)
-    expect(inverse).toEqual([{ type: 'remove', path: [...cards, 'detail', 'view', 'sort', 1] }])
+    expect(inverse).toEqual([{ type: 'remove', path: [...cards, indexOf(cards, 'detail'), 'view', 'sort', 1] }])
     roundTrip(operation)
   })
 
@@ -151,7 +166,7 @@ describe('applyOperation：insert / remove / move', () => {
   it('移动数组项，逆操作移回；原位不动时没有变化', () => {
     const { document, inverse } = applyOperation(original, { type: 'move', path: [...cards, 'pivot'], index: 0 })
     expect((readPath(document, cards) as { id: string }[]).map(card => card.id).slice(0, 2)).toEqual(['pivot', 'trend'])
-    expect(inverse).toEqual([{ type: 'move', path: [...cards, 'pivot'], index: 9 }])
+    expect(inverse).toEqual([{ type: 'move', path: [...cards, 0], index: indexOf(cards, 'pivot') }])
     roundTrip({ type: 'move', path: [...cards, 'pivot'], index: 0 })
     roundTrip({ type: 'move', path: [...cards, 0], index: 4 })
     expect(applyOperation(original, { type: 'move', path: [...cards, 'trend'], index: 0 }).document).toBe(original)
@@ -163,12 +178,14 @@ describe('applyOperation：insert / remove / move', () => {
 describe('applyOperation：模板即数据', () => {
   it('值必须是纯 JSON', () => {
     const path = [...cards, 'share', 'title']
-    for (const value of [() => 1, Number.NaN, Number.POSITIVE_INFINITY, new Date(0), undefined, { nested: [1, undefined] }, new Map()])
+    for (const value of [() => 1, Number.NaN, Number.POSITIVE_INFINITY, new Date(0), { nested: [1, undefined] }, new Map()])
       expect(errorCode(() => applyOperation(original, { type: 'set', path, value: value as unknown as JsonValue }))).toBe('invalid-value')
   })
 
-  it('路径段只能是字符串或整数', () => {
-    expect(errorCode(() => applyOperation(original, { type: 'remove', path: ['body', 1.5] }))).toBe('invalid-operation')
+  it('路径段只能是字符串或非负整数，不能是原型键', () => {
+    expect(errorCode(() => applyOperation(original, { type: 'remove', path: ['body', 1.5] }))).toBe('invalid-path')
+    expect(errorCode(() => applyOperation(original, { type: 'set', path: ['__proto__', 'x'], value: 1 }))).toBe('invalid-path')
+    expect(errorCode(() => applyOperation(original, { type: 'remove', path: 'body' } as unknown as ReportOperation))).toBe('invalid-operation')
     expect(errorCode(() => applyOperation(original, { type: 'unknown', path: [] } as unknown as ReportOperation))).toBe('invalid-operation')
   })
 })
