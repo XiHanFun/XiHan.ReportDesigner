@@ -23,11 +23,11 @@ import type {
   TableResult,
   TableView,
 } from '@xihan-report/core'
-import type { XlsxCell, XlsxMerge, XlsxRow, XlsxSheet } from '@xihan-ui/xlsx'
+import type { XlsxCell, XlsxHeaderNode, XlsxMerge, XlsxRow, XlsxSheet } from '@xihan-ui/xlsx'
 import { createDateTools, isAggregateMeasure } from '@xihan-report/core'
 import { formatValue } from '@xihan-ui/expression'
 import { isMissing, valueKey } from '@xihan-ui/viz'
-import { formatCode, sheetName } from '@xihan-ui/xlsx'
+import { formatCode, headerRows, sheetName } from '@xihan-ui/xlsx'
 
 /** 工作表里的内建文字。 */
 export interface XlsxTranslations {
@@ -364,26 +364,25 @@ function axisLeaves(headers: readonly CrosstabHeader[], dimensions: readonly Dim
   return leaves
 }
 
-/** 某一层上相邻的同一标签合并成一段：返回段的起点、长度与它向下（向内）跨过的层数。 */
-function runs(leaves: readonly Leaf[], level: number, levels: number): { start: number, length: number, depth: number, label: HeaderLabel }[] {
-  const result: { start: number, length: number, depth: number, label: HeaderLabel }[] = []
+/** 叶子按各层标签组成表头树：某一层上相邻的同一标签合成一个节点，标签下方被它合并的层记作 span。 */
+function headerTree(leaves: readonly Leaf[], level: number, levels: number): XlsxHeaderNode[] {
+  const nodes: XlsxHeaderNode[] = []
+  if (level >= levels)
+    return nodes
   let i = 0
   while (i < leaves.length) {
-    const current = leaves[i]!.labels[level]
-    if (!current) {
-      i++
-      continue
-    }
+    const current = leaves[i]!.labels[level]!
     let j = i
     while (j + 1 < leaves.length && leaves[j + 1]!.labels[level]?.id === current.id)
       j++
-    let depth = 1
-    while (level + depth < levels && leaves[i]!.labels[level + depth] === null)
-      depth++
-    result.push({ start: i, length: j - i + 1, depth, label: current })
+    let span = 1
+    while (level + span < levels && leaves[i]!.labels[level + span] === null)
+      span++
+    const children = headerTree(leaves.slice(i, j + 1), level + span, levels)
+    nodes.push(children.length > 0 ? { cell: current.cell, children, span } : { cell: current.cell })
     i = j + 1
   }
-  return result
+  return nodes
 }
 
 /**
@@ -409,20 +408,12 @@ export function crosstabSheet(view: CrosstabView, result: CrosstabResult, option
     (rows[row] ??= [])[column] = cell
   }
 
-  for (let level = 0; level < columnLevels; level++) {
-    for (const run of runs(columnLeaves, level, columnLevels)) {
-      set(level, left + run.start, run.label.cell)
-      if (run.length > 1 || run.depth > 1)
-        merges.push({ row: level, column: left + run.start, rowSpan: run.depth, columnSpan: run.length })
-    }
-  }
-  for (let level = 0; level < rowLevels; level++) {
-    for (const run of runs(rowLeaves, level, rowLevels)) {
-      set(top + run.start, level, run.label.cell)
-      if (run.length > 1 || run.depth > 1)
-        merges.push({ row: top + run.start, column: level, rowSpan: run.length, columnSpan: run.depth })
-    }
-  }
+  const columnHeader = headerRows(headerTree(columnLeaves, 0, columnLevels))
+  columnHeader.rows.forEach((cells, row) => cells.forEach((cell, column) => cell && set(row, left + column, cell)))
+  merges.push(...columnHeader.merges.map(merge => ({ ...merge, column: left + merge.column })))
+  const rowHeader = headerRows(headerTree(rowLeaves, 0, rowLevels), { axis: 'row' })
+  rowHeader.rows.forEach((cells, row) => cells.forEach((cell, column) => cell && set(top + row, column, cell)))
+  merges.push(...rowHeader.merges.map(merge => ({ ...merge, row: top + merge.row })))
 
   view.rows.forEach((dimension, index) => {
     set(top - 1, index, label(fieldTitle(ctx, dimension.field, dimension.title)))
