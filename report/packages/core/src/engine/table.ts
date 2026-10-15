@@ -5,10 +5,10 @@
 
 // 明细表与分组报表的计算。
 
+import type { ExpressionEntry } from '@xihan-ui/expression'
 import type { DataRow, DatasetData, DatasetSchema, GroupView, TableColumn, TableView } from '../schema'
 import type { ComputeOptions } from './context'
 import type { CubeCell, CubeMeasure } from './cube'
-import type { FormulaEntry } from './formula'
 import { sortBy, tupleKey } from '@xihan-ui/viz'
 import { createEnvironment, prepareInput } from './context'
 import { buildCube } from './cube'
@@ -62,8 +62,8 @@ function summaryMeasures(columns: readonly TableColumn[]): CubeMeasure[] {
   return measures
 }
 
-function summaryFormulas(columns: readonly TableColumn[]): FormulaEntry[] {
-  const entries: FormulaEntry[] = []
+function summaryFormulas(columns: readonly TableColumn[]): ExpressionEntry[] {
+  const entries: ExpressionEntry[] = []
   for (const column of columns) {
     if (column.summary && 'formula' in column.summary)
       entries.push({ name: column.id, expression: column.summary.formula })

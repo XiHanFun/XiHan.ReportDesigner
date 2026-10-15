@@ -44,10 +44,17 @@ export function lookupEngine(table: Readonly<Record<string, FakeFormula>>): Expr
   const compiled: string[] = []
   return {
     compiled,
-    compile(source) {
+    compile(source, options) {
       const formula = table[source]
       if (!formula)
         return { ok: false, issues: [{ code: 'XH_EXPR_UNEXPECTED_TOKEN', start: 0, end: source.length }] }
+      const identifiers = options?.identifiers
+      if (identifiers !== undefined) {
+        const known = typeof identifiers === 'function' ? identifiers : (name: string) => new Set(identifiers).has(name)
+        const unknown = [...new Set(formula.references)].filter(name => !known(name))
+        if (unknown.length > 0)
+          return { ok: false, issues: unknown.map(name => ({ code: 'XH_EXPR_UNKNOWN_IDENTIFIER', start: 0, end: source.length, data: { name } })) }
+      }
       compiled.push(source)
       return {
         ok: true,
