@@ -8,12 +8,14 @@
 /** 计算错误码。 */
 export type ComputeErrorCode
   = | 'aggregated-input-unsupported'
+    | 'duplicate-card'
     | 'formula-compile-failed'
     | 'formula-cycle'
     | 'formula-engine-missing'
     | 'formula-evaluation-failed'
     | 'invalid-date-value'
     | 'invalid-filter-operand'
+    | 'invalid-layout'
     | 'invalid-time-zone'
     | 'unknown-card'
     | 'unknown-dimension'
