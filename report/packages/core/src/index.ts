@@ -6,4 +6,5 @@
 // 导出 @xihanfun/report-core 的公共接口。
 
 export * from './engine'
+export type { ReportIssue, ReportPath } from './issue'
 export * from './schema'
