@@ -3,9 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 报表的格式说明换成 Excel 数字格式代码，日期换成 Excel 序列值。
+// 报表的格式说明换成 Excel 数字格式代码。
 
-import type { DateFormatSpec, DateParts, FormatSpec } from '@xihan-report/core'
+import type { DateFormatSpec, FormatSpec } from '@xihan-report/core'
 
 const DATE_TOKENS: readonly (readonly [string, string])[] = [
   ['yyyy', 'yyyy'],
@@ -114,18 +114,4 @@ export function dateFormatCode(format: DateFormatSpec | undefined, type: 'date' 
   if (!format)
     return type === 'date' ? 'yyyy-mm-dd' : 'yyyy-mm-dd hh:mm:ss'
   return datePattern(format.pattern)
-}
-
-/**
- * 墙上时间换成 Excel 序列值（1900 日期系统，1899-12-30 为 0，小数部分是一天里的时刻）。
- * 1900-03-01 之前的日期按 Excel 的计数减一；1900-01-01 之前的日期没有序列值，返回 null。
- */
-export function excelSerial(parts: DateParts): number | null {
-  const time = Date.UTC(2000, (parts.month ?? 1) - 1, parts.day ?? 1, parts.hour ?? 0, parts.minute ?? 0, parts.second ?? 0, parts.millisecond ?? 0)
-  const date = new Date(time)
-  date.setUTCFullYear(parts.year, (parts.month ?? 1) - 1, parts.day ?? 1)
-  const serial = date.getTime() / 86_400_000 + 25_569
-  if (serial < 2)
-    return null
-  return serial < 61 ? serial - 1 : serial
 }

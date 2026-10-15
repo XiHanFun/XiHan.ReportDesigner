@@ -53,6 +53,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@xihan-report/core": "workspace:^"
+    "@xihan-report/core": "workspace:^",
+    "@xihan-ui/xlsx": "catalog:"
   }
 }

@@ -23,10 +23,10 @@ import type {
   TableResult,
   TableView,
 } from '@xihan-report/core'
-import type { XlsxCell, XlsxMerge, XlsxRow, XlsxSheet } from './workbook'
+import type { XlsxCell, XlsxMerge, XlsxRow, XlsxSheet } from '@xihan-ui/xlsx'
 import { createDateTools, isAggregateMeasure, isMissing, valueKey } from '@xihan-report/core'
-import { dateFormatCode, excelSerial, numberFormatCode } from './format'
-import { sheetName } from './workbook'
+import { sheetName } from '@xihan-ui/xlsx'
+import { dateFormatCode, numberFormatCode } from './format'
 
 /** 工作表里的内建文字。 */
 export interface XlsxTranslations {
@@ -42,7 +42,7 @@ export interface SheetOptions {
   readonly dataset: DatasetSchema
   /** 表名，整理成合法表名；缺省 Sheet1。 */
   readonly name?: string
-  /** 日期值换成 Excel 日期时所在的时区，缺省 UTC，与计算时一致。 */
+  /** 时刻类的日期值（带偏移的字符串、时间戳、Date）换成墙上时间所在的时区，缺省 UTC，与计算时一致。 */
   readonly timeZone?: string
   readonly translations?: Partial<XlsxTranslations>
 }
@@ -76,61 +76,83 @@ function fieldTitle(ctx: Context, name: string, title: string | undefined): stri
   return title ?? fieldOf(ctx, name)?.title ?? name
 }
 
-function dateCell(value: unknown, type: FieldType | undefined, format: FormatSpec | undefined, ctx: Context): XlsxCell | null {
+function dateCell(value: unknown, type: FieldType | undefined, format: FormatSpec | undefined, ctx: Context, bold: boolean): XlsxCell | null {
   if (typeof value !== 'string' && typeof value !== 'number' && !(value instanceof Date))
     return null
   try {
     const parts = ctx.dates.parts(value)
-    const serial = parts && excelSerial(parts)
-    if (!parts || serial === null || serial === undefined)
+    if (!parts || parts.year < 1900 || parts.year > 9999)
       return null
     const kind = type === 'date' || type === 'datetime' ? type : parts.hour === null ? 'date' : 'datetime'
-    return { value: serial, format: dateFormatCode(format?.kind === 'date' ? format : undefined, kind) }
+    const time = kind === 'datetime'
+      ? { hour: parts.hour ?? 0, minute: parts.minute ?? 0, second: parts.second ?? 0, millisecond: parts.millisecond ?? 0 }
+      : {}
+    return {
+      type: 'date',
+      value: { year: parts.year, month: parts.month ?? 1, day: parts.day ?? 1, ...time },
+      format: dateFormatCode(format?.kind === 'date' ? format : undefined, kind),
+      ...(bold ? { bold } : {}),
+    }
   }
   catch {
     return null
   }
 }
 
+function text(value: string, bold: boolean): XlsxCell {
+  return bold ? { type: 'text', value, bold } : { type: 'text', value }
+}
+
 /**
- * 一个值写成单元格：缺失值为空；date / datetime 字段与日期格式的值换成 Excel 日期，解析不了的按原文写成文本；
- * 数值按数字格式写，其余按原值。
+ * 一个值写成单元格：缺失值为空；date / datetime 字段与日期格式的值写成日期单元格，解析不了或不在 1900–9999 年的按原文写成文本；
+ * 有限数按数字格式写成数字单元格，Infinity 写成文本；布尔值写成布尔单元格，其余写成文本。
  */
 function valueCell(value: unknown, type: FieldType | undefined, format: FormatSpec | undefined, ctx: Context, bold = false): XlsxCell | null {
   if (isMissing(value))
     return null
-  const extra = bold ? { bold } : {}
   const numeric = format?.kind === 'number' || format?.kind === 'percent'
   const dateLike = value instanceof Date || format?.kind === 'date' || ((type === 'date' || type === 'datetime') && !numeric)
   if (dateLike) {
-    const cell = dateCell(value, type, format, ctx)
+    const cell = dateCell(value, type, format, ctx, bold)
     if (cell)
-      return { ...cell, ...extra }
+      return cell
   }
-  if (typeof value === 'number')
-    return numeric ? { value, format: numberFormatCode(format), ...extra } : { value, ...extra }
-  if (typeof value === 'string' || typeof value === 'boolean')
-    return { value, ...extra }
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value))
+      return text(String(value), bold)
+    const cell: XlsxCell = numeric ? { type: 'number', value, format: numberFormatCode(format) } : { type: 'number', value }
+    return bold ? { ...cell, bold } : cell
+  }
+  if (typeof value === 'boolean')
+    return bold ? { type: 'boolean', value, bold } : { type: 'boolean', value }
+  if (typeof value === 'string')
+    return text(value, bold)
   if (value instanceof Date)
-    return { value: value.toISOString(), ...extra }
-  let text: string
+    return text(value.toISOString(), bold)
+  let serialized: string
   try {
-    text = JSON.stringify(value) ?? String(value)
+    serialized = JSON.stringify(value) ?? String(value)
   }
   catch {
-    text = String(value)
+    serialized = String(value)
   }
-  return { value: text, ...extra }
+  return text(serialized, bold)
 }
 
 function label(value: string): XlsxCell {
-  return { value, bold: true }
+  return { type: 'text', value, bold: true }
+}
+
+function countCell(value: unknown, bold: boolean): XlsxCell | null {
+  if (typeof value !== 'number' || !Number.isFinite(value))
+    return null
+  return bold ? { type: 'number', value, format: COUNT_FORMAT, bold } : { type: 'number', value, format: COUNT_FORMAT }
 }
 
 function summaryCell(column: TableColumn, summary: ColumnSummary, value: unknown, ctx: Context, bold: boolean): XlsxCell | null {
   if ('aggregate' in summary) {
     if (summary.aggregate === 'count' || summary.aggregate === 'distinctCount')
-      return isMissing(value) ? null : { value: value as number, format: COUNT_FORMAT, ...(bold ? { bold } : {}) }
+      return countCell(value, bold)
     if (summary.aggregate === 'min' || summary.aggregate === 'max')
       return valueCell(value, fieldOf(ctx, column.field)?.type, column.format, ctx, bold)
   }
@@ -140,7 +162,7 @@ function summaryCell(column: TableColumn, summary: ColumnSummary, value: unknown
 function measureCell(measure: Measure, value: unknown, ctx: Context, bold: boolean): XlsxCell | null {
   if (isAggregateMeasure(measure)) {
     if (measure.aggregate === 'count' || measure.aggregate === 'distinctCount')
-      return isMissing(value) ? null : { value: value as number, format: COUNT_FORMAT, ...(bold ? { bold } : {}) }
+      return countCell(value, bold)
     if ((measure.aggregate === 'min' || measure.aggregate === 'max') && measure.field !== undefined)
       return valueCell(value, fieldOf(ctx, measure.field)?.type, measure.format, ctx, bold)
   }
@@ -259,7 +281,7 @@ export function groupSheet(view: GroupView, result: GroupReportResult, options: 
 
 interface HeaderLabel {
   readonly id: string
-  readonly cell: XlsxCell
+  readonly cell: XlsxCell | null
 }
 
 interface Leaf {
@@ -280,7 +302,7 @@ function axisLeaves(headers: readonly CrosstabHeader[], dimensions: readonly Dim
     const labels: (HeaderLabel | null)[] = dimensions.map((dimension, level) => {
       const keyLabel = (): HeaderLabel => ({
         id: prefixId(header.keys, level + 1),
-        cell: valueCell(header.keys[level], dimension.bucket ? undefined : fieldOf(ctx, dimension.field)?.type, dimension.format, ctx, true) ?? { value: null, bold: true },
+        cell: valueCell(header.keys[level], dimension.bucket ? undefined : fieldOf(ctx, dimension.field)?.type, dimension.format, ctx, true),
       })
       if (header.kind === 'member')
         return keyLabel()

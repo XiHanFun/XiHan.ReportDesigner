@@ -28,7 +28,7 @@ XiHan.ReportDesigner 是框架无关的报表设计器，以原生 Web Component
 └─ report/                           # pnpm monorepo 根
    └─ packages/
       ├─ core/                    # @xihan-report/core：模型层，纯 TS，不碰 DOM
-      ├─ runtime/                 # @xihan-report/runtime：业务页面用的运行时元素；./xlsx 子入口导出 xlsx
+      ├─ runtime/                 # @xihan-report/runtime：业务页面用的运行时元素；./xlsx 子入口把报表排成 @xihan-ui/xlsx 的工作表
       └─ designer/                # @xihan-report/designer：设计器元素
 ```
 
