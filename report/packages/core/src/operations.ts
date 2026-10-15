@@ -7,10 +7,14 @@
 
 import type { JsonPath, JsonPathSegment } from '@xihan-ui/core/json'
 import type { PathOperation } from '@xihan-ui/designer-kit'
-import type { ReportPath } from './issue'
 import type { JsonValue, ReportDocument } from './schema'
 import { getJsonAt, isPlainObject, jsonEquals, JsonPathError } from '@xihan-ui/core/json'
 import { applyInSequence, applyPathOperation, PathOperationError } from '@xihan-ui/designer-kit'
+
+/**
+ * 编辑操作的路径：字符串段是对象的属性名，或数组里带 id（没有 id 时取 name）的那一项；数字段是数组下标。
+ */
+export type ReportPath = readonly (string | number)[]
 
 /**
  * 编辑操作；全部是纯 JSON。路径写法同问题定位：对象属性写属性名，

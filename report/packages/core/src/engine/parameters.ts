@@ -5,7 +5,7 @@
 
 // 报表参数取值的解析与检查。
 
-import type { ReportIssue } from '../issue'
+import type { SchemaIssue } from '@xihan-ui/designer-kit/schema'
 import type { FieldType, ParameterValue, ParameterValues, ReportParameter, ScalarValue } from '../schema'
 import { isMissing, valueKey } from '@xihan-ui/viz'
 import { createDateTools } from './date'
@@ -22,7 +22,7 @@ export type ParameterIssueCode
 export interface ResolvedParameters {
   /** 有值的参数：参数名到值；多选参数总是数组。 */
   readonly values: ParameterValues
-  readonly issues: readonly ReportIssue<ParameterIssueCode>[]
+  readonly issues: readonly SchemaIssue<ParameterIssueCode>[]
 }
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
@@ -57,7 +57,7 @@ function matchesType(value: ScalarValue, type: FieldType): boolean {
  */
 export function resolveParameters(parameters: readonly ReportParameter[] | undefined, input: Readonly<Record<string, ParameterValue | undefined>> = {}): ResolvedParameters {
   const values: Record<string, ParameterValue> = {}
-  const issues: ReportIssue<ParameterIssueCode>[] = []
+  const issues: SchemaIssue<ParameterIssueCode>[] = []
   const declared = new Set<string>()
   for (const parameter of parameters ?? []) {
     const { name } = parameter

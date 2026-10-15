@@ -5,7 +5,7 @@
 
 // 图表与指标卡片配置的校验：取值范围与对查询维度、度量的引用。
 
-import type { ReportPath } from '../issue'
+import type { JsonPath } from '@xihan-ui/core/json'
 import type { ChartTone } from '../schema'
 import type { Checker, JsonObject } from './checker'
 import { SYMBOL_NAMES } from '@xihan-ui/viz'
@@ -26,7 +26,7 @@ const SYMBOLS = SYMBOL_NAMES
 const SIZES = ['sm', 'md', 'lg'] as const
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
-function checkKey(c: Checker, value: string, path: ReportPath, keys: QueryKeys, role: Role): void {
+function checkKey(c: Checker, value: string, path: JsonPath, keys: QueryKeys, role: Role): void {
   const isDimension = keys.dimensions.has(value)
   const isMeasure = keys.measures.has(value)
   if (role === 'any') {
@@ -43,14 +43,14 @@ function checkKey(c: Checker, value: string, path: ReportPath, keys: QueryKeys, 
     c.report(role === 'dimension' ? 'unknown-dimension' : 'unknown-measure', path, { key: value })
 }
 
-function reference(c: Checker, owner: JsonObject, key: string, path: ReportPath, keys: QueryKeys, role: Role, required = true): string | undefined {
+function reference(c: Checker, owner: JsonObject, key: string, path: JsonPath, keys: QueryKeys, role: Role, required = true): string | undefined {
   const value = c.string(owner, key, path, required)
   if (value !== undefined)
     checkKey(c, value, [...path, key], keys, role)
   return value
 }
 
-function measureOrRange(c: Checker, owner: JsonObject, key: string, path: ReportPath, keys: QueryKeys): void {
+function measureOrRange(c: Checker, owner: JsonObject, key: string, path: JsonPath, keys: QueryKeys): void {
   const value = owner[key]
   if (Array.isArray(value)) {
     if (value.length !== 2) {
@@ -68,7 +68,7 @@ function measureOrRange(c: Checker, owner: JsonObject, key: string, path: Report
   reference(c, owner, key, path, keys, 'measure')
 }
 
-function numberOrString(c: Checker, owner: JsonObject, key: string, path: ReportPath, required: boolean): void {
+function numberOrString(c: Checker, owner: JsonObject, key: string, path: JsonPath, required: boolean): void {
   const value = owner[key]
   if (value === undefined) {
     if (required)
@@ -79,7 +79,7 @@ function numberOrString(c: Checker, owner: JsonObject, key: string, path: Report
     c.report('invalid-type', [...path, key], { expected: 'number|string' })
 }
 
-function checkAxis(c: Checker, owner: JsonObject, key: string, path: ReportPath): void {
+function checkAxis(c: Checker, owner: JsonObject, key: string, path: JsonPath): void {
   const axis = c.objectAt(owner, key, path)
   if (!axis)
     return
@@ -108,7 +108,7 @@ function checkAxis(c: Checker, owner: JsonObject, key: string, path: ReportPath)
   c.oneOf(axis, 'fit', at, ['all', 'window'] as const)
 }
 
-function checkCartesian(c: Checker, chart: JsonObject, path: ReportPath, keys: QueryKeys): void {
+function checkCartesian(c: Checker, chart: JsonObject, path: JsonPath, keys: QueryKeys): void {
   const series = c.keyed(chart, 'series', path, 'id', { required: true, nonEmpty: true })
   const seriesIds = new Set<string>()
   for (const { item, path: at, key } of series) {
@@ -194,14 +194,14 @@ function checkCartesian(c: Checker, chart: JsonObject, path: ReportPath, keys: Q
   })
 }
 
-function checkDay(c: Checker, owner: JsonObject, key: string, path: ReportPath): void {
+function checkDay(c: Checker, owner: JsonObject, key: string, path: JsonPath): void {
   const value = c.string(owner, key, path)
   if (value !== undefined && !DAY_PATTERN.test(value))
     c.report('invalid-value', [...path, key], { expected: 'YYYY-MM-DD' })
 }
 
 /** 校验图表卡片的 chart。 */
-export function checkChart(c: Checker, owner: JsonObject, path: ReportPath, keys: QueryKeys): void {
+export function checkChart(c: Checker, owner: JsonObject, path: JsonPath, keys: QueryKeys): void {
   const chart = c.objectAt(owner, 'chart', path, true)
   if (!chart)
     return
@@ -316,7 +316,7 @@ export function checkChart(c: Checker, owner: JsonObject, path: ReportPath, keys
 }
 
 /** 校验指标卡片的 metric。 */
-export function checkMetric(c: Checker, owner: JsonObject, path: ReportPath, keys: QueryKeys): void {
+export function checkMetric(c: Checker, owner: JsonObject, path: JsonPath, keys: QueryKeys): void {
   const metric = c.objectAt(owner, 'metric', path, true)
   if (!metric)
     return

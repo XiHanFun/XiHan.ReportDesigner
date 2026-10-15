@@ -6,8 +6,7 @@
 // 看板卡片与网格项互换：布局算法用 @xihan-ui/designer-kit 的网格布局，这里取出卡片位置、把布局变化写成编辑操作。
 
 import type { GridItem } from '@xihan-ui/designer-kit'
-import type { ReportPath } from './issue'
-import type { ReportOperation } from './operations'
+import type { ReportOperation, ReportPath } from './operations'
 import type { DashboardView } from './schema'
 
 /** 看板上全部卡片的网格位置，次序与卡片相同。 */

@@ -5,8 +5,8 @@
 
 // 校验共用的规则：值类型、格式、公式引用与成员排序。
 
+import type { JsonPath } from '@xihan-ui/core/json'
 import type { ExpressionEngine } from '../expression'
-import type { ReportPath } from '../issue'
 import type { FieldType } from '../schema'
 import type { Checker, JsonObject } from './checker'
 import { isPlainObject } from '@xihan-ui/core/json'
@@ -17,7 +17,7 @@ import { createDateTools } from '../engine/date'
 export interface FormulaSite {
   readonly name: string
   readonly expression: string
-  readonly path: ReportPath
+  readonly path: JsonPath
 }
 
 const NUMERIC_KINDS = ['number', 'percent'] as const
@@ -69,7 +69,7 @@ export function isParameterRef(value: unknown): value is { readonly parameter: u
  * 校验 owner[key] 处的格式说明（不写时不查）：用 @xihan-ui/expression 的 checkFormatSpec，每条问题报一个 format-invalid，
  * 路径指到出问题的那一项，params.issue 是 checkFormatSpec 的问题码。numeric 为真时只收数字与百分比。
  */
-export function checkFormat(c: Checker, owner: JsonObject, key: string, path: ReportPath, numeric = false): void {
+export function checkFormat(c: Checker, owner: JsonObject, key: string, path: JsonPath, numeric = false): void {
   const format = owner[key]
   if (format === undefined)
     return
@@ -78,7 +78,7 @@ export function checkFormat(c: Checker, owner: JsonObject, key: string, path: Re
 }
 
 /** 校验成员排序 { by, direction, nulls }：by 须是 keys 里的键。 */
-export function checkAxisSort(c: Checker, owner: JsonObject, path: ReportPath, keys: ReadonlySet<string>): void {
+export function checkAxisSort(c: Checker, owner: JsonObject, path: JsonPath, keys: ReadonlySet<string>): void {
   const sort = c.objectAt(owner, 'sort', path)
   if (!sort)
     return
@@ -91,7 +91,7 @@ export function checkAxisSort(c: Checker, owner: JsonObject, path: ReportPath, k
 }
 
 /** 校验排序方向与缺失值位置。 */
-export function checkSortOrder(c: Checker, owner: JsonObject, path: ReportPath): void {
+export function checkSortOrder(c: Checker, owner: JsonObject, path: JsonPath): void {
   c.oneOf(owner, 'direction', path, DIRECTIONS)
   c.oneOf(owner, 'nulls', path, NULLS)
 }

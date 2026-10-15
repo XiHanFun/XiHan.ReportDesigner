@@ -3,9 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { ReportDocument, ValidationIssue } from '../src'
+import type { ReportDocument, ValidateOptions } from '../src'
 import { describe, expect, it } from 'vitest'
-import { validateDocument } from '../src'
+import { itemKey, validateDocument } from '../src'
 import { dashboardDocument, groupDocument } from './documents'
 import { formulas, lookupEngine, salesDataset } from './fixtures'
 
@@ -22,47 +22,93 @@ function edit(document: ReportDocument, change: (draft: Mutable) => void): unkno
   return draft
 }
 
-function codes(issues: readonly ValidationIssue[]): string[] {
+function codes(issues: readonly { readonly code: string }[]): string[] {
   return issues.map(issue => issue.code)
+}
+
+interface Readable {
+  readonly code: string
+  readonly path: readonly (string | number)[]
+  readonly params?: Readonly<Record<string, unknown>>
+}
+
+/**
+ * 校验并把问题换成便于对照的写法：路径上带 id / name、且键在所在数组里唯一的项写键，其余写下标。
+ * 每条问题都应是 error，带键对象里的问题都应带 target。
+ */
+function check(document: unknown, options?: ValidateOptions): Readable[] {
+  return validateDocument(document, options).map((issue) => {
+    expect(issue.severity).toBe('error')
+    const path: (string | number)[] = []
+    let node: unknown = document
+    for (const segment of issue.path) {
+      if (Array.isArray(node) && typeof segment === 'number') {
+        const item: unknown = node[segment]
+        const key = itemKey(item)
+        const unique = key !== undefined && node.filter(other => itemKey(other) === key).length === 1
+        path.push(unique ? key : segment)
+        node = item
+      }
+      else {
+        path.push(segment)
+        node = typeof node === 'object' && node !== null ? (node as Record<string, unknown>)[segment] : undefined
+      }
+    }
+    return issue.params ? { code: issue.code, path, params: issue.params } : { code: issue.code, path }
+  })
 }
 
 const card = (draft: Mutable, id: string): Mutable => draft.body.cards.find((item: Mutable) => item.id === id)
 
 describe('validateDocument：合法文档', () => {
   it('看板与分组报表没有问题', () => {
-    expect(validateDocument(dashboardDocument)).toEqual([])
-    expect(validateDocument(groupDocument)).toEqual([])
+    expect(check(dashboardDocument)).toEqual([])
+    expect(check(groupDocument)).toEqual([])
   })
 
   it('带上表达式引擎也没有问题', () => {
-    expect(validateDocument(dashboardDocument, { expressionEngine: lookupEngine(formulas) })).toEqual([])
+    expect(check(dashboardDocument, { expressionEngine: lookupEngine(formulas) })).toEqual([])
   })
 
   it('明细表与交叉表作为主体没有问题', () => {
     const detail = card(clone(dashboardDocument) as Mutable, 'detail').view
     const pivot = card(clone(dashboardDocument) as Mutable, 'pivot').view
-    expect(validateDocument({ ...dashboardDocument, body: detail })).toEqual([])
-    expect(validateDocument({ ...dashboardDocument, body: pivot })).toEqual([])
+    expect(check({ ...dashboardDocument, body: detail })).toEqual([])
+    expect(check({ ...dashboardDocument, body: pivot })).toEqual([])
+  })
+})
+
+describe('validateDocument：问题形状', () => {
+  it('path 只用属性名与下标，target 指出最内层的带键对象，severity 为 error', () => {
+    const issues = validateDocument(edit(dashboardDocument, (d) => {
+      card(d, 'share').chart.format = { kind: 'date' }
+      d.datasets[0].fields[1].title = 1
+    }))
+    const cards = (dashboardDocument.body as unknown as { cards: { id: string }[] }).cards
+    expect(issues).toEqual([
+      { code: 'invalid-type', path: ['datasets', 0, 'fields', 1, 'title'], target: { kind: 'field', id: salesDataset.fields[1]!.name }, severity: 'error', params: { expected: 'string' } },
+      expect.objectContaining({ code: 'format-invalid', path: ['body', 'cards', cards.findIndex(item => item.id === 'share'), 'chart', 'format', 'kind'], target: { kind: 'card', id: 'share' }, severity: 'error' }),
+    ])
   })
 })
 
 describe('validateDocument：结构', () => {
   it('不是对象、缺版本或版本不支持', () => {
-    expect(validateDocument(null)).toEqual([{ code: 'invalid-type', path: [], params: { expected: 'object' } }])
+    expect(check(null)).toEqual([{ code: 'invalid-type', path: [], params: { expected: 'object' } }])
     const unversioned = edit(groupDocument, (d) => {
       delete d.schemaVersion
     })
-    expect(validateDocument(unversioned)).toEqual([{ code: 'required', path: ['schemaVersion'] }])
+    expect(check(unversioned)).toEqual([{ code: 'required', path: ['schemaVersion'] }])
     const future = edit(groupDocument, (d) => {
       d.schemaVersion = 2
     })
-    expect(validateDocument(future)).toEqual([
+    expect(check(future)).toEqual([
       { code: 'unsupported-schema-version', path: ['schemaVersion'], params: { version: 2 } },
     ])
   })
 
   it('缺必填项、类型不对与取值越界都报出定位', () => {
-    const issues = validateDocument(edit(groupDocument, (d) => {
+    const issues = check(edit(groupDocument, (d) => {
       delete d.id
       d.body.columns[0].width = -1
       d.body.columns[1].align = 'left'
@@ -71,15 +117,15 @@ describe('validateDocument：结构', () => {
     }))
     expect(issues).toEqual([
       { code: 'required', path: ['id'] },
-      { code: 'invalid-value', path: ['body', 'columns', 'product', 'width'], params: { min: 0 } },
-      { code: 'invalid-value', path: ['body', 'columns', 'amount', 'align'], params: { expected: 'start|center|end' } },
+      { code: 'out-of-range', path: ['body', 'columns', 'product', 'width'], params: { exclusiveMin: 0 } },
+      { code: 'invalid-option', path: ['body', 'columns', 'amount', 'align'], params: { choices: ['start', 'center', 'end'] } },
       { code: 'required', path: ['body', 'groups', 'month', 'field'] },
       { code: 'invalid-type', path: ['body', 'detail'], params: { expected: 'boolean' } },
     ])
   })
 
   it('重复的键用下标定位，缺键的项也用下标', () => {
-    const issues = validateDocument(edit(groupDocument, (d) => {
+    const issues = check(edit(groupDocument, (d) => {
       d.body.columns.push({ id: 'amount', field: 'qty' })
       d.body.groups.push({ field: 'product' })
       d.datasets[0].fields.push({ name: 'qty', type: 'number' })
@@ -92,14 +138,14 @@ describe('validateDocument：结构', () => {
   })
 
   it('分组与列共用一个命名空间', () => {
-    const issues = validateDocument(edit(groupDocument, (d) => {
+    const issues = check(edit(groupDocument, (d) => {
       d.body.columns[0].id = 'region'
     }))
-    expect(issues).toEqual([{ code: 'duplicate-key', path: ['body', 'columns', 0], params: { key: 'region' } }])
+    expect(issues).toEqual([{ code: 'duplicate-key', path: ['body', 'columns', 'region'], params: { key: 'region' } }])
   })
 
   it('空集合', () => {
-    const issues = validateDocument(edit(groupDocument, (d) => {
+    const issues = check(edit(groupDocument, (d) => {
       d.body.groups = []
       d.datasets[0].fields = []
     }))
@@ -109,7 +155,7 @@ describe('validateDocument：结构', () => {
   })
 
   it('格式说明：小数位越界、舍入方式不认识、固定位与可省位同时给、最少多于最多、日期缺模式', () => {
-    const issues = validateDocument(edit(groupDocument, (d) => {
+    const issues = check(edit(groupDocument, (d) => {
       d.body.columns[0].format = { kind: 'number', decimals: 35, rounding: 'bankers' }
       d.body.columns[1].format = { kind: 'percent', decimals: 2, maxDecimals: 3 }
       d.body.columns[2].format = { kind: 'date' }
@@ -127,7 +173,7 @@ describe('validateDocument：结构', () => {
 
 describe('validateDocument：引用与类型', () => {
   it('未知的数据集、字段、参数与数据集参数', () => {
-    const issues = validateDocument(edit(dashboardDocument, (d) => {
+    const issues = check(edit(dashboardDocument, (d) => {
       card(d, 'share').dataset = 'nope'
       card(d, 'funnel').query.dimensions[0].field = 'color'
       card(d, 'trend').parameters = { year: { parameter: 'era' }, extra: 1 }
@@ -147,11 +193,11 @@ describe('validateDocument：引用与类型', () => {
     const document = edit(groupDocument, (d) => {
       d.datasets[0].parameters = [{ name: 'year', type: 'number', required: true }]
     })
-    expect(validateDocument(document)).toEqual([{ code: 'required', path: ['body', 'parameters', 'year'] }])
+    expect(check(document)).toEqual([{ code: 'required', path: ['body', 'parameters', 'year'] }])
   })
 
   it('聚合、日期粒度与运算符的类型不符', () => {
-    const issues = validateDocument(edit(dashboardDocument, (d) => {
+    const issues = check(edit(dashboardDocument, (d) => {
       card(d, 'share').query.measures[0].field = 'region'
       card(d, 'funnel').query.dimensions[0].bucket = 'month'
       card(d, 'trend').query.filter.conditions[1].conditions[1].operator = 'contains'
@@ -168,7 +214,7 @@ describe('validateDocument：引用与类型', () => {
   })
 
   it('筛选操作数缺失、形状与类型不对', () => {
-    const issues = validateDocument(edit(groupDocument, (d) => {
+    const issues = check(edit(groupDocument, (d) => {
       d.body.filter = {
         logic: 'and',
         conditions: [
@@ -183,10 +229,10 @@ describe('validateDocument：引用与类型', () => {
         ],
       }
     }))
-    const at = (id: string | number): string[] => ['body', 'filter', 'conditions', String(id), 'value']
+    const at = (id: string | number): (string | number)[] => ['body', 'filter', 'conditions', id, 'value']
     expect(issues).toEqual([
       { code: 'duplicate-key', path: ['body', 'filter', 'conditions', 7], params: { key: 'a' } },
-      { code: 'operand-required', path: at('a') },
+      { code: 'operand-required', path: at(0) },
       { code: 'operand-shape', path: at('b'), params: { operator: 'eq' } },
       { code: 'operand-required', path: at('c') },
       { code: 'operand-type-mismatch', path: at('d'), params: { expected: 'number' } },
@@ -197,7 +243,7 @@ describe('validateDocument：引用与类型', () => {
   })
 
   it('多选参数不能配单值运算符', () => {
-    const issues = validateDocument(edit(dashboardDocument, (d) => {
+    const issues = check(edit(dashboardDocument, (d) => {
       card(d, 'trend').query.filter.conditions[0].operator = 'eq'
     }))
     expect(issues).toEqual([
@@ -206,7 +252,7 @@ describe('validateDocument：引用与类型', () => {
   })
 
   it('度量既有聚合又有公式，或排序引用不存在的键', () => {
-    const issues = validateDocument(edit(dashboardDocument, (d) => {
+    const issues = check(edit(dashboardDocument, (d) => {
       card(d, 'trend').query.measures[2].aggregate = 'sum'
       card(d, 'trend').query.sort = [{ key: 'nope' }]
       card(d, 'share').query.dimensions[0].sort.by = 'nope'
@@ -221,7 +267,7 @@ describe('validateDocument：引用与类型', () => {
 
 describe('validateDocument：看板', () => {
   it('卡片越界与重叠', () => {
-    const issues = validateDocument(edit(dashboardDocument, (d) => {
+    const issues = check(edit(dashboardDocument, (d) => {
       card(d, 'kpi').layout = { x: 10, y: 0, w: 4, h: 3 }
       card(d, 'share').layout = { x: 2, y: 1, w: 2, h: 2 }
     }))
@@ -232,7 +278,7 @@ describe('validateDocument：看板', () => {
   })
 
   it('图表引用的键不存在或角色不对', () => {
-    const issues = validateDocument(edit(dashboardDocument, (d) => {
+    const issues = check(edit(dashboardDocument, (d) => {
       card(d, 'share').chart.nameField = 'amount'
       card(d, 'funnel').chart.valueField = 'nope'
       card(d, 'trend').chart.series[0].y = ['amount', 'month']
@@ -252,23 +298,23 @@ describe('validateDocument：看板', () => {
   })
 
   it('图表取值越界', () => {
-    const issues = validateDocument(edit(dashboardDocument, (d) => {
+    const issues = check(edit(dashboardDocument, (d) => {
       card(d, 'trend').chart.series[1].slot = 9
       card(d, 'calendar').chart.startDate = '2026/01/01'
       card(d, 'tree').chart.layout = 'grid'
       card(d, 'share').chart.format = { kind: 'date' }
     }))
     expect(issues).toEqual(expect.arrayContaining([
-      { code: 'invalid-value', path: ['body', 'cards', 'trend', 'chart', 'series', 'line', 'slot'], params: { min: 1, max: 8 } },
+      { code: 'out-of-range', path: ['body', 'cards', 'trend', 'chart', 'series', 'line', 'slot'], params: { min: 1, max: 8 } },
       { code: 'invalid-value', path: ['body', 'cards', 'calendar', 'chart', 'startDate'], params: { expected: 'YYYY-MM-DD' } },
-      { code: 'invalid-value', path: ['body', 'cards', 'tree', 'chart', 'layout'], params: { expected: 'treemap|sunburst|icicle|pack' } },
+      { code: 'invalid-option', path: ['body', 'cards', 'tree', 'chart', 'layout'], params: { choices: ['treemap', 'sunburst', 'icicle', 'pack'] } },
       { code: 'format-invalid', path: ['body', 'cards', 'share', 'chart', 'format', 'kind'], params: { issue: 'XH_EXPR_FORMAT_INVALID_KIND' } },
     ]))
     expect(issues).toHaveLength(4)
   })
 
   it('联动的源卡片、源维度、目标卡片与目标字段', () => {
-    const issues = validateDocument(edit(dashboardDocument, (d) => {
+    const issues = check(edit(dashboardDocument, (d) => {
       d.body.links.push(
         { id: 'a', card: 'ghost', dimension: 'x', targets: [{ card: 'detail', field: 'date' }] },
         { id: 'b', card: 'trend', dimension: 'nope', targets: [{ card: 'ghost', field: 'date' }] },
@@ -294,7 +340,7 @@ describe('validateDocument：公式', () => {
     const document = edit(dashboardDocument, (d) => {
       d.datasets[0].fields.push({ name: 'bad', type: 'number', formula: 'nonsense' })
     })
-    expect(validateDocument(document)).toEqual([])
+    expect(check(document)).toEqual([])
   })
 
   it('编译失败、引用不存在的名字与循环引用', () => {
@@ -311,7 +357,7 @@ describe('validateDocument：公式', () => {
         ],
       }],
     }
-    expect(validateDocument(document, { expressionEngine: engine })).toEqual([
+    expect(check(document, { expressionEngine: engine })).toEqual([
       { code: 'formula-invalid', path: ['datasets', 'sales', 'fields', 'bad', 'formula'], params: { issue: 'XH_EXPR_UNEXPECTED_TOKEN' } },
       { code: 'formula-unknown-reference', path: ['datasets', 'sales', 'fields', 'twice', 'formula'], params: { name: 'double' } },
       { code: 'formula-cycle', path: ['datasets', 'sales', 'fields', 'b', 'formula'], params: { names: 'a,b' } },
@@ -319,7 +365,7 @@ describe('validateDocument：公式', () => {
   })
 
   it('公式度量只能引用同一查询的度量', () => {
-    const issues = validateDocument(edit(dashboardDocument, (d) => {
+    const issues = check(edit(dashboardDocument, (d) => {
       card(d, 'trend').query.measures[2].formula = 'double + 1'
     }), { expressionEngine: engine })
     expect(issues).toEqual([
@@ -337,17 +383,17 @@ describe('validateDocument：公式里的报表参数', () => {
       d.datasets[0].fields.push({ name: 'taxed', type: 'number', formula: '$rate * amount' })
       d.body.columns.push({ id: 'gap', field: 'amount', summary: { formula: 'amount - $target' } })
     })
-    expect(validateDocument(declared, { expressionEngine: engine })).toEqual([])
+    expect(check(declared, { expressionEngine: engine })).toEqual([])
     const undeclared = edit(groupDocument, (d) => {
       d.datasets[0].fields.push({ name: 'taxed', type: 'number', formula: '$rate * amount' })
     })
-    expect(validateDocument(undeclared, { expressionEngine: engine })).toEqual([
+    expect(check(undeclared, { expressionEngine: engine })).toEqual([
       { code: 'formula-unknown-reference', path: ['datasets', 'sales', 'fields', 'taxed', 'formula'], params: { name: '$rate' } },
     ])
   })
 
   it('字段名、度量 id 与列 id 不能以 $ 开头', () => {
-    const issues = validateDocument(edit(dashboardDocument, (d) => {
+    const issues = check(edit(dashboardDocument, (d) => {
       d.datasets[0].fields.push({ name: '$x', type: 'number' })
       card(d, 'share').query.measures[0].id = '$amount'
       card(d, 'share').chart.valueField = '$amount'
