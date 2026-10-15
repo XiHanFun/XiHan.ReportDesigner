@@ -10,9 +10,8 @@ import type { ReportPath } from '../issue'
 import type { FieldType } from '../schema'
 import type { Checker, JsonObject } from './checker'
 import { isPlainObject } from '@xihan-ui/core/json'
-import { checkExpressions } from '@xihan-ui/expression'
+import { checkExpressions, checkFormatSpec } from '@xihan-ui/expression'
 import { createDateTools } from '../engine/date'
-import { FORMAT_DECIMALS_LIMIT, FORMAT_ROUNDINGS } from '../schema'
 
 /** 一个公式：结果名、表达式与它在文档里的位置。 */
 export interface FormulaSite {
@@ -21,6 +20,7 @@ export interface FormulaSite {
   readonly path: ReportPath
 }
 
+const NUMERIC_KINDS = ['number', 'percent'] as const
 const DIRECTIONS = ['asc', 'desc'] as const
 const NULLS = ['first', 'last'] as const
 
@@ -66,34 +66,15 @@ export function isParameterRef(value: unknown): value is { readonly parameter: u
 }
 
 /**
- * 校验格式说明；numeric 为真时只接受 number 与 percent。
- * decimals 与 minDecimals / maxDecimals 同时给、minDecimals 大于 maxDecimals 时报 invalid-value。
+ * 校验 owner[key] 处的格式说明（不写时不查）：用 @xihan-ui/expression 的 checkFormatSpec，每条问题报一个 format-invalid，
+ * 路径指到出问题的那一项，params.issue 是 checkFormatSpec 的问题码。numeric 为真时只收数字与百分比。
  */
 export function checkFormat(c: Checker, owner: JsonObject, key: string, path: ReportPath, numeric = false): void {
-  const format = c.objectAt(owner, key, path)
-  if (!format)
+  const format = owner[key]
+  if (format === undefined)
     return
-  const at = [...path, key]
-  const kinds = numeric ? (['number', 'percent'] as const) : (['number', 'percent', 'date', 'rmb-upper'] as const)
-  const kind = c.oneOf(format, 'kind', at, kinds, true)
-  if (kind === 'number' || kind === 'percent') {
-    const digits = { integer: true, min: 0, max: FORMAT_DECIMALS_LIMIT }
-    const decimals = c.number(format, 'decimals', at, digits)
-    const min = c.number(format, 'minDecimals', at, digits)
-    const max = c.number(format, 'maxDecimals', at, digits)
-    if (decimals !== undefined && (min !== undefined || max !== undefined))
-      c.report('invalid-value', [...at, 'decimals'], { expected: 'decimals|minDecimals,maxDecimals' })
-    if (min !== undefined && max !== undefined && min > max)
-      c.report('invalid-value', [...at, 'minDecimals'], { max })
-    c.boolean(format, 'grouping', at)
-    c.oneOf(format, 'rounding', at, FORMAT_ROUNDINGS)
-  }
-  else if (kind === 'date') {
-    c.string(format, 'pattern', at, true)
-  }
-  else if (kind === 'rmb-upper') {
-    c.oneOf(format, 'rounding', at, FORMAT_ROUNDINGS)
-  }
+  for (const issue of checkFormatSpec(format, numeric ? { kinds: NUMERIC_KINDS } : {}))
+    c.report('format-invalid', [...path, key, ...issue.path], { issue: issue.code })
 }
 
 /** 校验成员排序 { by, direction, nulls }：by 须是 keys 里的键。 */

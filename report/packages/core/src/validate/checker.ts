@@ -16,6 +16,7 @@ export type ValidationIssueCode
     | 'chart-reference-role'
     | 'duplicate-key'
     | 'empty'
+    | 'format-invalid'
     | 'formula-cycle'
     | 'formula-invalid'
     | 'formula-unknown-reference'

@@ -108,7 +108,7 @@ describe('validateDocument：结构', () => {
     expect(issues.find(issue => issue.path.join('/') === 'datasets/sales/fields')?.code).toBe('empty')
   })
 
-  it('格式说明：小数位越界、固定位与可省位同时给、最少多于最多、日期缺模式', () => {
+  it('格式说明：小数位越界、舍入方式不认识、固定位与可省位同时给、最少多于最多、日期缺模式', () => {
     const issues = validateDocument(edit(groupDocument, (d) => {
       d.body.columns[0].format = { kind: 'number', decimals: 35, rounding: 'bankers' }
       d.body.columns[1].format = { kind: 'percent', decimals: 2, maxDecimals: 3 }
@@ -116,11 +116,11 @@ describe('validateDocument：结构', () => {
       d.body.groups[0].format = { kind: 'number', minDecimals: 3, maxDecimals: 1 }
     }))
     expect(issues).toEqual([
-      { code: 'invalid-value', path: ['body', 'columns', 'product', 'format', 'decimals'], params: { min: 0, max: 34 } },
-      { code: 'invalid-value', path: ['body', 'columns', 'product', 'format', 'rounding'], params: { expected: 'half-up|half-even|floor|ceil|down' } },
-      { code: 'invalid-value', path: ['body', 'columns', 'amount', 'format', 'decimals'], params: { expected: 'decimals|minDecimals,maxDecimals' } },
-      { code: 'required', path: ['body', 'columns', 'date', 'format', 'pattern'] },
-      { code: 'invalid-value', path: ['body', 'groups', 'region', 'format', 'minDecimals'], params: { max: 1 } },
+      { code: 'format-invalid', path: ['body', 'columns', 'product', 'format', 'decimals'], params: { issue: 'XH_EXPR_FORMAT_INVALID_OPTION' } },
+      { code: 'format-invalid', path: ['body', 'columns', 'product', 'format', 'rounding'], params: { issue: 'XH_EXPR_FORMAT_INVALID_OPTION' } },
+      { code: 'format-invalid', path: ['body', 'columns', 'amount', 'format', 'decimals'], params: { issue: 'XH_EXPR_FORMAT_CONFLICT' } },
+      { code: 'format-invalid', path: ['body', 'columns', 'date', 'format', 'pattern'], params: { issue: 'XH_EXPR_FORMAT_INVALID_OPTION' } },
+      { code: 'format-invalid', path: ['body', 'groups', 'region', 'format', 'minDecimals'], params: { issue: 'XH_EXPR_FORMAT_CONFLICT' } },
     ])
   })
 })
@@ -262,7 +262,7 @@ describe('validateDocument：看板', () => {
       { code: 'invalid-value', path: ['body', 'cards', 'trend', 'chart', 'series', 'line', 'slot'], params: { min: 1, max: 8 } },
       { code: 'invalid-value', path: ['body', 'cards', 'calendar', 'chart', 'startDate'], params: { expected: 'YYYY-MM-DD' } },
       { code: 'invalid-value', path: ['body', 'cards', 'tree', 'chart', 'layout'], params: { expected: 'treemap|sunburst|icicle|pack' } },
-      { code: 'invalid-value', path: ['body', 'cards', 'share', 'chart', 'format', 'kind'], params: { expected: 'number|percent' } },
+      { code: 'format-invalid', path: ['body', 'cards', 'share', 'chart', 'format', 'kind'], params: { issue: 'XH_EXPR_FORMAT_INVALID_KIND' } },
     ]))
     expect(issues).toHaveLength(4)
   })
