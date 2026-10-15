@@ -55,6 +55,7 @@
   "dependencies": {
     "@xihan-report/core": "workspace:^",
     "@xihan-ui/expression": "catalog:",
+    "@xihan-ui/viz": "catalog:",
     "@xihan-ui/xlsx": "catalog:"
   }
 }

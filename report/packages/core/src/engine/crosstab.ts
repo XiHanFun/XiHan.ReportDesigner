@@ -5,16 +5,15 @@
 
 // 交叉表（透视）的计算。
 
+import type { StringCollator } from '@xihan-ui/viz'
 import type { CrosstabTotals, CrosstabView, DatasetData, DatasetSchema, Dimension } from '../schema'
 import type { ComputeOptions } from './context'
 import type { CubeCell, CubeLevel } from './cube'
-import type { StringCollator } from './value'
+import { sortBy, tupleKey } from '@xihan-ui/viz'
 import { createEnvironment, prepareInput } from './context'
 import { buildCube, isAggregateMeasure, measureFormulas } from './cube'
 import { ReportComputeError } from './errors'
 import { evaluatePlan, planFormulas } from './formula'
-import { sortBy } from './sort'
-import { tupleKey } from './value'
 
 /** 交叉表一条轴上的一项。 */
 export interface CrosstabHeader {
@@ -69,7 +68,7 @@ function buildAxis(dimensions: readonly Dimension[], totals: CrosstabTotals | un
       value: cell => (by === undefined ? cell.members[length - 1] : cell.values[by]),
       direction: dimension.sort?.direction,
       nulls: dimension.sort?.nulls,
-    }], collate)
+    }], { collate })
     for (const cell of sorted) {
       if (length === depth) {
         entries.push({ kind: 'member', keys: cell.members, memberKeys: cell.memberKeys })

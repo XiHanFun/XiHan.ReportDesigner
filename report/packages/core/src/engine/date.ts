@@ -7,8 +7,8 @@
 
 import type { DateBucket } from '../schema'
 import { isValidTimeZone, PlainDate, PlainDateTime, ZonedDateTime } from '@xihan-ui/core/date'
+import { isMissing } from '@xihan-ui/viz'
 import { ReportComputeError } from './errors'
-import { isMissing } from './value'
 
 /**
  * 日期值的墙上时间各部分；字符串里没写到的部分为 null。

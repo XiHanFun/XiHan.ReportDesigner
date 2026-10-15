@@ -3,8 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 定义筛选条件、排序规则与操作数。
+// 定义筛选条件、排序规则与操作数；运算符与排序方向取自 @xihan-ui/viz。
 
+import type { FilterOperator, NullsPosition, SortDirection } from '@xihan-ui/viz'
 import type { DateBucket } from './query'
 import type { ScalarValue } from './value'
 
@@ -16,50 +17,8 @@ export interface ParameterRef {
 /** 操作数：字面值、字面值数组，或报表参数。 */
 export type Operand = ScalarValue | readonly ScalarValue[] | ParameterRef
 
-/**
- * 筛选运算符。
- * - eq / neq：相等、不等；
- * - gt / gte / lt / lte：大小比较；
- * - between：闭区间，操作数为 [下界, 上界]；
- * - in / notIn：属于、不属于一组值；
- * - contains / notContains / startsWith / endsWith：字符串匹配；
- * - isEmpty / isNotEmpty：值缺失、不缺失，不需要操作数。
- */
-export type FilterOperator
-  = | 'eq'
-    | 'neq'
-    | 'gt'
-    | 'gte'
-    | 'lt'
-    | 'lte'
-    | 'between'
-    | 'in'
-    | 'notIn'
-    | 'contains'
-    | 'notContains'
-    | 'startsWith'
-    | 'endsWith'
-    | 'isEmpty'
-    | 'isNotEmpty'
-
-/** 全部筛选运算符。 */
-export const FILTER_OPERATORS: readonly FilterOperator[] = [
-  'eq',
-  'neq',
-  'gt',
-  'gte',
-  'lt',
-  'lte',
-  'between',
-  'in',
-  'notIn',
-  'contains',
-  'notContains',
-  'startsWith',
-  'endsWith',
-  'isEmpty',
-  'isNotEmpty',
-]
+export { FILTER_OPERATORS } from '@xihan-ui/viz'
+export type { FilterOperator, NullsPosition, SortDirection } from '@xihan-ui/viz'
 
 /** 一个筛选条件。 */
 export interface FilterCondition {
@@ -90,12 +49,6 @@ export interface FilterSubgroup extends FilterGroup {
 
 /** 条件组里的一项：条件或子组。 */
 export type FilterNode = FilterCondition | FilterSubgroup
-
-/** 排序方向。 */
-export type SortDirection = 'asc' | 'desc'
-
-/** 缺失值排在最前还是最后，与方向无关。 */
-export type NullsPosition = 'first' | 'last'
 
 /** 明细行的一条排序规则。 */
 export interface RowSortRule {

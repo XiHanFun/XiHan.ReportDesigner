@@ -5,8 +5,7 @@
 
 // 汇总导出计算引擎。
 
-export { aggregateValues, createAccumulator, createRollupAccumulator, isAdditive, NEEDS_ROLLUP } from './aggregate'
-export type { Accumulator } from './aggregate'
+export { createRollupAccumulator, isAdditive, NEEDS_ROLLUP } from './aggregate'
 export type { ComputeEnvironment, ComputeOptions } from './context'
 export { buildCrosstab } from './crosstab'
 export type { CrosstabHeader, CrosstabResult } from './crosstab'
@@ -26,9 +25,6 @@ export { runQuery } from './query'
 export type { QueryResult } from './query'
 export { createDatasetRequest, findDataset } from './request'
 export type { RequestOptions, RequestSource } from './request'
-export { compareByKey, sortBy, sortRows } from './sort'
-export type { SortKey } from './sort'
+export { sortRows } from './sort'
 export { buildGroupReport, buildTable } from './table'
 export type { GroupNode, GroupReportResult, TableResult } from './table'
-export { compareValues, isMissing, valueKey } from './value'
-export type { StringCollator } from './value'
