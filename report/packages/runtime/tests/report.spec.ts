@@ -6,6 +6,7 @@
 import type { CrosstabView, DatasetRows, DatasetSchema, GroupView, TableView } from '@xihan-report/core'
 import type { XlsxCell, XlsxSheet } from '@xihan-ui/xlsx'
 import { buildCrosstab, buildGroupReport, buildTable } from '@xihan-report/core'
+import { formatValue } from '@xihan-ui/expression'
 import { writeXlsx } from '@xihan-ui/xlsx'
 import { describe, expect, it } from 'vitest'
 import { crosstabSheet, groupSheet, tableSheet } from '../src/xlsx'
@@ -121,6 +122,23 @@ describe('tableSheet', () => {
       { type: 'text', value: '100150%' },
       { type: 'number', value: 2.34, format: '0.00' },
       { type: 'number', value: 2.345, format: '0.00' },
+    ])
+  })
+
+  it('数字字形格式写成 formatValue 的文本', () => {
+    const rows: DatasetRows = { kind: 'rows', rows: [{ date: '2026-10-16', amount: 12, qty: 4 }] }
+    const view: TableView = {
+      type: 'table',
+      dataset: 'sales',
+      columns: [
+        { id: 'roman', field: 'amount', format: { kind: 'numeral', style: 'roman-upper' } },
+        { id: 'chinese', field: 'qty', format: { kind: 'numeral', style: 'cn-upper' } },
+      ],
+    }
+    const [cells] = tableSheet(view, buildTable(view, dataset, rows), { dataset }).rows.slice(1)
+    expect(cells).toEqual([
+      { type: 'text', value: 'XII' },
+      { type: 'text', value: formatValue(4, { kind: 'numeral', style: 'cn-upper' }) },
     ])
   })
 
