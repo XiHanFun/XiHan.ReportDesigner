@@ -7,6 +7,7 @@
 
 import type { ReportIssue, ReportPath } from '../issue'
 import type { ScalarValue } from '../schema'
+import { isPlainObject } from '@xihan-ui/core/json'
 
 /** 校验问题码。 */
 export type ValidationIssueCode
@@ -65,11 +66,6 @@ export interface NumberRule {
   readonly exclusiveMin?: boolean
 }
 
-/** 判断值是否为对象（不含数组与 null）。 */
-export function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 /** 收集问题并按类型读取属性。 */
 export class Checker {
   readonly issues: ValidationIssue[] = []
@@ -80,7 +76,7 @@ export class Checker {
 
   /** 读取对象；不是对象时记 invalid-type。 */
   object(value: unknown, path: ReportPath): JsonObject | undefined {
-    if (isObject(value))
+    if (isPlainObject(value))
       return value
     this.report('invalid-type', path, { expected: 'object' })
     return undefined
@@ -201,7 +197,7 @@ export class Checker {
   keyedItems(items: readonly unknown[], path: ReportPath, keyName: 'id' | 'name', scope: Set<string>): KeyedItem[] {
     const result: KeyedItem[] = []
     items.forEach((value, index) => {
-      if (!isObject(value)) {
+      if (!isPlainObject(value)) {
         this.report('invalid-type', [...path, index], { expected: 'object' })
         return
       }

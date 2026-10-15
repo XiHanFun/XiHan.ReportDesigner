@@ -7,6 +7,7 @@
 
 import type { ReportPath } from './issue'
 import type { JsonValue, ReportDocument } from './schema'
+import { findJsonViolation, isPlainObject, jsonEquals } from '@xihan-ui/core/json'
 
 /**
  * 编辑操作；全部是纯 JSON。路径写法同问题定位：对象属性写属性名，
@@ -53,48 +54,13 @@ export class ReportOperationError extends Error {
 
 type Container = Readonly<Record<string, unknown>> | readonly unknown[]
 
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 /** 数组项的键：id，没有 id 时取 name；都不是字符串时为 undefined。 */
 export function itemKey(item: unknown): string | undefined {
-  if (!isRecord(item))
+  if (!isPlainObject(item))
     return undefined
   if (typeof item.id === 'string')
     return item.id
   return typeof item.name === 'string' ? item.name : undefined
-}
-
-function isJson(value: unknown): value is JsonValue {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean')
-    return true
-  if (typeof value === 'number')
-    return Number.isFinite(value)
-  if (Array.isArray(value))
-    return value.every(isJson)
-  if (typeof value !== 'object')
-    return false
-  const prototype = Object.getPrototypeOf(value) as unknown
-  if (prototype !== Object.prototype && prototype !== null)
-    return false
-  return Object.values(value).every(isJson)
-}
-
-function jsonEqual(a: unknown, b: unknown): boolean {
-  if (a === b)
-    return true
-  if (Array.isArray(a) || Array.isArray(b)) {
-    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length)
-      return false
-    return a.every((item, i) => jsonEqual(item, b[i]))
-  }
-  if (!isRecord(a) || !isRecord(b))
-    return false
-  const keys = Object.keys(a)
-  if (keys.length !== Object.keys(b).length)
-    return false
-  return keys.every(key => Object.hasOwn(b, key) && jsonEqual(a[key], b[key]))
 }
 
 function indexIn(array: readonly unknown[], segment: string | number): number {
@@ -108,7 +74,7 @@ function child(container: unknown, segment: string | number): { found: boolean, 
     const index = indexIn(container, segment)
     return index < 0 ? { found: false, value: undefined } : { found: true, value: container[index] }
   }
-  if (isRecord(container) && typeof segment === 'string' && Object.hasOwn(container, segment))
+  if (isPlainObject(container) && typeof segment === 'string' && Object.hasOwn(container, segment))
     return { found: true, value: container[segment] }
   return { found: false, value: undefined }
 }
@@ -133,7 +99,7 @@ function resolveContainer(root: unknown, path: ReportPath, operation: ReportOper
       throw new ReportOperationError('path-not-found', operation)
     current = next.value
   }
-  if (!isRecord(current) && !Array.isArray(current))
+  if (!isPlainObject(current) && !Array.isArray(current))
     throw new ReportOperationError('path-not-found', operation)
   return current
 }
@@ -173,9 +139,9 @@ function unchanged(document: ReportDocument): ReportOperationResult {
 function applySet(document: ReportDocument, operation: Extract<ReportOperation, { type: 'set' }>): ReportOperationResult {
   const { path, value } = operation
   if (path.length === 0) {
-    if (!isRecord(value))
+    if (!isPlainObject(value))
       throw new ReportOperationError('invalid-value', operation)
-    if (jsonEqual(document, value))
+    if (jsonEquals(document as unknown as JsonValue, value))
       return unchanged(document)
     return { document: value as unknown as ReportDocument, inverse: [{ type: 'set', path: [], value: document as unknown as JsonValue }] }
   }
@@ -187,7 +153,7 @@ function applySet(document: ReportDocument, operation: Extract<ReportOperation, 
     if (index < 0)
       throw new ReportOperationError('path-not-found', operation)
     const old = parent[index]
-    if (jsonEqual(old, value))
+    if (jsonEquals(old as JsonValue | undefined, value as JsonValue | undefined))
       return unchanged(document)
     checkUniqueKey(parent, value, index, operation)
     const next = replaceAt(document, parentPath, (container) => {
@@ -202,7 +168,7 @@ function applySet(document: ReportDocument, operation: Extract<ReportOperation, 
   const record = parent as Readonly<Record<string, unknown>>
   const existed = Object.hasOwn(record, last)
   const old = record[last]
-  if (existed && jsonEqual(old, value))
+  if (existed && jsonEquals(old as JsonValue | undefined, value as JsonValue | undefined))
     return unchanged(document)
 
   let inversePath: ReportPath = path
@@ -289,9 +255,9 @@ function applyMove(document: ReportDocument, operation: Extract<ReportOperation,
 }
 
 function checkOperation(operation: ReportOperation): void {
-  if (!isRecord(operation) || !Array.isArray(operation.path) || !operation.path.every(segment => typeof segment === 'string' || (typeof segment === 'number' && Number.isInteger(segment))))
+  if (!isPlainObject(operation) || !Array.isArray(operation.path) || !operation.path.every(segment => typeof segment === 'string' || (typeof segment === 'number' && Number.isInteger(segment))))
     throw new ReportOperationError('invalid-operation', operation)
-  if ((operation.type === 'set' || operation.type === 'insert') && !isJson(operation.value))
+  if ((operation.type === 'set' || operation.type === 'insert') && findJsonViolation(operation.value) !== undefined)
     throw new ReportOperationError('invalid-value', operation)
 }
 
