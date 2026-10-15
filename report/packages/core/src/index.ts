@@ -7,8 +7,7 @@
 
 export * from './engine'
 export type { CompiledExpression, EngineCompileOptions, EngineCompileResult, EngineEvaluation, ExpressionEngine, ExpressionIssue } from './expression'
-export { clampToGrid, compactLayout, gridCollides, gridItems, layoutOperations, placeGridItem, removeGridItem, setGridItemRect } from './grid'
-export type { GridItem, GridOptions, GridPlacement } from './grid'
+export { gridItems, layoutOperations } from './grid'
 export type { ReportIssue, ReportPath } from './issue'
 export { applyOperation, applyOperations, itemKey, readPath, ReportOperationError } from './operations'
 export type { ReportOperation, ReportOperationErrorCode, ReportOperationResult } from './operations'
