@@ -5,6 +5,5 @@
 
 // 导出 @xihan-report/runtime/xlsx：把报表排成 @xihan-ui/xlsx 的工作表，写出交给 @xihan-ui/xlsx。
 
-export { dateFormatCode, numberFormatCode } from './format'
 export { crosstabSheet, groupSheet, tableSheet } from './report'
 export type { SheetOptions, XlsxTranslations } from './report'

@@ -86,6 +86,9 @@ importers:
       '@xihan-report/core':
         specifier: workspace:^
         version: link:../core
+      '@xihan-ui/expression':
+        specifier: link:../../../../XiHan.UI/ui/packages/features/expression
+        version: link:../../../../XiHan.UI/ui/packages/features/expression
       '@xihan-ui/xlsx':
         specifier: link:../../../../XiHan.UI/ui/packages/features/xlsx
         version: link:../../../../XiHan.UI/ui/packages/features/xlsx
