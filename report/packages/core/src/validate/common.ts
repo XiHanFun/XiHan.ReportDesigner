@@ -9,9 +9,9 @@ import type { ExpressionEngine } from '../expression'
 import type { ReportPath } from '../issue'
 import type { FieldType } from '../schema'
 import type { Checker, JsonObject } from './checker'
+import { isPlainObject } from '@xihan-ui/core/json'
 import { createDateTools } from '../engine/date'
 import { FORMAT_DECIMALS_LIMIT, FORMAT_ROUNDINGS } from '../schema'
-import { isObject } from './checker'
 
 /** 一个公式：结果名、表达式与它在文档里的位置。 */
 export interface FormulaSite {
@@ -61,7 +61,7 @@ export function isScalar(value: unknown): boolean {
 
 /** 判断值是否为参数引用 { parameter }。 */
 export function isParameterRef(value: unknown): value is { readonly parameter: unknown } {
-  return isObject(value) && 'parameter' in value
+  return isPlainObject(value) && 'parameter' in value
 }
 
 /**

@@ -10,9 +10,10 @@ import type { ReportPath } from '../issue'
 import type { DateBucket, FieldType } from '../schema'
 import type { JsonObject, KeyedItem, ValidationIssue } from './checker'
 import type { FormulaSite } from './common'
+import { isPlainObject } from '@xihan-ui/core/json'
 import { AGGREGATE_KINDS, DATE_BUCKETS, FIELD_TYPES, FILTER_OPERATORS, REPORT_SCHEMA_VERSION } from '../schema'
 import { checkChart, checkMetric } from './chart'
-import { Checker, isObject } from './checker'
+import { Checker } from './checker'
 import { checkAxisSort, checkFormat, checkFormulas, checkSortOrder, isParameterRef, isScalar, literalMatches, typeCompatible } from './common'
 
 /** 校验选项。 */
@@ -570,7 +571,7 @@ function checkDatasets(c: Checker, document: JsonObject, formula: ExpressionEngi
  */
 export function validateDocument(document: unknown, options: ValidateOptions = {}): ValidationIssue[] {
   const c = new Checker()
-  if (!isObject(document)) {
+  if (!isPlainObject(document)) {
     c.report('invalid-type', [], { expected: 'object' })
     return c.issues
   }

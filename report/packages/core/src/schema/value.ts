@@ -3,13 +3,15 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 定义报表里的基础值类型：JSON 标量、数据行、参数值与字段类型。
+// 定义报表里的基础值类型：JSON 标量、数据行、参数值与字段类型；JSON 值的类型取自 @xihan-ui/core/json。
+
+import type { JsonPrimitive } from '@xihan-ui/core/json'
 
 /** JSON 标量：模板里能写下的单个值。 */
-export type ScalarValue = string | number | boolean | null
+export type ScalarValue = JsonPrimitive
 
 /** 模板里能写下的任意 JSON 值。 */
-export type JsonValue = ScalarValue | readonly JsonValue[] | { readonly [key: string]: JsonValue }
+export type { JsonValue } from '@xihan-ui/core/json'
 
 /** 一行数据：字段名到值。core 只读不写。 */
 export type DataRow = Readonly<Record<string, unknown>>
