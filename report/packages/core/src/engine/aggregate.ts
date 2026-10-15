@@ -7,6 +7,7 @@
 
 import type { AggregateKind } from '../schema'
 import type { StringCollator } from './value'
+import { mean, sum } from '@xihan-ui/viz'
 import { compareValues, isMissing, valueKey } from './value'
 
 /** 逐个收值、最后给出聚合结果的累加器。 */
@@ -22,48 +23,24 @@ function finite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
-function createSum(): { add: (value: number) => void, total: () => number } {
-  let sum = 0
-  let compensation = 0
+/** 收下有限数值，结果交给 summarize；一个有限数值都没有时为 emptyResult。 */
+function finiteAccumulator(summarize: (values: readonly number[]) => number | undefined, emptyResult: number | null): Accumulator {
+  const values: number[] = []
   return {
     add(value) {
-      const next = sum + value
-      if (Math.abs(sum) >= Math.abs(value))
-        compensation += (sum - next) + value
-      else
-        compensation += (value - next) + sum
-      sum = next
+      if (finite(value))
+        values.push(value)
     },
-    total: () => sum + compensation,
+    result: () => (values.length === 0 ? emptyResult : summarize(values) ?? emptyResult),
   }
 }
 
 function sumAccumulator(emptyResult: number | null): Accumulator {
-  const sum = createSum()
-  let count = 0
-  return {
-    add(value) {
-      if (finite(value)) {
-        sum.add(value)
-        count++
-      }
-    },
-    result: () => (count === 0 ? emptyResult : sum.total()),
-  }
+  return finiteAccumulator(values => sum(values), emptyResult)
 }
 
 function avgAccumulator(): Accumulator {
-  const sum = createSum()
-  let count = 0
-  return {
-    add(value) {
-      if (finite(value)) {
-        sum.add(value)
-        count++
-      }
-    },
-    result: () => (count === 0 ? null : sum.total() / count),
-  }
+  return finiteAccumulator(values => mean(values), null)
 }
 
 function countAccumulator(): Accumulator {
