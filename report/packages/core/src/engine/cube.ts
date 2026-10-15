@@ -5,11 +5,11 @@
 
 // 多分组集的一遍聚合：每行按每个分组集取键，累加进对应的格子。
 
+import type { ExpressionEntry } from '@xihan-ui/expression'
 import type { Accumulator, StringCollator } from '@xihan-ui/viz'
 import type { AggregateKind, AggregateMeasure, DataRow, DateBucket, FormulaMeasure, Measure } from '../schema'
 import type { PreparedInput } from './context'
 import type { DateTools } from './date'
-import type { FormulaEntry } from './formula'
 import { createAccumulator, isMissing, tupleKey, valueKey } from '@xihan-ui/viz'
 import { createRollupAccumulator, NEEDS_ROLLUP } from './aggregate'
 
@@ -76,7 +76,7 @@ export function isAggregateMeasure(measure: Measure): measure is AggregateMeasur
 }
 
 /** 公式度量的求值项。 */
-export function measureFormulas(measures: readonly Measure[]): FormulaEntry[] {
+export function measureFormulas(measures: readonly Measure[]): ExpressionEntry[] {
   return measures
     .filter((measure): measure is FormulaMeasure => !isAggregateMeasure(measure))
     .map(measure => ({ name: measure.id, expression: measure.formula }))

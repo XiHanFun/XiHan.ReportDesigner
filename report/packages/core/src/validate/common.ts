@@ -10,6 +10,7 @@ import type { ReportPath } from '../issue'
 import type { FieldType } from '../schema'
 import type { Checker, JsonObject } from './checker'
 import { isPlainObject } from '@xihan-ui/core/json'
+import { checkExpressions } from '@xihan-ui/expression'
 import { createDateTools } from '../engine/date'
 import { FORMAT_DECIMALS_LIMIT, FORMAT_ROUNDINGS } from '../schema'
 
@@ -115,47 +116,36 @@ export function checkSortOrder(c: Checker, owner: JsonObject, path: ReportPath):
 }
 
 /**
- * 校验一组公式：编译不通过报 formula-invalid（params.issue 是第一条表达式问题的问题码），
- * 引用 known 之外的名字报 formula-unknown-reference，公式之间循环引用时在闭合环的那个公式上报 formula-cycle。
+ * 校验一组公式：编译不通过报 formula-invalid（params.issue 是第一个问题的码），引用了 known 与这组公式之外的名字报
+ * formula-unknown-reference（每个公式里每个名字一次），循环引用报 formula-cycle（报在环上最后一个公式上，params.names 以逗号连接）。
+ * 没有引擎时不检查。
  */
-export function checkFormulas(c: Checker, compiler: ExpressionEngine | undefined, sites: readonly FormulaSite[], known: ReadonlySet<string>): void {
-  if (!compiler || sites.length === 0)
+export function checkFormulas(c: Checker, engine: ExpressionEngine | undefined, sites: readonly FormulaSite[], known: ReadonlySet<string>): void {
+  if (!engine || sites.length === 0)
     return
-  const references = new Map<string, readonly string[]>()
   const byName = new Map(sites.map(site => [site.name, site]))
-  for (const site of sites) {
-    const result = compiler.compile(site.expression)
-    if (!result.ok) {
-      const first = result.issues[0]
-      c.report('formula-invalid', site.path, first ? { issue: first.code } : undefined)
+  const unknown = new Set<string>()
+  const invalid = new Set<string>()
+  for (const issue of checkExpressions(engine, sites, { identifiers: name => known.has(name) })) {
+    if (issue.code === 'XH_EXPR_CYCLE') {
+      const names = 'names' in issue ? issue.names : []
+      c.report('formula-cycle', byName.get(names.at(-1)!)!.path, { names: names.join(',') })
       continue
     }
-    const refs = result.references
-    references.set(site.name, refs)
-    for (const name of new Set(refs)) {
-      if (!known.has(name))
+    if (issue.code === 'XH_EXPR_DUPLICATE_NAME' || !('start' in issue))
+      continue
+    const site = byName.get(issue.name)!
+    if (issue.code === 'XH_EXPR_UNKNOWN_IDENTIFIER') {
+      const name = String(issue.data?.name)
+      const key = JSON.stringify([issue.name, name])
+      if (!unknown.has(key)) {
+        unknown.add(key)
         c.report('formula-unknown-reference', site.path, { name })
+      }
     }
-  }
-  const state = new Map<string, 'visiting' | 'done'>()
-  const stack: string[] = []
-  function visit(name: string): void {
-    state.set(name, 'visiting')
-    stack.push(name)
-    for (const next of references.get(name) ?? []) {
-      if (!references.has(next))
-        continue
-      const mark = state.get(next)
-      if (mark === 'visiting')
-        c.report('formula-cycle', byName.get(name)!.path, { names: stack.slice(stack.indexOf(next)).join(',') })
-      else if (mark === undefined)
-        visit(next)
+    else if (!invalid.has(issue.name)) {
+      invalid.add(issue.name)
+      c.report('formula-invalid', site.path, { issue: issue.code })
     }
-    stack.pop()
-    state.set(name, 'done')
-  }
-  for (const name of references.keys()) {
-    if (!state.has(name))
-      visit(name)
   }
 }
