@@ -3,11 +3,13 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 定义维度、度量、日期粒度与聚合查询；聚合方式取自 @xihan-ui/viz。
+// 定义维度、度量、日期粒度与聚合查询；聚合方式取自 @xihan-ui/viz，日期粒度取自 @xihan-ui/core/date。
 
+import type { DateBucketUnit } from '@xihan-ui/core/date'
 import type { AggregateKind } from '@xihan-ui/viz'
 import type { FilterGroup, NullsPosition, SortDirection } from './filter'
 import type { FormatSpec } from './format'
+import { DATE_BUCKET_UNITS } from '@xihan-ui/core/date'
 
 export { AGGREGATE_KINDS } from '@xihan-ui/viz'
 export type { AggregateKind } from '@xihan-ui/viz'
@@ -16,10 +18,10 @@ export type { AggregateKind } from '@xihan-ui/viz'
  * 日期粒度：把日期取成分组键。
  * year → 2026，quarter → 2026-Q4，month → 2026-10，week → 2026-W42（ISO 周），day → 2026-10-16，hour → 2026-10-16T08。
  */
-export type DateBucket = 'year' | 'quarter' | 'month' | 'week' | 'day' | 'hour'
+export type DateBucket = DateBucketUnit
 
 /** 全部日期粒度，由粗到细。 */
-export const DATE_BUCKETS: readonly DateBucket[] = ['year', 'quarter', 'month', 'week', 'day', 'hour']
+export const DATE_BUCKETS: readonly DateBucket[] = DATE_BUCKET_UNITS
 
 /** 成员的次序：按键，或按某个度量在该成员上的汇总值。 */
 export interface AxisSort {
