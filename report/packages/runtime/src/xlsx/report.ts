@@ -148,7 +148,7 @@ function numberCell(value: number, format: FormatSpec, ctx: Context, bold: boole
 function valueCell(value: unknown, type: FieldType | undefined, format: FormatSpec | undefined, ctx: Context, bold = false): XlsxCell | null {
   if (isMissing(value))
     return null
-  const numeric = format?.kind === 'number' || format?.kind === 'percent' || format?.kind === 'rmb-upper'
+  const numeric = format?.kind === 'number' || format?.kind === 'percent' || format?.kind === 'rmb-upper' || format?.kind === 'numeral'
   const dateLike = value instanceof Date || format?.kind === 'date' || ((type === 'date' || type === 'datetime') && !numeric)
   if (dateLike) {
     const cell = dateCell(value, type, format, ctx, bold)
