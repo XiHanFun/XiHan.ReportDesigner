@@ -14,6 +14,7 @@ import type {
   DateTools,
   Dimension,
   FieldType,
+  FormatSpec,
   GroupNode,
   GroupReportResult,
   GroupView,
@@ -21,7 +22,6 @@ import type {
   TableColumn,
   TableResult,
   TableView,
-  ValueFormat,
 } from '@xihan-report/core'
 import type { XlsxCell, XlsxMerge, XlsxRow, XlsxSheet } from './workbook'
 import { createDateTools, isAggregateMeasure, isMissing, valueKey } from '@xihan-report/core'
@@ -76,7 +76,7 @@ function fieldTitle(ctx: Context, name: string, title: string | undefined): stri
   return title ?? fieldOf(ctx, name)?.title ?? name
 }
 
-function dateCell(value: unknown, type: FieldType | undefined, format: ValueFormat | undefined, ctx: Context): XlsxCell | null {
+function dateCell(value: unknown, type: FieldType | undefined, format: FormatSpec | undefined, ctx: Context): XlsxCell | null {
   if (typeof value !== 'string' && typeof value !== 'number' && !(value instanceof Date))
     return null
   try {
@@ -96,18 +96,19 @@ function dateCell(value: unknown, type: FieldType | undefined, format: ValueForm
  * 一个值写成单元格：缺失值为空；date / datetime 字段与日期格式的值换成 Excel 日期，解析不了的按原文写成文本；
  * 数值按数字格式写，其余按原值。
  */
-function valueCell(value: unknown, type: FieldType | undefined, format: ValueFormat | undefined, ctx: Context, bold = false): XlsxCell | null {
+function valueCell(value: unknown, type: FieldType | undefined, format: FormatSpec | undefined, ctx: Context, bold = false): XlsxCell | null {
   if (isMissing(value))
     return null
   const extra = bold ? { bold } : {}
-  const dateLike = value instanceof Date || format?.kind === 'date' || ((type === 'date' || type === 'datetime') && format?.kind !== 'number')
+  const numeric = format?.kind === 'number' || format?.kind === 'percent'
+  const dateLike = value instanceof Date || format?.kind === 'date' || ((type === 'date' || type === 'datetime') && !numeric)
   if (dateLike) {
     const cell = dateCell(value, type, format, ctx)
     if (cell)
       return { ...cell, ...extra }
   }
   if (typeof value === 'number')
-    return format?.kind === 'number' ? { value, format: numberFormatCode(format), ...extra } : { value, ...extra }
+    return numeric ? { value, format: numberFormatCode(format), ...extra } : { value, ...extra }
   if (typeof value === 'string' || typeof value === 'boolean')
     return { value, ...extra }
   if (value instanceof Date)

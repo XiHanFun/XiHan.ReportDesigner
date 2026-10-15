@@ -43,7 +43,7 @@ export const dashboardDocument: ReportDocument = {
             { id: 'region', field: 'region' },
           ],
           measures: [
-            { id: 'amount', aggregate: 'sum', field: 'amount', format: { kind: 'number', notation: 'compact' } },
+            { id: 'amount', aggregate: 'sum', field: 'amount', format: { kind: 'number', maxDecimals: 1, grouping: true } },
             { id: 'qty', aggregate: 'sum', field: 'qty' },
             { id: 'unit', formula: 'amount / qty' },
           ],
@@ -67,7 +67,7 @@ export const dashboardDocument: ReportDocument = {
             { id: 'line', mark: 'line', x: 'month', y: 'unit', curve: 'monotone', slot: 2 },
           ],
           xAxis: { scale: 'band', title: '月份' },
-          yAxis: { format: { kind: 'number', style: 'currency', currency: 'CNY' }, zero: true },
+          yAxis: { format: { kind: 'number', decimals: 2, grouping: true }, zero: true },
           annotations: [
             { kind: 'line', axis: 'y', value: 100, label: '目标' },
             { kind: 'point', series: 'bars', at: 'max' },
@@ -96,7 +96,7 @@ export const dashboardDocument: ReportDocument = {
         layout: layout(0, 3),
         dataset: 'sales',
         query: { dimensions: [{ id: 'product', field: 'product', sort: { by: 'amount', direction: 'desc' } }], measures: [{ id: 'amount', aggregate: 'sum', field: 'amount' }], limit: 5 },
-        chart: { type: 'pie', nameField: 'product', valueField: 'amount', variant: 'donut', format: { kind: 'number', precision: { type: 'fixed', digits: 2 } } },
+        chart: { type: 'pie', nameField: 'product', valueField: 'amount', variant: 'donut', format: { kind: 'percent', decimals: 1 } },
       },
       {
         id: 'funnel',
@@ -198,8 +198,8 @@ export const groupDocument: ReportDocument = {
     ],
     columns: [
       { id: 'product', field: 'product' },
-      { id: 'amount', field: 'amount', summary: { aggregate: 'sum' }, format: { kind: 'number', style: 'percent' } },
-      { id: 'date', field: 'date', format: { kind: 'date', dateStyle: 'medium' } },
+      { id: 'amount', field: 'amount', summary: { aggregate: 'sum' }, format: { kind: 'percent', minDecimals: 1, maxDecimals: 2, rounding: 'half-even' } },
+      { id: 'date', field: 'date', format: { kind: 'date', pattern: 'yyyy年M月d日' } },
     ],
     sort: [{ field: 'amount', direction: 'desc' }],
     grandTotal: true,
