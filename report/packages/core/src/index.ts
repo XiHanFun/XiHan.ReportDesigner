@@ -7,5 +7,7 @@
 
 export * from './engine'
 export type { ReportIssue, ReportPath } from './issue'
+export { applyOperation, applyOperations, itemKey, readPath, ReportOperationError } from './operations'
+export type { ReportOperation, ReportOperationErrorCode, ReportOperationResult } from './operations'
 export * from './schema'
 export * from './validate'
