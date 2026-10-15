@@ -16,7 +16,7 @@ export interface DatasetField {
   readonly type: FieldType
   /** 显示的标题，缺省同 name。 */
   readonly title?: string
-  /** 计算字段的表达式；求值能力由 FormulaEngine 提供。 */
+  /** 计算字段的表达式；求值能力由 ExpressionEngine 提供。 */
   readonly formula?: string
 }
 

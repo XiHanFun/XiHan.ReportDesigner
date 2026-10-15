@@ -55,9 +55,10 @@ describe('applyCalculatedFields', () => {
     expect(failure(() => applyCalculatedFields(salesRows, withCalculated, undefined))?.code).toBe('formula-engine-missing')
 
     const broken: DatasetSchema = { ...salesDataset, fields: [...salesDataset.fields, { name: 'x', type: 'number', formula: 'nonsense' }] }
-    const compile = failure(() => applyCalculatedFields(salesRows, broken, lookupEngine(formulas)))
-    expect(compile).toMatchObject({ code: 'formula-compile-failed', params: { field: 'x', expression: 'nonsense' } })
-    expect(compile?.cause).toBeInstanceOf(SyntaxError)
+    expect(failure(() => applyCalculatedFields(salesRows, broken, lookupEngine(formulas)))).toMatchObject({
+      code: 'formula-compile-failed',
+      params: { field: 'x', expression: 'nonsense', issues: [{ code: 'XH_EXPR_UNEXPECTED_TOKEN', start: 0, end: 8 }] },
+    })
 
     const cyclic: DatasetSchema = {
       ...salesDataset,
@@ -68,7 +69,7 @@ describe('applyCalculatedFields', () => {
     const throwing: DatasetSchema = { ...salesDataset, fields: [...salesDataset.fields, { name: 'z', type: 'number', formula: 'boom' }] }
     expect(failure(() => applyCalculatedFields(salesRows, throwing, lookupEngine(formulas)))).toMatchObject({
       code: 'formula-evaluation-failed',
-      params: { dataset: 'sales', row: 0, name: 'z' },
+      params: { dataset: 'sales', row: 0, name: 'z', issue: { code: 'XH_EXPR_FUNCTION_FAILED', start: 0, end: 4 } },
     })
   })
 })

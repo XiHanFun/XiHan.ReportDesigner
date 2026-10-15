@@ -5,7 +5,7 @@
 
 // 测试共用的数据集、数据行与按表查找的公式引擎替身。
 
-import type { CompiledFormula, DataRow, DatasetRows, DatasetSchema, FormulaEngine } from '../src'
+import type { DataRow, DatasetRows, DatasetSchema, ExpressionEngine } from '../src'
 
 export const salesDataset: DatasetSchema = {
   id: 'sales',
@@ -33,17 +33,34 @@ export const salesRows: readonly DataRow[] = [
 
 export const salesData: DatasetRows = { kind: 'rows', rows: salesRows }
 
-/** 按表查找的公式引擎替身：只认表里登记的表达式。 */
-export function lookupEngine(table: Readonly<Record<string, CompiledFormula>>): FormulaEngine & { readonly compiled: string[] } {
+/** 替身表里的一条表达式：引用与直接求值的函数。 */
+export interface FakeFormula {
+  readonly references: readonly string[]
+  readonly evaluate: (scope: Readonly<Record<string, unknown>>) => unknown
+}
+
+/** 按表查找的表达式引擎替身：只认表里登记的表达式，求值函数抛出时算作求值问题。 */
+export function lookupEngine(table: Readonly<Record<string, FakeFormula>>): ExpressionEngine & { readonly compiled: string[] } {
   const compiled: string[] = []
   return {
     compiled,
-    compile(expression) {
-      const formula = table[expression]
+    compile(source) {
+      const formula = table[source]
       if (!formula)
-        throw new SyntaxError(expression)
-      compiled.push(expression)
-      return formula
+        return { ok: false, issues: [{ code: 'XH_EXPR_UNEXPECTED_TOKEN', start: 0, end: source.length }] }
+      compiled.push(source)
+      return {
+        ok: true,
+        references: formula.references,
+        evaluate(scope) {
+          try {
+            return { ok: true, value: formula.evaluate(scope) }
+          }
+          catch {
+            return { ok: false, issue: { code: 'XH_EXPR_FUNCTION_FAILED', start: 0, end: source.length } }
+          }
+        },
+      }
     },
   }
 }
@@ -53,7 +70,7 @@ function num(value: unknown): number {
 }
 
 /** 测试里用到的几个表达式。 */
-export const formulas: Readonly<Record<string, CompiledFormula>> = {
+export const formulas: Readonly<Record<string, FakeFormula>> = {
   'amount / qty': { references: ['amount', 'qty'], evaluate: s => num(s.amount) / num(s.qty) },
   'amount * 2': { references: ['amount'], evaluate: s => (s.amount === null ? null : num(s.amount) * 2) },
   'double + 1': { references: ['double'], evaluate: s => (s.double === null ? null : num(s.double) + 1) },

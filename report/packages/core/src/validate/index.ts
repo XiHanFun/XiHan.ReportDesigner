@@ -6,6 +6,5 @@
 // 汇总导出 schema 自校验。
 
 export type { ValidationIssue, ValidationIssueCode } from './checker'
-export type { FormulaCompiler } from './common'
 export { validateDocument } from './document'
 export type { ValidateOptions } from './document'

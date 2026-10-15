@@ -5,6 +5,7 @@
 
 // 校验共用的规则：值类型、格式、公式引用与成员排序。
 
+import type { ExpressionEngine } from '../expression'
 import type { ReportPath } from '../issue'
 import type { FieldType } from '../schema'
 import type { Checker, JsonObject } from './checker'
@@ -16,11 +17,6 @@ export interface FormulaSite {
   readonly name: string
   readonly expression: string
   readonly path: ReportPath
-}
-
-/** 公式引擎：只用到编译。 */
-export interface FormulaCompiler {
-  readonly compile: (expression: string) => { readonly references: readonly string[] }
 }
 
 const DIRECTIONS = ['asc', 'desc'] as const
@@ -126,23 +122,22 @@ export function checkSortOrder(c: Checker, owner: JsonObject, path: ReportPath):
 }
 
 /**
- * 校验一组公式：编译失败报 formula-invalid，引用 known 之外的名字报 formula-unknown-reference，
- * 公式之间循环引用时在闭合环的那个公式上报 formula-cycle。
+ * 校验一组公式：编译不通过报 formula-invalid（params.issue 是第一条表达式问题的问题码），
+ * 引用 known 之外的名字报 formula-unknown-reference，公式之间循环引用时在闭合环的那个公式上报 formula-cycle。
  */
-export function checkFormulas(c: Checker, compiler: FormulaCompiler | undefined, sites: readonly FormulaSite[], known: ReadonlySet<string>): void {
+export function checkFormulas(c: Checker, compiler: ExpressionEngine | undefined, sites: readonly FormulaSite[], known: ReadonlySet<string>): void {
   if (!compiler || sites.length === 0)
     return
   const references = new Map<string, readonly string[]>()
   const byName = new Map(sites.map(site => [site.name, site]))
   for (const site of sites) {
-    let refs: readonly string[]
-    try {
-      refs = compiler.compile(site.expression).references
-    }
-    catch {
-      c.report('formula-invalid', site.path)
+    const result = compiler.compile(site.expression)
+    if (!result.ok) {
+      const first = result.issues[0]
+      c.report('formula-invalid', site.path, first ? { issue: first.code } : undefined)
       continue
     }
+    const refs = result.references
     references.set(site.name, refs)
     for (const name of new Set(refs)) {
       if (!known.has(name))
