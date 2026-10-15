@@ -6,6 +6,7 @@
 // 导出 @xihan-report/core 的公共接口。
 
 export * from './engine'
+export type { CompiledExpression, ExpressionCompileOptions, ExpressionCompileResult, ExpressionEngine, ExpressionEvaluation, ExpressionIssue } from './expression'
 export { clampToGrid, compactLayout, gridCollides, gridItems, layoutOperations, placeGridItem, removeGridItem, setGridItemRect } from './grid'
 export type { GridItem, GridOptions, GridPlacement } from './grid'
 export type { ReportIssue, ReportPath } from './issue'

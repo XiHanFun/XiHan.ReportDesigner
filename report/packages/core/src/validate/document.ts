@@ -5,10 +5,11 @@
 
 // 报表文档的自校验：结构、取值范围与引用关系，只给出问题码、定位与参数。
 
+import type { ExpressionEngine } from '../expression'
 import type { ReportPath } from '../issue'
 import type { DateBucket, FieldType } from '../schema'
 import type { JsonObject, KeyedItem, ValidationIssue } from './checker'
-import type { FormulaCompiler, FormulaSite } from './common'
+import type { FormulaSite } from './common'
 import { AGGREGATE_KINDS, DATE_BUCKETS, FIELD_TYPES, FILTER_OPERATORS, REPORT_SCHEMA_VERSION } from '../schema'
 import { checkChart, checkMetric } from './chart'
 import { Checker, isObject } from './checker'
@@ -17,7 +18,7 @@ import { checkAxisSort, checkFormat, checkFormulas, checkSortOrder, isParameterR
 /** 校验选项。 */
 export interface ValidateOptions {
   /** 表达式引擎：提供时检查公式能否编译、引用是否存在、有没有循环引用。 */
-  readonly formula?: FormulaCompiler
+  readonly formula?: ExpressionEngine
 }
 
 interface DatasetInfo {
@@ -34,7 +35,7 @@ interface Scope {
   readonly c: Checker
   readonly datasets: ReadonlyMap<string, DatasetInfo>
   readonly parameters: ReadonlyMap<string, ParameterInfo>
-  readonly formula: FormulaCompiler | undefined
+  readonly formula: ExpressionEngine | undefined
   /** 公式里可引用的报表参数变量：$名字。 */
   readonly variables: ReadonlySet<string>
 }
@@ -531,7 +532,7 @@ function checkReportParameters(c: Checker, document: JsonObject): Map<string, Pa
   return result
 }
 
-function checkDatasets(c: Checker, document: JsonObject, formula: FormulaCompiler | undefined, variables: ReadonlySet<string>): Map<string, DatasetInfo> {
+function checkDatasets(c: Checker, document: JsonObject, formula: ExpressionEngine | undefined, variables: ReadonlySet<string>): Map<string, DatasetInfo> {
   const result = new Map<string, DatasetInfo>()
   for (const { item, path, key } of c.keyed(document, 'datasets', [], 'id', { required: true })) {
     c.string(item, 'title', path)

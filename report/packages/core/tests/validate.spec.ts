@@ -306,7 +306,7 @@ describe('validateDocument：公式', () => {
       }],
     }
     expect(validateDocument(document, { formula: engine })).toEqual([
-      { code: 'formula-invalid', path: ['datasets', 'sales', 'fields', 'bad', 'formula'] },
+      { code: 'formula-invalid', path: ['datasets', 'sales', 'fields', 'bad', 'formula'], params: { issue: 'XH_EXPR_UNEXPECTED_TOKEN' } },
       { code: 'formula-unknown-reference', path: ['datasets', 'sales', 'fields', 'twice', 'formula'], params: { name: 'double' } },
       { code: 'formula-cycle', path: ['datasets', 'sales', 'fields', 'b', 'formula'], params: { names: 'a,b' } },
     ])

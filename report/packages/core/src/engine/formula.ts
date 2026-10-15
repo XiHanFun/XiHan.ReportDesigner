@@ -3,23 +3,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 公式的接入点：表达式求值由使用方注入的 FormulaEngine 完成，这里只负责编译、排序与调用。
+// 公式的接入点：表达式求值由使用方注入的 ExpressionEngine 完成，这里只负责编译、排序与调用。
 
+import type { CompiledExpression, ExpressionEngine } from '../expression'
 import type { DataRow, DatasetSchema, ParameterValues } from '../schema'
 import { ReportComputeError } from './errors'
-
-/** 编译好的表达式。 */
-export interface CompiledFormula {
-  /** 表达式引用的变量名。 */
-  readonly references: readonly string[]
-  /** 以 scope 里的变量求值。 */
-  readonly evaluate: (scope: Readonly<Record<string, unknown>>) => unknown
-}
-
-/** 表达式引擎：编译表达式字符串；不合法时抛出。 */
-export interface FormulaEngine {
-  readonly compile: (expression: string) => CompiledFormula
-}
 
 /** 一个待求值的公式：结果写到 name。 */
 export interface FormulaEntry {
@@ -29,30 +17,28 @@ export interface FormulaEntry {
 
 /** 编译并按依赖排好序的一组公式。 */
 export interface FormulaPlan {
-  readonly entries: readonly { readonly name: string, readonly formula: CompiledFormula }[]
+  readonly entries: readonly { readonly name: string, readonly formula: CompiledExpression }[]
 }
 
-/** 编译一个表达式；没有引擎或编译失败时抛出计算错误。 */
-export function compileFormula(engine: FormulaEngine | undefined, expression: string, location: Readonly<Record<string, unknown>>): CompiledFormula {
+/** 编译一个表达式；没有引擎时抛出 formula-engine-missing，编译不通过时抛出 formula-compile-failed（params.issues 是表达式的问题）。 */
+export function compileFormula(engine: ExpressionEngine | undefined, expression: string, location: Readonly<Record<string, unknown>>): CompiledExpression {
   if (!engine)
     throw new ReportComputeError('formula-engine-missing', location)
-  try {
-    return engine.compile(expression)
-  }
-  catch (error) {
-    throw new ReportComputeError('formula-compile-failed', { ...location, expression }, { cause: error })
-  }
+  const result = engine.compile(expression)
+  if (!result.ok)
+    throw new ReportComputeError('formula-compile-failed', { ...location, expression, issues: result.issues })
+  return result
 }
 
 /**
  * 编译一组公式，并按相互引用排序：被引用的先求值。
  * 公式之间循环引用时抛出 formula-cycle，params.names 是环上的名字。
  */
-export function planFormulas(engine: FormulaEngine | undefined, entries: readonly FormulaEntry[], kind: string): FormulaPlan {
-  const compiled = new Map<string, CompiledFormula>()
+export function planFormulas(engine: ExpressionEngine | undefined, entries: readonly FormulaEntry[], kind: string): FormulaPlan {
+  const compiled = new Map<string, CompiledExpression>()
   for (const entry of entries)
     compiled.set(entry.name, compileFormula(engine, entry.expression, { [kind]: entry.name }))
-  const ordered: { name: string, formula: CompiledFormula }[] = []
+  const ordered: { name: string, formula: CompiledExpression }[] = []
   const state = new Map<string, 'visiting' | 'done'>()
   const stack: string[] = []
 
@@ -89,17 +75,15 @@ export function parameterScope(parameters: ParameterValues): Readonly<Record<str
 
 /**
  * 按计划求值，结果逐个写进 target；target 与 extra 里的变量都可引用，extra 不写进 target。
- * 求值抛出时包成 formula-evaluation-failed。
+ * 求值不通过时抛出 formula-evaluation-failed，params.issue 是表达式的问题。
  */
 export function evaluatePlan(plan: FormulaPlan, target: Record<string, unknown>, location: Readonly<Record<string, unknown>>, extra?: Readonly<Record<string, unknown>>): void {
   const merge = extra !== undefined && Object.keys(extra).length > 0
   for (const { name, formula } of plan.entries) {
-    try {
-      target[name] = formula.evaluate(merge ? { ...extra, ...target } : target)
-    }
-    catch (error) {
-      throw new ReportComputeError('formula-evaluation-failed', { ...location, name }, { cause: error })
-    }
+    const result = formula.evaluate(merge ? { ...extra, ...target } : target)
+    if (!result.ok)
+      throw new ReportComputeError('formula-evaluation-failed', { ...location, name, issue: result.issue })
+    target[name] = result.value
   }
 }
 
@@ -117,7 +101,7 @@ export function calculatedFields(dataset: DatasetSchema): readonly FormulaEntry[
  * 给每行算出计算字段，返回新的行数组；数据集没有计算字段时原样返回。
  * 计算字段以同一行的其它字段（含先算出的计算字段）与报表参数（$名字）为变量。
  */
-export function applyCalculatedFields(rows: readonly DataRow[], dataset: DatasetSchema, engine: FormulaEngine | undefined, parameters: ParameterValues = {}): readonly DataRow[] {
+export function applyCalculatedFields(rows: readonly DataRow[], dataset: DatasetSchema, engine: ExpressionEngine | undefined, parameters: ParameterValues = {}): readonly DataRow[] {
   const entries = calculatedFields(dataset)
   if (entries.length === 0)
     return rows
