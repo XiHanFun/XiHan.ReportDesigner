@@ -1,0 +1,90 @@
+/*
+ * Copyright (c) 2021-Present XiHanFun and contributors.
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
+// 定义维度、度量、聚合方式、日期粒度与聚合查询。
+
+import type { FilterGroup, NullsPosition, SortDirection } from './filter'
+import type { ValueFormat } from './format'
+
+/** 聚合方式：求和、平均、计数、最小、最大、去重计数。 */
+export type AggregateKind = 'sum' | 'avg' | 'count' | 'min' | 'max' | 'distinctCount'
+
+/** 全部聚合方式。 */
+export const AGGREGATE_KINDS: readonly AggregateKind[] = ['sum', 'avg', 'count', 'min', 'max', 'distinctCount']
+
+/**
+ * 日期粒度：把日期取成分组键。
+ * year → 2026，quarter → 2026-Q4，month → 2026-10，week → 2026-W42（ISO 周），day → 2026-10-16，hour → 2026-10-16T08。
+ */
+export type DateBucket = 'year' | 'quarter' | 'month' | 'week' | 'day' | 'hour'
+
+/** 全部日期粒度，由粗到细。 */
+export const DATE_BUCKETS: readonly DateBucket[] = ['year', 'quarter', 'month', 'week', 'day', 'hour']
+
+/** 成员的次序：按键，或按某个度量在该成员上的汇总值。 */
+export interface AxisSort {
+  /** 度量 id（分组报表里是带汇总的列 id）；不写按键。 */
+  readonly by?: string
+  /** 缺省 asc。 */
+  readonly direction?: SortDirection
+  /** 缺省 last。 */
+  readonly nulls?: NullsPosition
+}
+
+/** 维度：按字段分组。 */
+export interface Dimension {
+  /** 维度身份：查询结果里的键，与同一查询的度量 id 共用命名空间。 */
+  readonly id: string
+  /** 数据集字段名。 */
+  readonly field: string
+  /** 日期粒度。 */
+  readonly bucket?: DateBucket
+  readonly title?: string
+  readonly format?: ValueFormat
+  /** 成员次序，缺省按键升序。 */
+  readonly sort?: AxisSort
+}
+
+/** 共有的度量属性。 */
+export interface MeasureBase {
+  /** 度量身份：查询结果里的键，与同一查询的维度 id 共用命名空间。 */
+  readonly id: string
+  readonly title?: string
+  readonly format?: ValueFormat
+}
+
+/** 聚合度量：对字段做聚合；count 不写 field 时数行。 */
+export interface AggregateMeasure extends MeasureBase {
+  readonly aggregate: AggregateKind
+  readonly field?: string
+}
+
+/** 公式度量：在聚合之后，以同一查询其它度量的值为变量求值。 */
+export interface FormulaMeasure extends MeasureBase {
+  readonly formula: string
+}
+
+export type Measure = AggregateMeasure | FormulaMeasure
+
+/** 查询结果行的一条排序规则。 */
+export interface QuerySortRule {
+  /** 维度 id 或度量 id。 */
+  readonly key: string
+  /** 缺省 asc。 */
+  readonly direction?: SortDirection
+  /** 缺省 last。 */
+  readonly nulls?: NullsPosition
+}
+
+/** 聚合查询：按维度分组、计算度量，结果每个维度组合一行。 */
+export interface ReportQuery {
+  readonly dimensions: readonly Dimension[]
+  readonly measures: readonly Measure[]
+  readonly filter?: FilterGroup
+  /** 结果行的次序；不写按维度依次升序。 */
+  readonly sort?: readonly QuerySortRule[]
+  /** 结果行数上限，在排序之后截取。 */
+  readonly limit?: number
+}
