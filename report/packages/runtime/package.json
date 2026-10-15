@@ -1,5 +1,5 @@
 {
-  "name": "@xihanfun/report-runtime",
+  "name": "@xihan-report/runtime",
   "type": "module",
   "version": "0.0.0",
   "description": "XiHan Report Designer runtime — Web Components for viewing reports and dashboards.",
@@ -49,6 +49,6 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@xihanfun/report-core": "workspace:^"
+    "@xihan-report/core": "workspace:^"
   }
 }

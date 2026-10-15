@@ -1,5 +1,5 @@
 {
-  "name": "@xihanfun/report-core",
+  "name": "@xihan-report/core",
   "type": "module",
   "version": "0.0.0",
   "description": "XiHan Report Designer core — report schema, dataset descriptions, calculation and edit commands; pure TypeScript, no DOM.",

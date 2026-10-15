@@ -58,16 +58,16 @@ importers:
 
   packages/designer:
     dependencies:
-      '@xihanfun/report-core':
+      '@xihan-report/core':
         specifier: workspace:^
         version: link:../core
-      '@xihanfun/report-runtime':
+      '@xihan-report/runtime':
         specifier: workspace:^
         version: link:../runtime
 
   packages/runtime:
     dependencies:
-      '@xihanfun/report-core':
+      '@xihan-report/core':
         specifier: workspace:^
         version: link:../core
 

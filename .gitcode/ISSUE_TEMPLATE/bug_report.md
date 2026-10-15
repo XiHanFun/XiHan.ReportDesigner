@@ -41,7 +41,7 @@ labels: bug
 
 ## 相关包
 
-<!-- 如 @xihanfun/report-designer -->
+<!-- 如 @xihan-report/designer -->
 
 ## 版本
 
