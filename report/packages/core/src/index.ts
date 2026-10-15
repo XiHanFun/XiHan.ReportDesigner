@@ -5,4 +5,5 @@
 
 // 导出 @xihanfun/report-core 的公共接口。
 
+export * from './engine'
 export * from './schema'
