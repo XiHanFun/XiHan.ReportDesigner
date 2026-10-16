@@ -9,6 +9,7 @@
 
 import type { DashboardView, DataView, ItemList, PropertyChange, ReportDocument, ReportOperation, ReportPropertyControl, ReportPropertyDescriptor, ReportQuery, ValidationIssue } from '@xihan-report/core'
 import type { ReportDesignerTranslations } from '@xihan-report/runtime'
+import type { RenderContext } from '@xihan-report/runtime/design'
 import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
 import type { PropertyEditorTable, PropertyOption } from '@xihan-ui/designer-kit/properties'
 import type { DesignerPropertiesEventMap, DesignerPropertyDescriptor, DesignerPropertyEditor, DesignerPropertyError, DesignerPropertyTarget, XhDesignerPropertiesElement } from '@xihan-ui/designer-shell'
@@ -32,6 +33,7 @@ import {
 import { formatJsonPath } from '@xihan-ui/core/json'
 import { nestProperties } from '@xihan-ui/designer-kit/properties'
 import { createGeneratedElement } from '@xihan-ui/web-components/authoring'
+import { parameterValueEditor } from './property-editors'
 
 /** 数据集能改到什么程度。 */
 export type DatasetEditing = 'none' | 'fields' | 'full'
@@ -43,7 +45,10 @@ export interface PropertiesHost {
   readonly isReadonly: () => boolean
   readonly datasetEditing: () => DatasetEditing
   readonly issues: () => readonly ValidationIssue[]
+  /** 宿主的编辑器，压在报表内建的编辑器之上。 */
   readonly editors: () => PropertyEditorTable<DesignerPropertyEditor> | undefined
+  /** 参数取值编辑器渲染查看器控件用的上下文。 */
+  readonly renderContext: () => RenderContext
 }
 
 /** 一个编辑对象：交给面板的 target、它在文档里的位置（换算问题的路径），以及把对它的修改换成操作。 */
@@ -102,10 +107,12 @@ export class PropertiesPanel {
   readonly #origins = new WeakMap<object, Origin>()
   #bindings = new Map<string, Binding>()
   #t: ReportDesignerTranslations | undefined
+  readonly #builtin: Readonly<Record<string, DesignerPropertyEditor>>
 
   constructor(host: PropertiesHost) {
     this.#host = host
     const doc = host.ownerDocument
+    this.#builtin = { parameterValue: parameterValueEditor(doc, host.renderContext) }
     this.element = createGeneratedElement(doc, 'xh-designer-properties', { 'data-part': 'properties', 'slot': 'properties', 'collapsible': true, 'toggle-limit': '3' }) as XhDesignerPropertiesElement
     this.element.groupOrder = REPORT_PROPERTY_GROUPS
     this.element.groupLabel = group => this.#t?.propertyGroups[group] ?? group
@@ -125,7 +132,8 @@ export class PropertiesPanel {
     const data = editor?.selection.data
     panel.readonly = this.#host.isReadonly() || (data !== undefined && this.#host.datasetEditing() === 'none')
     panel.translations = { title: t.properties }
-    panel.editors = this.#host.editors()
+    const editors = this.#host.editors()
+    panel.editors = { ...editors, byControl: { ...this.#builtin, ...editors?.byControl } }
     panel.targets = bindings.map(binding => binding.target)
     panel.heading = bindings.length > 1 ? t.selected(bindings.length) : bindings[0] ? `${t.objectKinds[bindings[0].target.kind] ?? bindings[0].target.kind} · ${bindings[0].target.id}` : undefined
     panel.errors = this.#errors(bindings, t)

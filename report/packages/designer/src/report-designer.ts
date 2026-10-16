@@ -474,6 +474,7 @@ export class XhReportDesigner extends XhReactiveElement {
       datasetEditing: () => this.datasetEditing ?? 'fields',
       issues: () => this.#issues,
       editors: () => this.editors,
+      renderContext: () => createRenderContext(this.#viewerTranslations(), this.formatter ?? defaultFormatter, this.#locale(), this.#timeZone()),
     })
     const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [data.element, palette, workspace, wells.element, properties.element]) as XhDesignerFrameElement
     this.replaceChildren(frame)
