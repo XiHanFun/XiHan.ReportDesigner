@@ -65,7 +65,10 @@ const dashboard: DashboardView = {
       chart: { type: 'heatmap', variant: 'matrix', rowField: 'region', columnField: 'product', valueField: 'amount' },
     },
   ],
-  links: [{ id: 'region', card: 'byRegion', dimension: 'region', targets: [{ card: 'byProduct', field: 'region' }, { card: 'total', field: 'region' }] }],
+  links: [
+    { id: 'region', card: 'byRegion', dimension: 'region', targets: [{ card: 'byProduct', field: 'region' }, { card: 'total', field: 'region' }] },
+    { id: 'product', card: 'heat', dimension: 'product', targets: [{ card: 'total', field: 'product' }] },
+  ],
 }
 
 beforeAll(() => {
@@ -135,14 +138,69 @@ describe('<xh-report-viewer>：看板', () => {
     expect(card(viewer, 'byProduct').querySelector('xh-cartesian-chart [data-xh-part="root"]')!.getAttribute('aria-label')).toBe('金额')
   })
 
-  it('指标卡片写成 xh-statistic，热力图卡片暂不支持', async () => {
+  it('指标卡片写成 xh-statistic，矩阵热力图写成 xh-heatmap 的行、列与格子', async () => {
     const viewer = await mount()
     const statistic = card(viewer, 'total').querySelector('xh-statistic')!
     expect(statistic.querySelector('[data-xh-part="value"]')!.textContent).toBe('230')
     expect(statistic.querySelector('[data-xh-part="suffix"]')!.textContent).toBe('元')
-    const heat = card(viewer, 'heat')
-    expect(heat.getAttribute('data-state')).toBe('unsupported')
-    expect(heat.querySelector('[data-part="card-status"]')!.textContent).toBe('This view is not supported yet')
+    const heat = card(viewer, 'heat').querySelector('xh-heatmap') as HTMLElement & { variant: string, rows: { label: string }[], columns: { label: string }[], value: unknown[] }
+    expect(heat.variant).toBe('matrix')
+    expect(heat.rows.map(row => row.label)).toEqual(['East', 'West'])
+    expect(heat.columns.map(column => column.label)).toEqual(['A', 'B'])
+    expect(heat.value).toHaveLength(3)
+    expect(heat.querySelector('[data-xh-part="root"]')!.getAttribute('aria-label')).toBe('金额')
+  })
+
+  it('矩阵热力图作联动源：点一格按行或列维度发出取值，不写 activeKey', async () => {
+    const viewer = await mount()
+    const changes: unknown[] = []
+    viewer.addEventListener('selections-change', event => changes.push((event as CustomEvent).detail.value))
+    const heat = card(viewer, 'heat').querySelector('xh-heatmap') as HTMLElement & { rows: { value: string }[], columns: { value: string, label: string }[], activeKey?: unknown }
+    const column = heat.columns.find(item => item.label === 'B')!.value
+    press(heat, { key: `${heat.rows[0]!.value}|${column}`, date: '', row: heat.rows[0]!.value, column })
+    await settle(viewer)
+    expect(changes).toEqual([{ product: ['B'] }])
+    expect(card(viewer, 'total').querySelector('[data-xh-part="value"]')!.textContent).toBe('50')
+    expect((card(viewer, 'heat').querySelector('xh-heatmap') as HTMLElement & { activeKey?: unknown }).activeKey).toBeUndefined()
+  })
+
+  it('日历热力图作联动源：按日期发出取值，选中的日期写回 activeKey；没写区间时取数据的起止日期', async () => {
+    const viewer = document.createElement('xh-report-viewer') as XhReportViewer
+    viewer.timeZone = 'UTC'
+    const days = [{ day: '2026-01-02', amount: 10 }, { day: '2026-01-05', amount: 30 }]
+    viewer.dataProvider = async (request) => {
+      const condition = request.filter?.conditions.find(node => 'operator' in node && node.operator === 'in') as { value: readonly unknown[] } | undefined
+      return { kind: 'rows', rows: condition ? days.filter(row => condition.value.includes(row.day)) : days }
+    }
+    viewer.schema = {
+      schemaVersion: 1,
+      id: 'days',
+      datasets: [{ id: 'daily', fields: [{ name: 'day', type: 'date' }, { name: 'amount', type: 'number' }] }],
+      body: {
+        type: 'dashboard',
+        grid: { columns: 12, rowHeight: 40 },
+        cards: [
+          { id: 'calendar', kind: 'chart', layout: { x: 0, y: 0, w: 12, h: 4 }, dataset: 'daily', query: { dimensions: [{ id: 'day', field: 'day' }], measures: [amount] }, chart: { type: 'heatmap', variant: 'calendar', dateField: 'day', valueField: 'amount' } },
+          { id: 'sum', kind: 'metric', layout: { x: 0, y: 4, w: 4, h: 2 }, dataset: 'daily', query: { dimensions: [], measures: [amount] }, metric: { value: 'amount' } },
+        ],
+        links: [{ id: 'day', card: 'calendar', dimension: 'day', targets: [{ card: 'sum', field: 'day' }] }],
+      },
+    } as ReportDocument
+    document.body.append(viewer)
+    await viewer.refresh()
+    const calendar = card(viewer, 'calendar').querySelector('xh-heatmap') as HTMLElement & { startDate: string, endDate: string, activeKey?: unknown }
+    expect([calendar.startDate, calendar.endDate]).toEqual(['2026-01-02', '2026-01-05'])
+    const changes: unknown[] = []
+    viewer.addEventListener('selections-change', event => changes.push((event as CustomEvent).detail.value))
+    press(calendar, { key: '2026-01-03', date: '2026-01-03', row: '', column: '' })
+    await settle(viewer)
+    expect(changes).toEqual([])
+    expect(card(viewer, 'sum').querySelector('[data-xh-part="value"]')!.textContent).toBe('40')
+    press(calendar, { key: '2026-01-05', date: '2026-01-05', row: '', column: '' })
+    await settle(viewer)
+    expect(card(viewer, 'sum').querySelector('[data-xh-part="value"]')!.textContent).toBe('30')
+    expect(changes).toEqual([{ day: ['2026-01-05'] }])
+    expect(calendar.activeKey).toBe('2026-01-05')
   })
 
   it('同一次刷新里请求相同的卡片只取一次数', async () => {

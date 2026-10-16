@@ -18,7 +18,6 @@ export const reportZhCN: XhConfig = {
       error: '数据加载失败',
       invalid: '报表定义有问题，无法显示',
       parametersInvalid: '报表参数缺少或取值不合格',
-      unsupported: '暂不支持这种视图',
       total: '总计',
       subtotal: '小计',
       missing: '（空）',
