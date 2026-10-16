@@ -100,11 +100,6 @@ export function renderCard(body: HTMLElement, state: CardState, ctx: RenderConte
     case 'chart': {
       const label = result.card.title ?? result.card.query.measures.map(measure => measureLabel(measure, result.dataset)).join(' / ')
       const rendered = renderChart(result.card.chart, result.data, result.card.query, result.dataset, ctx, label)
-      if (!rendered) {
-        section?.setAttribute('data-state', 'unsupported')
-        body.replaceChildren(ownPart('div', 'card-status', ctx.translations.unsupported))
-        return undefined
-      }
       body.replaceChildren(rendered.element)
       return rendered
     }

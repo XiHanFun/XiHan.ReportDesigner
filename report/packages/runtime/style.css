@@ -25,12 +25,6 @@ xh-report-viewer[data-state='parameters'] > [data-part='status'] {
   color: var(--xh-fg-danger);
 }
 
-xh-report-viewer [data-part='unsupported'] {
-  padding: var(--xh-space-3);
-  color: var(--xh-fg-muted);
-  font-size: var(--xh-text-secondary-size);
-}
-
 /* 主体的宽度只取容器给的宽度，不按表格内容撑开宿主：比容器宽的表格在表格自己的滚动区里横向滚动 */
 xh-report-viewer > [data-part='body'] {
   contain: inline-size;

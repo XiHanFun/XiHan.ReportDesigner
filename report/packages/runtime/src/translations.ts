@@ -18,8 +18,6 @@ export interface ReportViewerTranslations {
   readonly invalid: string
   /** 报表参数缺少或取值不合格时的提示。 */
   readonly parametersInvalid: string
-  /** 暂不支持的卡片或图表类型。 */
-  readonly unsupported: string
   /** 总计行、总计列的标签。 */
   readonly total: string
   /** 小计行、小计列的标签。 */
@@ -40,7 +38,6 @@ export const DEFAULT_REPORT_VIEWER_TRANSLATIONS: ReportViewerTranslations = {
   error: 'Failed to load data',
   invalid: 'This report definition has problems and cannot be shown',
   parametersInvalid: 'Some report parameters are missing or invalid',
-  unsupported: 'This view is not supported yet',
   total: 'Total',
   subtotal: 'Subtotal',
   missing: '(Blank)',

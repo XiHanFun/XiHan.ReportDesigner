@@ -5,7 +5,7 @@
 
 // 图表卡片：core 的 chartData 整好数据，这里写成 UI 图表元素的外壳与属性；类目值换成显示文字，联动时再换回原值。
 
-import type { CartesianAxisSpec, CartesianChartData, ChartData, ChartSpec, DatasetSchema, FormatSpec, ReportQuery } from '@xihan-report/core'
+import type { CartesianAxisSpec, CartesianChartData, ChartData, ChartSpec, DatasetSchema, DateHeatmapData, FormatSpec, HeatmapChartSpec, MatrixHeatmapData, ReportQuery } from '@xihan-report/core'
 import type { RenderContext } from './context'
 import { valueKey } from '@xihan-ui/viz'
 import { dimensionType, measureLabel } from '../labels'
@@ -17,11 +17,14 @@ const OTHER_KEY = '__other__'
 /** 数值轴：类目值保持原样，不换成显示文字。 */
 const CONTINUOUS_SCALES: ReadonlySet<string> = new Set(['linear', 'log', 'sqrt', 'pow', 'symlog', 'time', 'utc'])
 
-/** UI 图表派发的 datum-press 明细里查看器用到的字段。 */
+/** UI 图表派发的 datum-press 明细里查看器用到的字段：图表家族带 seriesId 与 datum，热力图带 date 或 row、column。 */
 export interface ChartPress {
-  readonly seriesId: string
   readonly key: unknown
-  readonly datum: Readonly<Record<string, unknown>>
+  readonly seriesId?: string
+  readonly datum?: Readonly<Record<string, unknown>>
+  readonly date?: string
+  readonly row?: string
+  readonly column?: string
 }
 
 /** 渲染好的图表卡片。 */
@@ -142,10 +145,11 @@ function cartesian(chart: Extract<ChartSpec, { type: 'cartesian' }>, data: Carte
   return {
     props,
     valueOf(press, dimension) {
-      if (dimension === split && members.has(press.seriesId))
-        return { value: members.get(press.seriesId) }
-      const spec = [...specs.values()].find(item => press.seriesId === item.id || press.seriesId.startsWith(`${item.id}:`))
-      if (!spec || spec.x !== dimension)
+      const seriesId = press.seriesId ?? ''
+      if (dimension === split && members.has(seriesId))
+        return { value: members.get(seriesId) }
+      const spec = [...specs.values()].find(item => seriesId === item.id || seriesId.startsWith(`${item.id}:`))
+      if (!spec || spec.x !== dimension || !press.datum)
         return undefined
       return categorical ? labels.get(dimension)?.raw(press.datum[dimension]) : { value: press.datum[dimension] }
     },
@@ -158,9 +162,57 @@ function cartesian(chart: Extract<ChartSpec, { type: 'cartesian' }>, data: Carte
 }
 
 /**
- * 把图表卡片排成 UI 图表元素，label 是图表的可及名。热力图暂不支持（返回 undefined）：UI 的热力图还没有与其它图表一致的数据与事件约定。
+ * 热力图：日期形态的格子键是 ISO 日期，选中值写回 activeKey 作强调；没写区间时取数据里最早到最晚的日期。
+ * 矩阵形态按行、列维度发出取值，联动选中的是整行或整列，不对应单独一格，不写 activeKey。
  */
-export function renderChart(chart: ChartSpec, data: ChartData, query: ReportQuery, dataset: DatasetSchema, ctx: RenderContext, label: string): RenderedChart | undefined {
+function heatmap(chart: HeatmapChartSpec, data: DateHeatmapData | MatrixHeatmapData, query: ReportQuery, dataset: DatasetSchema, ctx: RenderContext, label: string): RenderedChart {
+  const element = document.createElement('xh-heatmap')
+  element.append(uiPart('div', 'root', { 'aria-label': label }))
+  const measure = query.measures.find(item => item.id === chart.valueField)
+  const common = {
+    ...(measure?.format ? { format: numberFormat(measure.format, ctx) } : {}),
+    translations: { emptyText: ctx.translations.empty, loadingText: ctx.translations.loading },
+  }
+  if (chart.variant === 'matrix') {
+    const matrix = data as MatrixHeatmapData
+    const rows = memberLabels(query, chart.rowField, dataset, ctx)
+    const columns = memberLabels(query, chart.columnField, dataset, ctx)
+    const rowValues = new Map(matrix.rows.map(item => [item.id, item.value]))
+    const columnValues = new Map(matrix.columns.map(item => [item.id, item.value]))
+    Object.assign(element, without(chart, ['type', 'valueField', 'rowField', 'columnField']), common, {
+      rows: matrix.rows.map(item => ({ value: item.id, label: rows.text(item.value) })),
+      columns: matrix.columns.map(item => ({ value: item.id, label: columns.text(item.value) })),
+      value: matrix.cells.map(cell => ({ ...cell })),
+    })
+    return {
+      element,
+      valueOf(press, dimension) {
+        if (dimension === chart.rowField && press.row !== undefined && rowValues.has(press.row))
+          return { value: rowValues.get(press.row) }
+        if (dimension === chart.columnField && press.column !== undefined && columnValues.has(press.column))
+          return { value: columnValues.get(press.column) }
+        return undefined
+      },
+      keyOf: () => undefined,
+    }
+  }
+  const cells = (data as DateHeatmapData).cells
+  const dates = new Set(cells.map(cell => cell.date))
+  const sorted = [...dates].sort()
+  Object.assign(element, without(chart, ['type', 'valueField', 'dateField']), common, {
+    startDate: chart.startDate ?? sorted[0],
+    endDate: chart.endDate ?? sorted.at(-1),
+    value: cells.map(cell => ({ ...cell })),
+  })
+  return {
+    element,
+    valueOf: (press, dimension) => (dimension === chart.dateField && press.date !== undefined && dates.has(press.date) ? { value: press.date } : undefined),
+    keyOf: (dimension, value) => (dimension === chart.dateField && typeof value === 'string' ? value : undefined),
+  }
+}
+
+/** 把图表卡片排成 UI 图表元素，label 是图表的可及名。 */
+export function renderChart(chart: ChartSpec, data: ChartData, query: ReportQuery, dataset: DatasetSchema, ctx: RenderContext, label: string): RenderedChart {
   const empty = ctx.translations.empty
   switch (chart.type) {
     case 'cartesian': {
@@ -185,7 +237,7 @@ export function renderChart(chart: ChartSpec, data: ChartData, query: ReportQuer
       Object.assign(element, rest, { data: rows, ...(chart.format ? { format: numberFormat(chart.format, ctx) } : {}) })
       return {
         element,
-        valueOf: (press, dimension) => (dimension === chart.nameField && press.key !== OTHER_KEY ? labels.raw(press.datum[chart.nameField]) : undefined),
+        valueOf: (press, dimension) => (dimension === chart.nameField && press.key !== OTHER_KEY ? labels.raw(press.datum?.[chart.nameField]) : undefined),
         keyOf: (dimension, value) => (dimension === chart.nameField && chart.type !== 'radar' ? labels.text(value) : undefined),
       }
     }
@@ -231,6 +283,6 @@ export function renderChart(chart: ChartSpec, data: ChartData, query: ReportQuer
       }
     }
     case 'heatmap':
-      return undefined
+      return heatmap(chart, data as DateHeatmapData | MatrixHeatmapData, query, dataset, ctx, label)
   }
 }
