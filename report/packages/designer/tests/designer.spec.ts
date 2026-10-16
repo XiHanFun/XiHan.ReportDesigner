@@ -5,6 +5,7 @@
  */
 
 import type { DashboardView, DatasetRequest, ReportDocument } from '@xihan-report/core'
+import type { XhTreeElement } from '@xihan-ui/web-components/define'
 import type { XhReportDesigner } from '../src'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { defineReportDesigner } from '../src'
@@ -271,6 +272,24 @@ describe('<xh-report-designer>：编辑', () => {
     expect(palette.readonly).toBe(true)
     palette.dispatchEvent(new CustomEvent('item-activate', { detail: { id: 'metric', payload: 'metric' } }))
     expect(designer.schema).toEqual(board)
+  })
+
+  it('数据面板列出数据集与字段，点字段选中它；选择变了树随之同步，没有报表参数时参数树收起', async () => {
+    const designer = await mount()
+    const data = designer.querySelector('[data-part="data"]')!
+    expect(data.closest('[data-region="data"]')).not.toBeNull()
+    const tree = data.querySelector<XhTreeElement>('xh-tree[data-part="datasets"]')!
+    expect(tree.collection).toEqual([{ value: '["dataset","sales"]', label: 'sales', children: [
+      { value: '["field","sales","region"]', label: 'region' },
+      { value: '["field","sales","amount"]', label: 'amount' },
+    ] }])
+    expect([...tree.querySelectorAll('[data-xh-part="item"] [data-xh-part="item-suffix"]')].map(item => item.textContent)).toEqual(['string', 'number'])
+    expect(data.querySelector<HTMLElement>('xh-tree[data-part="parameters"]')!.hidden).toBe(true)
+    tree.dispatchEvent(new CustomEvent('selection-change', { detail: { value: ['["field","sales","amount"]'] } }))
+    expect(designer.getSelection()).toEqual({ cards: [], data: { kind: 'field', dataset: 'sales', name: 'amount' } })
+    expect(tree.selection).toEqual(['["field","sales","amount"]'])
+    designer.select({ cards: ['a'] })
+    expect(tree.selection).toEqual([])
   })
 
   it('赋新的 schema 装载并派发 load，赋回当前文档不重新装载', async () => {

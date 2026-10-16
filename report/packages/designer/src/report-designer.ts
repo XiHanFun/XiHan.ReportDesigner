@@ -20,8 +20,10 @@ import { getLocalTimeZone } from '@xihan-ui/core/date'
 import { createIdAllocator, selectInMarquee } from '@xihan-ui/designer-kit'
 import { defineDesignerShellElement, registerDropTarget, XhDesignerFrameElement, XhDesignerPaletteElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
 import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
+import { defineXhElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import { CanvasContent } from './canvas'
 import { readReportClipboardData, writeReportClipboardData } from './clipboard'
+import { DataPanel } from './data-panel'
 import { createReportEditor, writeReportClipboard } from './editor'
 import { cellSize, cellToRect, centeredCell, clipCell, measureGrid, rectToCell } from './grid-geometry'
 import { paletteCardType, paletteGroups } from './palette'
@@ -57,9 +59,10 @@ export interface ReportDesignerEventMap {
   'blank-contextmenu': CustomEvent<{ x: number, y: number }>
 }
 
-/** 外框的命名区：左侧是物料，中间是画布。 */
+/** 外框的命名区：左侧上下是数据与物料，中间是画布。 */
 const FRAME_REGIONS: readonly DesignerFrameRegion[] = [
-  { name: 'palette', position: 'start', size: 18 },
+  { name: 'data', position: 'start', size: 18 },
+  { name: 'palette', position: 'start' },
   { name: 'canvas', position: 'center' },
 ]
 
@@ -73,6 +76,7 @@ interface Layers {
   readonly empty: HTMLElement
   readonly dropPreview: HTMLElement
   readonly palette: XhDesignerPaletteElement
+  readonly data: DataPanel
 }
 
 /** 物料拖到看板上的落点：卡片种类与请求的左上角格。 */
@@ -302,6 +306,7 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#syncFrame(layers.frame, t)
     layers.overlay.readonly = this.readonly
     this.#syncPalette(layers.palette, t)
+    this.#syncData()
     this.#renderCanvas()
   }
 
@@ -345,6 +350,7 @@ export class XhReportDesigner extends XhReactiveElement {
     editor.subscribe((change) => {
       if (change.kind === 'selection') {
         this.#renderSelection()
+        this.#syncData()
         emitEvent(this, 'selection-change', change.selection)
         return
       }
@@ -431,7 +437,12 @@ export class XhReportDesigner extends XhReactiveElement {
     const workspace = createAuthoredElement(doc, 'div', { 'data-part': 'workspace' }, [canvas])
     const palette = createGeneratedElement(doc, 'xh-designer-palette', { 'data-part': 'palette', 'slot': 'palette' }) as XhDesignerPaletteElement
     palette.addEventListener('item-activate', this.#onPaletteActivate)
-    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [palette, workspace]) as XhDesignerFrameElement
+    const data = new DataPanel({
+      ownerDocument: doc,
+      select: ref => this.#editor?.select({ data: ref }),
+      isReadonly: () => this.readonly,
+    })
+    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [data.element, palette, workspace]) as XhDesignerFrameElement
     this.replaceChildren(frame)
     canvas.addEventListener('pointerdown', this.#onPointerDown)
     canvas.addEventListener('pointermove', this.#onHover)
@@ -451,14 +462,14 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#viewport = undefined
     this.#drop = undefined
     this.#paletteKey = ''
-    this.#layers = { frame, canvas, scroller, surface, content, overlay, empty, dropPreview, palette }
+    this.#layers = { frame, canvas, scroller, surface, content, overlay, empty, dropPreview, palette, data }
     return this.#layers
   }
 
   /** panels 原样交给外框；区名换成文案，供分隔条的无障碍名称使用，文案没变时不重设。 */
   #syncFrame(frame: XhDesignerFrameElement, t: ReportDesignerTranslations): void {
     frame.panels = this.panels
-    const labels: Readonly<Record<string, string>> = { palette: t.palette, canvas: t.canvas }
+    const labels: Readonly<Record<string, string>> = { data: t.data, palette: t.palette, canvas: t.canvas }
     const regions = FRAME_REGIONS.map(region => ({ ...region, label: labels[region.name] ?? region.name }))
     const current = frame.regions
     if (current?.length === regions.length && current.every((region, index) => region.label === regions[index]!.label))
@@ -677,6 +688,13 @@ export class XhReportDesigner extends XhReactiveElement {
     palette.groups = paletteGroups(t)
   }
 
+  /** 数据面板随文档与选择更新。 */
+  #syncData(): void {
+    const document = this.#editor?.document
+    if (this.#layers && document)
+      this.#layers.data.update(document, this.#editor!.selection.data, this.#translations())
+  }
+
   /** 新卡片的模板，取数用第一个数据集。 */
   #template(type: ReportCardType): ReturnType<typeof cardTemplate> {
     return cardTemplate(type, this.#editor?.document.datasets[0]?.id ?? '')
@@ -852,6 +870,7 @@ export class XhReportDesigner extends XhReactiveElement {
 /** 注册 <xh-report-designer> 与它用到的 UI 元素、designer-shell 零件；import 时不注册。 */
 export function defineReportDesigner(): void {
   defineViewerElements()
+  defineXhElement('xh-tree', XhTreeElement)
   defineDesignerShellElement('xh-designer-frame', XhDesignerFrameElement)
   defineDesignerShellElement('xh-designer-palette', XhDesignerPaletteElement)
   defineDesignerShellElement('xh-designer-transform', XhDesignerTransformElement)

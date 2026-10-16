@@ -125,6 +125,18 @@ describe('createReportEditor', () => {
     expect(editor.document).toEqual(board)
   })
 
+  it('选中数据面板里的对象时不选卡片；对象删掉后选择清空', () => {
+    const editor = createReportEditor({ document: board })
+    editor.select({ cards: ['a'] })
+    editor.select({ data: { kind: 'field', dataset: 'sales', name: 'region' } })
+    expect(editor.selection).toEqual({ cards: [], data: { kind: 'field', dataset: 'sales', name: 'region' } })
+    editor.select({ cards: ['b'] }, 'add')
+    expect(editor.selection).toEqual({ cards: ['b'] })
+    editor.select({ data: { kind: 'field', dataset: 'sales', name: 'region' } })
+    editor.execute([{ type: 'removeField', dataset: 'sales', name: 'region' }])
+    expect(editor.selection).toEqual({ cards: [] })
+  })
+
   it('选择：替换、追加、切换与全选', () => {
     const editor = createReportEditor({ document: board })
     editor.select({ cards: ['a'] })
