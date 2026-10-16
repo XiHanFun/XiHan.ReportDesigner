@@ -138,3 +138,62 @@ xh-report-designer [data-part='data'] [data-xh-part='label'] {
 xh-report-designer [data-part='data'] [data-xh-part='item-suffix'] {
   color: var(--xh-fg-muted);
 }
+
+/* 字段栏：每个列表一段，标题在上、项竖排；数据面板的字段悬在一段上时高亮这段 */
+xh-report-designer [data-part='wells'] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xh-space-3);
+  min-block-size: 0;
+  padding: var(--xh-space-3);
+  font-size: var(--xh-font-size-sm);
+}
+
+xh-report-designer [data-part='wells'] [hidden] {
+  display: none;
+}
+
+xh-report-designer [data-part='wells-hint'] {
+  margin: 0;
+  color: var(--xh-fg-muted);
+}
+
+xh-report-designer [data-part='well-lists'] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xh-space-3);
+}
+
+xh-report-designer [data-part='well'] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xh-space-2);
+  padding: var(--xh-space-2);
+  border: var(--xh-stroke-thin) dashed var(--xh-border-default);
+  border-radius: var(--xh-radius-md);
+}
+
+xh-report-designer [data-part='well'][data-drop] {
+  border-color: var(--xh-border-control-focus);
+  background: var(--xh-bg-brand-subtle);
+}
+
+xh-report-designer [data-part='well-label'] {
+  font-weight: var(--xh-font-weight-semibold);
+}
+
+xh-report-designer [data-part='well-empty'] {
+  color: var(--xh-fg-muted);
+}
+
+xh-report-designer [data-part='well'] [data-xh-part='item'] {
+  display: flex;
+  gap: var(--xh-space-1);
+  align-items: center;
+  min-inline-size: 0;
+  border-radius: var(--xh-radius-sm);
+}
+
+xh-report-designer [data-part='well'] [data-xh-part='item'][data-selected] {
+  background: var(--xh-bg-brand-subtle);
+}

@@ -353,6 +353,7 @@ export const reportZhCN: XhConfig = mergeXhConfig(designerShellZhCN, {
       optionLabels: OPTION_LABELS,
       selected: count => `已选中 ${count} 个`,
       emptyDashboard: '把图表、指标或表格拖到这里',
+      wellsEmpty: '选中一张卡片，在这里编辑它的字段',
       emptyList: '把字段拖到这里',
       placeholder: '给了取数回调后这里显示示例数据',
       issue: issueText,
