@@ -5,7 +5,7 @@
  */
 
 import type { DashboardView, DatasetRequest, ReportDocument } from '@xihan-report/core'
-import type { XhTreeElement } from '@xihan-ui/web-components/define'
+import type { XhSortableElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import type { XhReportDesigner } from '../src'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { defineReportDesigner } from '../src'
@@ -109,6 +109,18 @@ function cards(designer: XhReportDesigner): DashboardView['cards'] {
 
 function transform(designer: XhReportDesigner, phase: string, kind: string, id: string, rect: Box): void {
   designer.querySelector('xh-designer-transform')!.dispatchEvent(new CustomEvent('transform', { detail: { phase, kind, rects: new Map([[id, rect]]), guides: [] } }))
+}
+
+function well(designer: XhReportDesigner, list: string): HTMLElement {
+  return designer.querySelector(`[data-part="well"][data-list="${list}"]`)!
+}
+
+/** 字段栏各列表的项标题。 */
+function wellLabels(designer: XhReportDesigner): Record<string, string[]> {
+  return Object.fromEntries([...designer.querySelectorAll<HTMLElement>('[data-part="well"]')].map(element => [
+    element.dataset.list,
+    [...element.querySelectorAll('[data-xh-part="item"]')].map(item => item.getAttribute('aria-label')!),
+  ]))
 }
 
 async function settle(): Promise<void> {
@@ -290,6 +302,52 @@ describe('<xh-report-designer>：编辑', () => {
     expect(tree.selection).toEqual(['["field","sales","amount"]'])
     designer.select({ cards: ['a'] })
     expect(tree.selection).toEqual([])
+  })
+
+  it('字段栏：看板上没有唯一选中的卡片时显示提示；选中卡片后列出它的维度与度量，标题取字段', async () => {
+    const designer = await mount()
+    const wells = designer.querySelector<HTMLElement>('[data-part="wells"]')!
+    expect(wells.closest('[data-region="wells"]')).not.toBeNull()
+    expect(wells.querySelector<HTMLElement>('[data-part="wells-hint"]')!.hidden).toBe(false)
+    designer.select({ cards: ['pie'] })
+    await designer.updateComplete
+    expect(wellLabels(designer)).toEqual({ dimensions: ['region'], measures: ['amount'] })
+    expect(wells.querySelector<HTMLElement>('[data-part="wells-hint"]')!.hidden).toBe(true)
+  })
+
+  it('字段栏里拖动排序、移除与点选列表项；移除走 planRemoveItem，记一步撤销', async () => {
+    const designer = await mount()
+    designer.select({ cards: ['pie'] })
+    designer.execute([{ type: 'addItem', card: 'pie', list: 'measures', item: { id: 'n', aggregate: 'count', title: '单数' } }])
+    await designer.updateComplete
+    expect(wellLabels(designer).measures).toEqual(['amount', '单数'])
+    well(designer, 'measures').querySelector<XhSortableElement>('xh-sortable')!.dispatchEvent(new CustomEvent('sort', { detail: { id: 'n', from: 1, to: 0, ids: ['n', 'amount'] } }))
+    await designer.updateComplete
+    expect(wellLabels(designer).measures).toEqual(['单数', 'amount'])
+    well(designer, 'measures').querySelector<HTMLElement>('[item-id="amount"]')!.click()
+    expect(designer.getSelection()).toEqual({ cards: ['pie'], item: { card: 'pie', list: 'measures', id: 'amount' } })
+    well(designer, 'measures').querySelector('[item-id="n"] xh-tag')!.dispatchEvent(new CustomEvent('open-change', { detail: { open: false } }))
+    await designer.updateComplete
+    expect(wellLabels(designer).measures).toEqual(['amount'])
+    designer.undo()
+    await designer.updateComplete
+    expect(wellLabels(designer).measures).toEqual(['单数', 'amount'])
+  })
+
+  it('交叉表的行与列同组，在两者之间拖动即透视；只读时不能移除与拖动', async () => {
+    const designer = await mount()
+    designer.schema = { ...board, body: { type: 'crosstab', dataset: 'sales', rows: [{ id: 'region', field: 'region' }], columns: [], measures: [{ id: 'amount', aggregate: 'sum', field: 'amount' }] } }
+    await designer.updateComplete
+    expect(wellLabels(designer)).toEqual({ rows: ['region'], columns: [], measures: ['amount'] })
+    const rows = well(designer, 'rows').querySelector<XhSortableElement>('xh-sortable')!
+    expect([rows.group, well(designer, 'columns').querySelector<XhSortableElement>('xh-sortable')!.group, well(designer, 'measures').querySelector<XhSortableElement>('xh-sortable')!.group]).toEqual(['pivot', 'pivot', undefined])
+    rows.dispatchEvent(new CustomEvent('transfer', { detail: { id: 'region', fromList: 'rows', toList: 'columns', from: 0, to: 0, fromIds: [], toIds: ['region'] } }))
+    await designer.updateComplete
+    expect(wellLabels(designer)).toEqual({ rows: [], columns: ['region'], measures: ['amount'] })
+    designer.readonly = true
+    await designer.updateComplete
+    expect(well(designer, 'columns').querySelector('xh-tag')!.hasAttribute('closable')).toBe(false)
+    expect(well(designer, 'columns').querySelector<XhSortableElement>('xh-sortable')!.disabled).toBe(true)
   })
 
   it('赋新的 schema 装载并派发 load，赋回当前文档不重新装载', async () => {
