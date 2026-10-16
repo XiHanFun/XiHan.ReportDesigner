@@ -25,8 +25,8 @@ export type TableColumnDef = NonNullable<XhTableElement['columns']>[number]
 
 /** 表格里被行主操作点中的那一格在报表里的含义。 */
 export interface TableCellRef {
-  /** 行的种类：明细行（交叉表是成员行）、组头、小计、总计。 */
-  readonly kind: 'detail' | 'group' | 'subtotal' | 'total'
+  /** 行的种类：明细行（交叉表是成员行）、组头、小计；总计在表尾，不报行主操作。 */
+  readonly kind: 'detail' | 'group' | 'subtotal'
   /**
    * 点中那一格所在的报表列：明细表与分组报表是列 id 或分组 id，交叉表的值格是度量 id、行表头格是行维度 id；
    * 焦点行上按 Enter 时为 null。
@@ -77,16 +77,21 @@ export function headerRow(columns: readonly { readonly id: string, readonly labe
   return row
 }
 
-/** xh-table 的外壳：root 里依次是 header、body、footer 与加载、空态占位；表格不放标题，可及名写在 root 上。 */
-export function tableShell(ctx: RenderContext, footer: boolean, label: string): TableShell {
+/**
+ * xh-table 的外壳：root 里依次是 header、body、footer 与加载、空态占位；表头吸顶，有表尾时表尾占 footerRows 行并吸底。
+ * 表格不放标题，可及名写在 root 上。
+ */
+export function tableShell(ctx: RenderContext, footerRows: number, label: string): TableShell {
   const table = document.createElement('xh-table') as XhTableElement
   table.setAttribute('sticky-header', '')
-  if (footer)
-    table.setAttribute('footer', '')
+  if (footerRows > 0) {
+    table.setAttribute('footer-rows', String(footerRows))
+    table.setAttribute('sticky-footer', '')
+  }
   const root = uiPart('div', 'root', { 'aria-label': label })
   const header = uiPart('div', 'header')
   const body = uiPart('div', 'body')
-  const foot = footer ? uiPart('div', 'footer') : undefined
+  const foot = footerRows > 0 ? uiPart('div', 'footer') : undefined
   root.append(header, body, ...(foot ? [foot] : []), uiPart('div', 'loading', {}, ctx.translations.loading), uiPart('div', 'empty', {}, ctx.translations.empty))
   table.append(root)
   return { table, root, header, body, footer: foot }
@@ -135,10 +140,10 @@ export function renderDetailTable(container: HTMLElement, view: TableView, datas
       values: Object.fromEntries(columns.map(item => [item.id, data[item.field]])),
     }
   }
-  const shell = tableShell(ctx, result.summary !== null, label)
+  const shell = tableShell(ctx, result.summary === null ? 0 : 1, label)
   shell.header.append(headerRow(columns.map(column => ({ id: column.id, label: columnLabel(column, dataset) }))))
   if (result.summary)
-    shell.footer!.append(tableRow(undefined, summaryCells(columns, dataset, result.summary, ctx.translations.total, ctx)))
+    shell.footer!.append(tableRow(undefined, summaryCells(columns, dataset, result.summary, ctx.translations.total, ctx), { level: '1' }))
 
   const rowCells = (index: number): { id: string, text: string }[] => {
     const row = result.rows[index]!

@@ -4,7 +4,7 @@
  */
 
 // 交叉表：排成 <xh-table>。列轴的表头树写成列定义的 children（多级表头由表格的 headerRows 逐层铺），
-// 行维度各占一列冻结在行首，相同的上层成员与小计、总计的标签经 cellSpan 合并。
+// 行维度各占一列冻结在行首，相同的上层成员与小计的标签经 cellSpan 合并；行轴的总计（度量排在行轴上时每个度量一行）写进表尾。
 
 import type { CrosstabAxisNode, CrosstabLabel, CrosstabLeaf, CrosstabResult, CrosstabView, DatasetSchema } from '@xihan-report/core'
 import type { XhTableElement } from '@xihan-ui/web-components/define'
@@ -88,8 +88,11 @@ export function renderCrosstab(container: HTMLElement, view: CrosstabView, datas
     }
   })
 
-  const shell = tableShell(ctx, false, label)
-  const rows = axes.rows.leaves.map((rowLeaf, r) => tableRow(`r${r}`, [
+  const leaves = axes.rows.leaves
+  const totalStart = leaves.findIndex(leaf => leaf.labels[0]?.kind === 'total')
+  const bodyLeaves = totalStart < 0 ? leaves : leaves.slice(0, totalStart)
+  const totalLeaves = totalStart < 0 ? [] : leaves.slice(totalStart)
+  const cells = (rowLeaf: CrosstabLeaf, r: number): { id: string, text: string }[] => [
     ...rowColumns.map((column, level) => {
       const label = rowLeaf.labels[level]
       return { id: column.id, text: label && !covered.has(`${r}:${level}`) ? labelText(label, dataset, ctx) : '' }
@@ -100,22 +103,24 @@ export function renderCrosstab(container: HTMLElement, view: CrosstabView, datas
       const value = result.cells[rowLeaf.header]?.[columnLeaf.header]?.[index]
       return { id: `c${c}`, text: ctx.text(value, measure.format, measureType(measure, dataset)) }
     }),
-  ], rowLeaf.emphasis ? { 'data-kind': 'subtotal' } : {}))
-  shell.body.append(...rows)
+  ]
+
+  const shell = tableShell(ctx, totalLeaves.length, label)
+  shell.body.append(...bodyLeaves.map((rowLeaf, r) => tableRow(`r${r}`, cells(rowLeaf, r), rowLeaf.emphasis ? { 'data-kind': 'subtotal' } : {})))
+  shell.footer?.append(...totalLeaves.map((rowLeaf, index) => tableRow(undefined, cells(rowLeaf, totalStart + index), { 'data-kind': 'total', 'level': String(index + 1) })))
 
   shell.table.columns = [...rowColumns, ...columnTree(axes.columns.tree, dataset, ctx)]
-  shell.table.rows = axes.rows.leaves.map((_, index) => ({ id: `r${index}` }))
+  shell.table.rows = bodyLeaves.map((_, index) => ({ id: `r${index}` }))
   shell.table.cellSpan = ({ rowIndex, columnIndex }) => (columnIndex < rowLevels ? spans.get(`${rowIndex}:${columnIndex}`) ?? null : null)
   container.replaceChildren(shell.table)
   fillHeader(shell.table, shell.header)
   return {
     element: shell.table,
     cellOf(row, column): TableCellRef | undefined {
-      const rowLeaf = axes.rows.leaves[rowIndex(row)]
+      const rowLeaf = bodyLeaves[rowIndex(row)]
       if (!rowLeaf)
         return undefined
-      const kinds = new Set(rowLeaf.labels.map(label => label?.kind))
-      const kind = kinds.has('total') ? 'total' : kinds.has('subtotal') ? 'subtotal' : 'detail'
+      const kind = rowLeaf.labels.some(label => label?.kind === 'subtotal') ? 'subtotal' : 'detail'
       const columnLeaf = column !== null && /^c\d+$/.test(column) ? valueLeaves[Number(column.slice(1))] : undefined
       if (columnLeaf) {
         const measure = view.measures[columnLeaf.measure ?? rowLeaf.measure ?? 0]

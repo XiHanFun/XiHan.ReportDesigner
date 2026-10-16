@@ -46,8 +46,12 @@ async function show(body: ReportDocument['body']): Promise<XhTableElement> {
   return table
 }
 
+function sectionRows(table: XhTableElement, section: 'body' | 'footer'): string[][] {
+  return [...table.querySelectorAll(`[data-xh-part="${section}"] > [data-xh-part="row"]`)].map(row => [...row.querySelectorAll('[data-xh-part="cell"]')].map(cell => cell.textContent ?? ''))
+}
+
 function bodyRows(table: XhTableElement): string[][] {
-  return [...table.querySelectorAll('[data-xh-part="body"] > [data-xh-part="row"]')].map(row => [...row.querySelectorAll('[data-xh-part="cell"]')].map(cell => cell.textContent ?? ''))
+  return sectionRows(table, 'body')
 }
 
 /** 点表格里的一格，收集冒泡到页面上的 action。 */
@@ -93,9 +97,9 @@ describe('<xh-report-viewer>：分组报表', () => {
       ['', 'A', '20'],
       ['Subtotal', '', '20'],
     ])
-    const footer = table.querySelector('[data-xh-part="footer"] [data-xh-part="row"]')!
-    expect([...footer.querySelectorAll('[data-xh-part="cell"]')].map(cell => cell.textContent)).toEqual(['Total', '', '250'])
+    expect(sectionRows(table, 'footer')).toEqual([['Total', '', '250']])
     expect(table.querySelectorAll('[data-kind="group"]')).toHaveLength(3)
+    expect([table.getAttribute('footer-rows'), table.hasAttribute('sticky-footer')]).toEqual(['1', true])
   })
 
   it('组头的键只横跨其后的分组列，留在冻结区里', async () => {
@@ -135,15 +139,27 @@ describe('<xh-report-viewer>：交叉表', () => {
     expect([...header[0]!.querySelectorAll('[data-xh-part="column-label"]')].map(label => label.textContent)).toContain('Total')
   })
 
-  it('格子取对应的度量，没有数据落入的格子为空，总计行加重', async () => {
+  it('格子取对应的度量，没有数据落入的格子为空；行轴的总计写进吸底的表尾', async () => {
     const table = await show(view)
     expect(bodyRows(table)).toEqual([
       ['East', '100', '1', '50', '1', '150', '2'],
       ['West', '80', '1', '', '', '80', '1'],
       ['(Blank)', '20', '1', '', '', '20', '1'],
-      ['Total', '200', '3', '50', '1', '250', '4'],
     ])
-    expect(table.querySelector('[data-xh-part="row"][value="r3"]')!.getAttribute('data-kind')).toBe('subtotal')
+    expect(sectionRows(table, 'footer')).toEqual([['Total', '200', '3', '50', '1', '250', '4']])
+    expect(table.rows).toHaveLength(3)
+    const footer = table.querySelector('[data-xh-part="footer"] > [data-xh-part="row"]')!
+    expect([table.getAttribute('footer-rows'), table.hasAttribute('sticky-footer'), footer.getAttribute('data-kind'), footer.getAttribute('aria-rowindex')]).toEqual(['1', true, 'total', '6'])
+  })
+
+  it('度量排在行轴上时总计每个度量一行，表尾按层号排；没有总计时不留表尾', async () => {
+    const table = await show({ ...view, measuresOn: 'rows' })
+    expect(sectionRows(table, 'footer')).toEqual([['Total', '金额', '200', '50', '250'], ['', '笔数', '3', '1', '4']])
+    const footer = [...table.querySelectorAll('[data-xh-part="footer"] > [data-xh-part="row"]')]
+    expect(footer.map(row => [row.getAttribute('level'), row.getAttribute('aria-rowindex')])).toEqual([['1', '8'], ['2', '9']])
+    expect(table.querySelector('[data-xh-part="root"]')!.getAttribute('aria-rowcount')).toBe('9')
+    const none = await show({ ...view, rowTotals: { grandTotal: false } })
+    expect([none.hasAttribute('footer-rows'), none.querySelector('[data-xh-part="footer"]')]).toEqual([false, null])
   })
 
   it('两层行维度：上层成员纵向合并，小计与总计的标签横跨剩余的行表头列', async () => {
@@ -156,10 +172,9 @@ describe('<xh-report-viewer>：交叉表', () => {
       ['', 'Subtotal'],
       ['(Blank)', 'A'],
       ['', 'Subtotal'],
-      ['Total', ''],
     ])
+    expect(sectionRows(table, 'footer').map(row => row.slice(0, 2))).toEqual([['Total', '']])
     expect(table.cellSpanOf('r0', 'row0')).toMatchObject({ rowSpan: 3 })
-    expect(table.cellSpanOf('r7', 'row0')).toMatchObject({ colSpan: 2 })
   })
 })
 
@@ -177,7 +192,7 @@ describe('<xh-report-viewer>：行主操作', () => {
     expect(click(table, 'r1', 'amount')).toEqual([expect.objectContaining({ kind: 'detail', column: 'amount', values: { region: 'East', product: 'A', amount: 100 } })])
   })
 
-  it('交叉表：值格报度量 id 与行、列成员，行表头格报行维度 id，总计行不带成员', async () => {
+  it('交叉表：值格报度量 id 与行、列成员，行表头格报行维度 id；总计在表尾，不报行主操作', async () => {
     const table = await show({
       type: 'crosstab',
       dataset: 'sales',
@@ -186,7 +201,15 @@ describe('<xh-report-viewer>：行主操作', () => {
       measures: [{ id: 'amount', aggregate: 'sum', field: 'amount' }, { id: 'n', aggregate: 'count' }],
     })
     expect(click(table, 'r0', 'c2')).toEqual([expect.objectContaining({ kind: 'detail', column: 'amount', values: { region: 'East', product: 'B' } })])
-    expect(click(table, 'r3', 'row0')).toEqual([expect.objectContaining({ kind: 'total', column: 'region', values: {} })])
+    expect(click(table, 'r1', 'row0')).toEqual([expect.objectContaining({ kind: 'detail', column: 'region', values: { region: 'West' } })])
+    const seen: Event[] = []
+    const listener = (event: Event): void => {
+      seen.push(event)
+    }
+    document.addEventListener('action', listener)
+    table.querySelector<HTMLElement>('[data-xh-part="footer"] [data-xh-part="cell"]')!.click()
+    document.removeEventListener('action', listener)
+    expect(seen).toEqual([])
   })
 })
 

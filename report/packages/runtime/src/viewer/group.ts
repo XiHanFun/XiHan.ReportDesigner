@@ -89,7 +89,7 @@ export function renderGroupReport(container: HTMLElement, view: GroupView, datas
   const { groups, columns } = view
   const groupColumns: TableColumnDef[] = groups.map((group, index) => ({ id: groupColumnId(index), label: fieldLabel(dataset, group.field, group.title), width: COLUMN_WIDTH, sticky: 'start' }))
   const definitions = [...groupColumns, ...columns.map(column => columnDef(column, dataset))]
-  const shell = tableShell(ctx, result.total !== null, label)
+  const shell = tableShell(ctx, result.total === null ? 0 : 1, label)
   shell.header.append(headerRow(definitions.map(column => ({ id: column.id, label: column.label ?? '' }))))
 
   const rows = groupRows(view, dataset, result, ctx)
@@ -100,7 +100,7 @@ export function renderGroupReport(container: HTMLElement, view: GroupView, datas
     shell.footer!.append(tableRow(undefined, [
       ...groups.map((_, index) => ({ id: groupColumnId(index), text: index === 0 ? ctx.translations.total : '' })),
       ...summary,
-    ], { 'data-kind': 'total' }))
+    ], { 'data-kind': 'total', 'level': '1' }))
   }
 
   shell.table.columns = definitions
