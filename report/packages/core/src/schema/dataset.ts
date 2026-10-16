@@ -110,6 +110,3 @@ export interface DatasetAggregated {
 
 /** 使用方交回的数据。 */
 export type DatasetData = DatasetRows | DatasetAggregated
-
-/** 使用方的取数回调。 */
-export type DatasetProvider = (request: DatasetRequest) => Promise<DatasetData>
