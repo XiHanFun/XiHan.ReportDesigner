@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { ReportDocument } from '@xihan-report/core'
+import type { DashboardView, ReportDocument } from '@xihan-report/core'
 import { describe, expect, it } from 'vitest'
 import { issueSelection } from '../src/issues-panel'
 
@@ -37,6 +37,11 @@ describe('问题路径换成选择', () => {
     expect(at('body', 'cards', 0, 'query', 'measures', 0, 'field')).toEqual({ cards: ['trend'], item: { card: 'trend', list: 'measures', id: 'amount' } })
     expect(at('body', 'cards', 0, 'chart', 'series', 0, 'y')).toEqual({ cards: ['trend'], item: { card: 'trend', list: 'series', id: 's' } })
     expect(at('body', 'cards', 1, 'view', 'columns', 0, 'field')).toEqual({ cards: ['t'], item: { card: 't', list: 'columns', id: 'c' } })
+  })
+
+  it('看板联动：选中联动与它的源卡片', () => {
+    const linked: ReportDocument = { ...board, body: { ...(board.body as DashboardView), links: [{ id: 'l', card: 'trend', dimension: 'region', targets: [] }] } }
+    expect(issueSelection(linked, { code: 'required', path: ['body', 'links', 0, 'targets'] })).toEqual({ cards: ['trend'], link: 'l' })
   })
 
   it('数据集、字段与报表参数；文档本身与看板网格是空选择', () => {

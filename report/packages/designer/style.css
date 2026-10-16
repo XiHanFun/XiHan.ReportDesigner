@@ -235,6 +235,35 @@ xh-report-designer [data-part='well'] [data-xh-part='item'][data-selected] {
   background: var(--xh-bg-brand-subtle);
 }
 
+/* 联动一段：以选中卡片为源的联动排成一行可换行的标签，选中的那条描一圈 */
+xh-report-designer [data-part='well-links'] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xh-space-2);
+  padding: var(--xh-space-2);
+  border: var(--xh-stroke-thin) dashed var(--xh-border-default);
+  border-radius: var(--xh-radius-md);
+}
+
+xh-report-designer [data-part='well-links'][hidden] {
+  display: none;
+}
+
+xh-report-designer [data-part='well-link-tags'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xh-space-1);
+}
+
+xh-report-designer [data-part='well-link-tags'] > xh-tag[data-selected] {
+  border-radius: var(--xh-radius-sm);
+  outline: var(--xh-ring-width) solid var(--xh-border-control-focus);
+}
+
+xh-report-designer [data-part='well-add-link'] {
+  align-self: flex-start;
+}
+
 /* 数据面板的字段悬在卡片或主体视图上时，高亮接受它的目标 */
 xh-report-designer [data-part='surface'] [data-part='card'][data-drop],
 xh-report-designer [data-part='surface'] > [data-part='content'][data-drop] {
