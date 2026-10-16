@@ -327,7 +327,7 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.schema).toEqual(board)
   })
 
-  it('数据面板列出数据集与字段，点字段选中它；选择变了树随之同步，没有报表参数时参数树收起', async () => {
+  it('数据面板列出数据集与字段，点字段选中它；选择变了树随之同步；没有报表参数且不能新增时参数树收起', async () => {
     const designer = await mount()
     const data = designer.querySelector('[data-part="data"]')!
     expect(data.closest('[data-region="data"]')).not.toBeNull()
@@ -337,12 +337,92 @@ describe('<xh-report-designer>：编辑', () => {
       { value: '["field","sales","amount"]', label: 'amount' },
     ] }])
     expect([...tree.querySelectorAll('[data-xh-part="item"] [data-xh-part="item-suffix"]')].map(item => item.textContent)).toEqual(['string', 'number'])
-    expect(data.querySelector<HTMLElement>('xh-tree[data-part="parameters"]')!.hidden).toBe(true)
+    expect(data.querySelector<HTMLElement>('xh-tree[data-part="parameters"]')!.hidden).toBe(false)
     tree.dispatchEvent(new CustomEvent('selection-change', { detail: { value: ['["field","sales","amount"]'] } }))
     expect(designer.getSelection()).toEqual({ cards: [], data: { kind: 'field', dataset: 'sales', name: 'amount' } })
     expect(tree.selection).toEqual(['["field","sales","amount"]'])
     designer.select({ cards: ['a'] })
     expect(tree.selection).toEqual([])
+  })
+
+  it('数据面板的新增按钮按 datasetEditing 显示：fields 只能加参数，full 还能加数据集与字段；新增后选中它', async () => {
+    const designer = await mount()
+    const button = (kind: string): HTMLElement => designer.querySelector(`[data-part="data-add"][data-kind="${kind}"]`)!
+    expect(['dataset', 'field', 'parameter'].map(kind => button(kind).hidden)).toEqual([true, true, false])
+    button('parameter').querySelector('button')!.click()
+    expect(designer.schema!.parameters).toEqual([{ name: 'parameter1', type: 'string' }])
+    expect(designer.getSelection()).toEqual({ cards: [], data: { kind: 'parameter', name: 'parameter1' } })
+    designer.datasetEditing = 'full'
+    designer.select({ data: { kind: 'dataset', dataset: 'sales' } })
+    await designer.updateComplete
+    expect(['dataset', 'field', 'parameter'].map(kind => button(kind).hidden)).toEqual([false, false, false])
+    button('field').querySelector('button')!.click()
+    expect(designer.schema!.datasets[0]!.fields.at(-1)).toEqual({ name: 'field1', type: 'string' })
+    const tree = designer.querySelector<XhTreeElement>('[data-part="datasets"]')!
+    tree.expandedValue = []
+    tree.dispatchEvent(new CustomEvent('expanded-value-change', { detail: { value: [] } }))
+    designer.select({ data: { kind: 'field', dataset: 'sales', name: 'region' } })
+    await designer.updateComplete
+    expect(tree.expandedValue).toEqual(['["dataset","sales"]'])
+    button('dataset').querySelector('button')!.click()
+    await designer.updateComplete
+    expect(tree.expandedValue).toEqual(['["dataset","sales"]', '["dataset","dataset1"]'])
+    designer.readonly = true
+    await designer.updateComplete
+    expect(['dataset', 'field', 'parameter'].map(kind => button(kind).hidden)).toEqual([true, true, true])
+  })
+
+  it('删除数据面板对象：不涉及别处时直接删；会一并删掉别处时先弹确认框，确认后合为一步撤销；用着的数据集删不了', async () => {
+    const designer = await mount()
+    designer.datasetEditing = 'full'
+    designer.execute([{ type: 'addParameter', parameter: { name: 'p', type: 'string' } }])
+    designer.select({ data: { kind: 'parameter', name: 'p' } })
+    expect(designer.deleteSelection()).toBe(true)
+    expect(designer.schema!.parameters).toBeUndefined()
+    designer.select({ data: { kind: 'field', dataset: 'sales', name: 'region' } })
+    const before = designer.schema
+    expect(designer.deleteSelection()).toBe(true)
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(designer.schema).toBe(before)
+    const dialog = document.querySelector<HTMLElement>('[data-scope="dialog"][data-part="content"][role="alertdialog"]')!
+    expect(dialog.textContent).toContain('Delete "region"')
+    expect(dialog.textContent).toContain('This also deletes 1 list item.')
+    const ok = [...dialog.querySelectorAll<HTMLButtonElement>('[data-part="footer"] button')].find(button => button.textContent === 'Delete')!
+    ok.click()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(designer.schema!.datasets[0]!.fields.some(field => field.name === 'region')).toBe(false)
+    expect(cards(designer)[0]).toMatchObject({ query: { dimensions: [] } })
+    designer.undo()
+    expect(designer.schema).toEqual(before)
+    designer.select({ data: { kind: 'dataset', dataset: 'sales' } })
+    expect(designer.deleteSelection()).toBe(false)
+    designer.datasetEditing = 'fields'
+    designer.select({ data: { kind: 'dataset', dataset: 'sales' } })
+    expect(designer.deleteSelection()).toBe(false)
+  })
+
+  it('改名在一次编辑结束时才做：级联到引用处、选中改了名的对象；名字重复时落一条错误', async () => {
+    const designer = await mount()
+    designer.datasetEditing = 'full'
+    designer.select({ data: { kind: 'field', dataset: 'sales', name: 'region' } })
+    await designer.updateComplete
+    const panel = designer.querySelector('xh-designer-properties')!
+    const change = (value: string): void => {
+      panel.dispatchEvent(new CustomEvent('property-change', { detail: { path: ['name'], value, targets: [{ kind: 'field', id: 'region' }], merge: 'm' } }))
+    }
+    expect(panel.targets![0]!.descriptors.map(descriptor => formatJsonPath(descriptor.path))).toEqual(['name', 'type', 'title', 'formula'])
+    change('amount')
+    panel.dispatchEvent(new CustomEvent('property-commit', { detail: { path: ['name'] } }))
+    await designer.updateComplete
+    expect(panel.errors).toContainEqual({ target: { kind: 'field', id: 'region' }, path: ['name'], message: 'Duplicate name' })
+    change('area')
+    expect(designer.schema!.datasets[0]!.fields[0]!.name).toBe('region')
+    panel.dispatchEvent(new CustomEvent('property-commit', { detail: { path: ['name'] } }))
+    expect(designer.schema!.datasets[0]!.fields[0]!.name).toBe('area')
+    expect(cards(designer)[0]).toMatchObject({ query: { dimensions: [{ field: 'area' }] } })
+    expect(designer.getSelection()).toEqual({ cards: [], data: { kind: 'field', dataset: 'sales', name: 'area' } })
+    designer.undo()
+    expect(designer.schema).toEqual(board)
   })
 
   it('字段栏：看板上没有唯一选中的卡片时显示提示；选中卡片后列出它的维度与度量，标题取字段', async () => {

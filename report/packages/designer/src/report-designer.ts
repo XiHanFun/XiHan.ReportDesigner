@@ -12,8 +12,11 @@ import type { ExecuteOptions, GridRect, HistoryChangeKind, Point, Rect, Viewport
 import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
 import type { DesignerFrameRegion, DesignerPaletteEventMap, DesignerPropertyEditor, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
+import type { DialogService } from '@xihan-ui/web-components/services'
 import type { ReportCommand } from './commands'
-import type { LayoutGesture, ReportAddCardInit, ReportClipboard, ReportEditor, ReportItemRef, ReportSelection } from './editor'
+import type { DataRemoval } from './data-editing'
+import type { DataAddKind } from './data-panel'
+import type { LayoutGesture, ReportAddCardInit, ReportClipboard, ReportDataRef, ReportEditor, ReportItemRef, ReportSelection } from './editor'
 import type { GridMetrics } from './grid-geometry'
 import { cardTemplate, planAddCard, planAddFieldItem, resolveParameters } from '@xihan-report/core'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS, DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter, defineReportViewer } from '@xihan-report/runtime'
@@ -23,9 +26,11 @@ import { createIdAllocator, selectInMarquee } from '@xihan-ui/designer-kit'
 import { defineDesignerShellElement, parseDesignerPanels, registerDropTarget, XhDesignerFrameElement, XhDesignerIssuesElement, XhDesignerPaletteElement, XhDesignerPropertiesElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
 import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, setText, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { defineXhElement, XhButtonElement, XhContextMenuElement, XhSortableElement, XhTagElement, XhToolbarElement, XhTreeElement } from '@xihan-ui/web-components/define'
+import { createDialogService } from '@xihan-ui/web-components/services'
 import { CanvasContent } from './canvas'
 import { readReportClipboardData, writeReportClipboardData } from './clipboard'
 import { COMMAND_LABELS, isReportCommand, MENU_ENTRIES, TOOLBAR_GROUPS } from './commands'
+import { canEditData, cascadeCount, planDataAddition, planDataRemoval } from './data-editing'
 import { dataFieldPayload, DataPanel } from './data-panel'
 import { createReportEditor, writeReportClipboard } from './editor'
 import { cellSize, cellToRect, centeredCell, clipCell, measureGrid, rectToCell } from './grid-geometry'
@@ -187,6 +192,7 @@ export class XhReportDesigner extends XhReactiveElement {
   #hoverId: string | undefined
   #viewport: Viewport | undefined
   #lastMode: ReportDesignerMode = 'design'
+  #dialogs: DialogService | undefined
   #viewer: XhReportViewer | undefined
   #drop: CardDrop | undefined
   #fieldDrop: FieldDrop | undefined
@@ -247,8 +253,16 @@ export class XhReportDesigner extends XhReactiveElement {
     return this.#editor?.selection ?? EMPTY_SELECTION
   }
 
+  /**
+   * 删除选中的对象：卡片、列表项或联动直接删；数据面板里的字段、参数与数据集按 datasetEditing 能删时删，
+   * 会一并删掉别处时先弹确认框，确认后合为一步撤销。返回是否删除（或已弹出确认框）。
+   */
   deleteSelection(): boolean {
-    return !this.readonly && (this.#editor?.deleteSelection() ?? false)
+    const editor = this.#editor
+    if (this.readonly || !editor)
+      return false
+    const data = editor.selection.data
+    return data ? this.#removeData(data) : editor.deleteSelection()
   }
 
   /** 复制选中的卡片，同时写进系统剪贴板；没有选中卡片时返回 undefined。 */
@@ -329,6 +343,8 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#resize?.disconnect()
     this.#resize = undefined
     this.#content?.dispose()
+    this.#dialogs?.dispose()
+    this.#dialogs = undefined
   }
 
   protected override update(changed: PropertyValues): void {
@@ -510,6 +526,11 @@ export class XhReportDesigner extends XhReactiveElement {
       ownerDocument: doc,
       select: ref => this.#editor?.select({ data: ref }),
       isReadonly: () => this.readonly,
+      canAdd: kind => !this.readonly && canEditData(kind, this.#datasetEditing()),
+      add: kind => this.#addData(kind),
+      remove: () => {
+        this.deleteSelection()
+      },
     })
     const wells = new Wells({
       ownerDocument: doc,
@@ -523,10 +544,11 @@ export class XhReportDesigner extends XhReactiveElement {
       ownerDocument: doc,
       editor: () => this.#editor,
       isReadonly: () => this.readonly,
-      datasetEditing: () => this.datasetEditing ?? 'fields',
+      datasetEditing: () => this.#datasetEditing(),
       issues: () => this.#issues,
       editors: () => this.editors,
       renderContext: () => createRenderContext(this.#viewerTranslations(), this.formatter ?? defaultFormatter, this.#locale(), this.#timeZone()),
+      select: selection => this.#editor?.select(selection),
     })
     const issues = new IssuesPanel({
       ownerDocument: doc,
@@ -825,6 +847,52 @@ export class XhReportDesigner extends XhReactiveElement {
     palette.groups = paletteGroups(t)
   }
 
+  #datasetEditing(): ReportDatasetEditing {
+    return this.datasetEditing === 'none' || this.datasetEditing === 'full' ? this.datasetEditing : 'fields'
+  }
+
+  #canRemoveData(ref: ReportDataRef): boolean {
+    const editor = this.#editor
+    return editor !== undefined && canEditData(ref.kind, this.#datasetEditing()) && planDataRemoval(editor.document, ref) !== undefined
+  }
+
+  /** 删除数据面板对象：不涉及别处时直接删，否则确认后按当时的报表重新算一遍再删。 */
+  #removeData(ref: ReportDataRef): boolean {
+    const editor = this.#editor
+    if (!editor || !this.#canRemoveData(ref))
+      return false
+    const removal = planDataRemoval(editor.document, ref)!
+    if (cascadeCount(removal.cascade) === 0) {
+      editor.execute(removal.operations)
+      return true
+    }
+    void this.#confirmRemoval(removal).then((confirmed) => {
+      const current = this.#editor
+      const next = confirmed && current && this.#canRemoveData(ref) ? planDataRemoval(current.document, ref) : undefined
+      if (current && next)
+        current.execute(next.operations)
+    })
+    return true
+  }
+
+  #confirmRemoval(removal: DataRemoval): Promise<boolean> {
+    const t = this.#translations()
+    this.#dialogs ??= createDialogService()
+    return this.#dialogs.confirm({ title: t.removeTitle(removal.label), content: t.removeCascade(removal.cascade), tone: 'danger', okText: t.removeConfirm })
+  }
+
+  /** 新增数据面板对象并选中它。 */
+  #addData(kind: DataAddKind): void {
+    const editor = this.#editor
+    if (!editor || this.readonly || !canEditData(kind, this.#datasetEditing()))
+      return
+    const plan = planDataAddition(editor.document, kind, editor.selection.data)
+    if (!plan)
+      return
+    editor.execute(plan.operations)
+    editor.select({ data: plan.select })
+  }
+
   /** 数据面板与字段栏随文档与选择更新。 */
   #syncData(): void {
     const editor = this.#editor
@@ -870,7 +938,7 @@ export class XhReportDesigner extends XhReactiveElement {
       case 'paste':
         return editable && this.canPaste && this.#dashboard() !== undefined
       case 'delete':
-        return editable && (cards > 0 || selection?.item !== undefined)
+        return editable && (cards > 0 || selection?.item !== undefined || (selection?.data !== undefined && this.#canRemoveData(selection.data)))
       case 'select-all':
         return design && this.#dashboard() !== undefined
       case 'design':

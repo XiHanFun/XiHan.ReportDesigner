@@ -13,6 +13,7 @@ import type { RenderContext } from '@xihan-report/runtime/design'
 import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
 import type { PropertyEditorTable, PropertyOption } from '@xihan-ui/designer-kit/properties'
 import type { DesignerPropertiesEventMap, DesignerPropertyDescriptor, DesignerPropertyEditor, DesignerPropertyError, DesignerPropertyTarget, XhDesignerPropertiesElement } from '@xihan-ui/designer-shell'
+import type { DatasetEditing } from './data-editing'
 import type { ReportDataRef, ReportEditor, ReportItemRef, ReportSelection } from './editor'
 import {
   cardProperties,
@@ -26,6 +27,8 @@ import {
   measureProperties,
   metricProperties,
   parameterProperties,
+  planRenameField,
+  planRenameParameter,
   REPORT_PROPERTY_GROUPS,
   seriesProperties,
   tableColumnProperties,
@@ -34,11 +37,9 @@ import {
 import { formatJsonPath } from '@xihan-ui/core/json'
 import { nestProperties } from '@xihan-ui/designer-kit/properties'
 import { createGeneratedElement } from '@xihan-ui/web-components/authoring'
+import { canEditData } from './data-editing'
 import { linkableDimensions } from './link-sources'
 import { parameterValueEditor } from './property-editors'
-
-/** 数据集能改到什么程度。 */
-export type DatasetEditing = 'none' | 'fields' | 'full'
 
 /** 属性面板需要设计器提供的能力。 */
 export interface PropertiesHost {
@@ -51,13 +52,20 @@ export interface PropertiesHost {
   readonly editors: () => PropertyEditorTable<DesignerPropertyEditor> | undefined
   /** 参数取值编辑器渲染查看器控件用的上下文。 */
   readonly renderContext: () => RenderContext
+  /** 改名之后选中改了名的对象。 */
+  readonly select: (selection: Partial<ReportSelection>) => void
 }
+
+/** 改名的结果：操作与改名后要选中的对象，或者名字不能用时的问题码。 */
+type RenameResult = { readonly operations: readonly ReportOperation[], readonly select: Partial<ReportSelection> } | { readonly code: 'empty' | 'duplicate-key' }
 
 /** 一个编辑对象：交给面板的 target、它在文档里的位置（换算问题的路径），以及把对它的修改换成操作。 */
 interface Binding {
   readonly target: DesignerPropertyTarget
   readonly base: JsonPath
   readonly write: (changes: readonly PropertyChange[]) => ReportOperation[]
+  /** 改名要级联到引用处：输入时先攒着，一次编辑结束（property-commit）时才改。 */
+  readonly rename?: (next: string) => RenameResult
 }
 
 /** 描述原本相对的对象与路径：属性名、选项文案按它查。 */
@@ -111,6 +119,8 @@ export class PropertiesPanel {
   readonly #origins = new WeakMap<object, Origin>()
   #bindings = new Map<string, Binding>()
   #t: ReportDesignerTranslations | undefined
+  /** 输入中的改名，与名字不能用时的问题码。 */
+  #rename: { readonly key: string, readonly value: string, readonly code?: string } | undefined
   readonly #builtin: Readonly<Record<string, DesignerPropertyEditor>>
 
   constructor(host: PropertiesHost) {
@@ -123,7 +133,7 @@ export class PropertiesPanel {
     this.element.labelOf = descriptor => this.#label(descriptor)
     this.element.optionLabel = (descriptor, option) => this.#optionLabel(descriptor, option)
     this.element.addEventListener('property-change', this.#onChange)
-    this.element.addEventListener('property-commit', () => this.#host.editor()?.seal())
+    this.element.addEventListener('property-commit', this.#onCommit)
   }
 
   /** 按文档与选择重组编辑对象，并把校验问题落到字段上。 */
@@ -140,6 +150,9 @@ export class PropertiesPanel {
     panel.editors = { ...editors, byControl: { ...this.#builtin, ...editors?.byControl } }
     panel.targets = bindings.map(binding => binding.target)
     panel.heading = bindings.length > 1 ? t.selected(bindings.length) : bindings[0] ? `${t.objectKinds[bindings[0].target.kind] ?? bindings[0].target.kind} · ${bindings[0].target.id}` : undefined
+    const renaming = this.#rename
+    if (renaming && !this.#bindings.has(renaming.key))
+      this.#rename = undefined
     panel.errors = this.#errors(bindings, t)
   }
 
@@ -279,20 +292,30 @@ export class PropertiesPanel {
     }]
   }
 
-  /** 数据面板里的对象：字段与报表参数；名字不在面板里改（改名要级联到引用处）。数据集暂无属性。 */
+  /**
+   * 数据面板里的对象：字段与报表参数。datasetEditing 允许时名字可改，改名经 planRenameField / planRenameParameter
+   * 级联到引用处与公式；不允许时不显示名字。数据集暂无属性。
+   */
   #bindData(document: ReportDocument, ref: ReportDataRef): Binding[] {
     const scope: Scope = { dataset: ref.kind === 'parameter' ? undefined : ref.dataset, query: undefined }
+    const renamable = canEditData(ref.kind, this.#host.datasetEditing())
     if (ref.kind === 'field') {
       const datasetIndex = document.datasets.findIndex(dataset => dataset.id === ref.dataset)
       const fieldIndex = document.datasets[datasetIndex]?.fields.findIndex(field => field.name === ref.name) ?? -1
       const field = document.datasets[datasetIndex]?.fields[fieldIndex]
       if (!field)
         return []
-      const descriptors = datasetFieldProperties().filter(descriptor => descriptor.path[0] !== 'name')
+      const descriptors = datasetFieldProperties().filter(descriptor => renamable || descriptor.path[0] !== 'name')
+      const names = new Set(document.datasets[datasetIndex]!.fields.map(item => item.name))
       return [{
         target: { kind: 'field', id: field.name, value: field as unknown as JsonValue, descriptors: this.#nest([], 'field', descriptors, document, scope) },
         base: ['datasets', datasetIndex, 'fields', fieldIndex],
         write: changes => [{ type: 'updateField', dataset: ref.dataset, name: ref.name, changes }],
+        rename: next => next === ''
+          ? { code: 'empty' }
+          : next !== ref.name && names.has(next)
+            ? { code: 'duplicate-key' }
+            : { operations: planRenameField(document, ref.dataset, ref.name, next), select: { data: { kind: 'field', dataset: ref.dataset, name: next } } },
       }]
     }
     if (ref.kind === 'parameter') {
@@ -300,11 +323,17 @@ export class PropertiesPanel {
       const parameter = document.parameters?.[index]
       if (!parameter)
         return []
-      const descriptors = parameterProperties().filter(descriptor => descriptor.path[0] !== 'name')
+      const descriptors = parameterProperties().filter(descriptor => renamable || descriptor.path[0] !== 'name')
+      const names = new Set(document.parameters!.map(item => item.name))
       return [{
         target: { kind: 'parameter', id: parameter.name, value: parameter as unknown as JsonValue, descriptors: this.#nest([], 'parameter', descriptors, document, scope) },
         base: ['parameters', index],
         write: changes => [{ type: 'updateParameter', name: ref.name, changes }],
+        rename: next => next === ''
+          ? { code: 'empty' }
+          : next !== ref.name && names.has(next)
+            ? { code: 'duplicate-key' }
+            : { operations: planRenameParameter(document, ref.name, next), select: { data: { kind: 'parameter', name: next } } },
       }]
     }
     return []
@@ -367,9 +396,38 @@ export class PropertiesPanel {
     return labels[`${formatJsonPath(origin?.path ?? descriptor.path)}=${value}`] ?? labels[value] ?? value
   }
 
-  /** 校验问题落到字段上：问题路径落在某个编辑对象之内时，换成相对它的路径。 */
+  /** 一次编辑结束：有攒着的改名就按计划函数改名（合为一步撤销）并选中改了名的对象；名字不能用时落一条错误。 */
+  readonly #onCommit = (): void => {
+    const editor = this.#host.editor()
+    const pending = this.#rename
+    editor?.seal()
+    if (!editor || !pending || pending.code !== undefined)
+      return
+    const binding = this.#bindings.get(pending.key)
+    const result = binding?.rename?.(pending.value)
+    if (!result)
+      return
+    if ('code' in result) {
+      this.#rename = { ...pending, code: result.code }
+      if (this.#t)
+        this.update(this.#t)
+      return
+    }
+    this.#rename = undefined
+    if (result.operations.length > 0)
+      editor.execute(result.operations)
+    this.#host.select(result.select)
+  }
+
+  /** 校验问题落到字段上：问题路径落在某个编辑对象之内时，换成相对它的路径；改名的名字不能用时也落在名字上。 */
   #errors(bindings: readonly Binding[], t: ReportDesignerTranslations): DesignerPropertyError[] {
     const errors: DesignerPropertyError[] = []
+    const renaming = this.#rename
+    if (renaming?.code !== undefined) {
+      const binding = this.#bindings.get(renaming.key)
+      if (binding)
+        errors.push({ target: { kind: binding.target.kind, id: binding.target.id }, path: ['name'], message: t.issue({ code: renaming.code }) })
+    }
     for (const issue of this.#host.issues()) {
       for (const binding of bindings) {
         const { base } = binding
@@ -386,6 +444,11 @@ export class PropertiesPanel {
     const editor = this.#host.editor()
     if (!editor || this.#host.isReadonly())
       return
+    const key = targets.length === 1 ? `${targets[0]!.kind}\u0000${targets[0]!.id}` : undefined
+    if (key !== undefined && path.length === 1 && path[0] === 'name' && this.#bindings.get(key)?.rename) {
+      this.#rename = { key, value: typeof value === 'string' ? value.trim() : '' }
+      return
+    }
     const change: PropertyChange = value === undefined ? { path } : { path, value }
     const operations = targets.flatMap(ref => this.#bindings.get(`${ref.kind}\u0000${ref.id}`)?.write([change]) ?? [])
     if (operations.length > 0)
