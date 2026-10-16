@@ -97,17 +97,19 @@ export interface ReportEditor {
   readonly deleteSelection: (options?: ExecuteOptions) => boolean
   /** 开始拖动或改大小卡片；报表主体不是看板时抛错。 */
   readonly startLayout: (label?: string) => LayoutGesture
-  /** 复制选中的卡片，返回剪贴板文本；没有选中卡片时为 undefined。 */
-  readonly copy: () => string | undefined
+  /** 编辑模型里留着可粘贴的内容。 */
+  readonly hasClipboard: boolean
+  /** 复制选中的卡片与源卡片、目标都在其中的联动，留作下一次 paste 的内容；没有选中卡片时为 undefined。 */
+  readonly copy: () => ReportClipboard | undefined
   /** 复制并删除选中的卡片。 */
-  readonly cut: (options?: ExecuteOptions) => string | undefined
+  readonly cut: (options?: ExecuteOptions) => ReportClipboard | undefined
   /**
-   * 粘贴剪贴板文本里的卡片：id 与别的卡片重复时换新 id（联动随之改写），各卡片放到第一个空位，选中粘贴出的卡片。
-   * 不是报表的剪贴板、版本不支持、内容不合格或报表主体不是看板时不改文档，返回 undefined。
+   * 粘贴卡片，不给 clipboard 时用最近一次复制的内容：id 与别的卡片重复时换新 id（联动随之改写），各卡片放到第一个空位，
+   * 选中粘贴出的卡片并返回新的选择。没有内容或报表主体不是看板时不改文档，返回空选择。
    */
-  readonly paste: (text: string, options?: ExecuteOptions) => ReportSelection | undefined
-  /** 复制选中的卡片并立即粘贴。 */
-  readonly duplicate: (options?: ExecuteOptions) => ReportSelection | undefined
+  readonly paste: (clipboard?: ReportClipboard, options?: ExecuteOptions) => ReportSelection
+  /** 复制选中的卡片并立即粘贴，不改动留着的内容。 */
+  readonly duplicate: (options?: ExecuteOptions) => ReportSelection
   /** 数据集的可绑定字段树（designer-kit 的 DataField）；数据集不存在时为空数组。 */
   readonly dataFields: (dataset: string) => DataField[]
   readonly validate: (options?: ValidateOptions) => ValidationIssue[]
@@ -171,6 +173,7 @@ export function createReportEditor(options: ReportEditorOptions): ReportEditor {
   })
   const listeners = new Set<(change: ReportEditorChange) => void>()
   let selection: ReportSelection = EMPTY_SELECTION
+  let clipboard: ReportClipboard | undefined
 
   const emit = (change: ReportEditorChange): void => {
     for (const listener of listeners)
@@ -215,10 +218,10 @@ export function createReportEditor(options: ReportEditorOptions): ReportEditor {
     return clone({ cards, links })
   }
 
-  const pasteClipboard = (clipboard: ReportClipboard, executeOptions?: ExecuteOptions): ReportSelection | undefined => {
+  const pasteClipboard = (clipboard: ReportClipboard, executeOptions?: ExecuteOptions): ReportSelection => {
     const dashboard = dashboardOf(history.document)
-    if (!dashboard)
-      return undefined
+    if (!dashboard || clipboard.cards.length === 0)
+      return EMPTY_SELECTION
     const takenCards = new Set(dashboard.cards.map(card => card.id))
     const cardIds = createIdAllocator('card', takenCards)
     const cardMap = remapIds(clipboard.cards.map(card => card.id), (id) => {
@@ -339,23 +342,28 @@ export function createReportEditor(options: ReportEditorOptions): ReportEditor {
         },
       }
     },
+    get hasClipboard() {
+      return clipboard !== undefined
+    },
     copy() {
-      const clipboard = clipboardOf(selection.cards)
-      return clipboard ? writeReportClipboard(clipboard) : undefined
+      const copied = clipboardOf(selection.cards)
+      if (copied)
+        clipboard = copied
+      return copied
     },
     cut(executeOptions) {
-      const text = editor.copy()
-      if (text !== undefined)
+      const copied = editor.copy()
+      if (copied)
         editor.deleteSelection(executeOptions)
-      return text
+      return copied
     },
-    paste(text, executeOptions) {
-      const clipboard = readReportClipboard(text)
-      return clipboard ? pasteClipboard(clipboard, executeOptions) : undefined
+    paste(content, executeOptions) {
+      const source = content ?? clipboard
+      return source ? pasteClipboard(source, executeOptions) : EMPTY_SELECTION
     },
     duplicate(executeOptions) {
-      const clipboard = clipboardOf(selection.cards)
-      return clipboard ? pasteClipboard(clipboard, executeOptions) : undefined
+      const copied = clipboardOf(selection.cards)
+      return copied ? pasteClipboard(copied, executeOptions) : EMPTY_SELECTION
     },
     dataFields(datasetId) {
       const dataset = history.document.datasets.find(item => item.id === datasetId)

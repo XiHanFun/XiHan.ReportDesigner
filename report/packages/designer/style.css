@@ -1,0 +1,89 @@
+/*
+ * Copyright (c) 2021-Present XiHanFun and contributors.
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
+/* <xh-report-designer> 的样式：只用 @xihan-ui 的设计令牌。看板、卡片与表格的外观沿用 @xihan-report/runtime/style.css，
+   面板零件的外观由 @xihan-ui/designer-shell/style.css 负责。 */
+
+xh-report-designer {
+  display: block;
+  min-inline-size: 0;
+  color: var(--xh-fg-default);
+  font-size: var(--xh-text-body-size);
+  line-height: var(--xh-text-body-leading);
+}
+
+xh-report-designer > [data-part='root'] {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+xh-report-designer [data-part='workspace'] {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+}
+
+/* 画布：滚动区；内容区 surface 是覆盖层与网格共同的坐标原点 */
+xh-report-designer [data-part='canvas'] {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow: auto;
+  padding: var(--xh-space-4);
+  background: var(--xh-bg-subtle);
+  outline: none;
+}
+
+xh-report-designer [data-part='canvas']:focus-visible {
+  box-shadow: inset 0 0 0 var(--xh-stroke-thick) var(--xh-ring-focus);
+}
+
+xh-report-designer [data-part='surface'] {
+  position: relative;
+  min-block-size: 100%;
+  contain: inline-size;
+}
+
+xh-report-designer [data-part='card'] {
+  background: var(--xh-bg-surface);
+  cursor: default;
+}
+
+/* 设计态里卡片内容只看不点：指针一律落到卡片外壳上，用来选择与拖动 */
+xh-report-designer [data-part='card-body'],
+xh-report-designer [data-part='view'] {
+  pointer-events: none;
+}
+
+xh-report-designer [data-part='placeholder'] {
+  display: grid;
+  place-items: center;
+  block-size: 100%;
+  min-block-size: var(--xh-viewport-h-sm);
+  border: var(--xh-stroke-thin) dashed var(--xh-border-default);
+  border-radius: var(--xh-radius-md);
+  color: var(--xh-fg-muted);
+  font-size: var(--xh-text-secondary-size);
+  text-align: center;
+}
+
+xh-report-designer [data-part='card'] [data-part='placeholder'] {
+  min-block-size: 0;
+}
+
+xh-report-designer [data-part='empty'] {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--xh-fg-muted);
+  pointer-events: none;
+}
+
+xh-report-designer [data-part='empty'][hidden] {
+  display: none;
+}
