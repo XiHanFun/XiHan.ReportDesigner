@@ -114,6 +114,17 @@ describe('createReportEditor', () => {
     expect(editor.selection).toEqual({ cards: ['pie'] })
   })
 
+  it('删除列表项走 planRemoveItem：别处对它的引用一并清理，记为一步撤销', () => {
+    const editor = createReportEditor({ document: board })
+    editor.select({ cards: ['pie'], item: { card: 'pie', list: 'dimensions', id: 'region' } })
+    editor.deleteSelection()
+    expect(cards(editor.document)[0]).toMatchObject({ query: { dimensions: [] } })
+    expect((editor.document.body as DashboardView).links).toBeUndefined()
+    expect(editor.history.undoCount).toBe(1)
+    editor.undo()
+    expect(editor.document).toEqual(board)
+  })
+
   it('选择：替换、追加、切换与全选', () => {
     const editor = createReportEditor({ document: board })
     editor.select({ cards: ['a'] })
