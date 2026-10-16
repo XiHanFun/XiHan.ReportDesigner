@@ -9,6 +9,7 @@ import type { JsonPath } from '@xihan-ui/core/json'
 import type { ItemList, ItemOwner, PropertyChange, ReportOperation } from './operations'
 import type { ChartSpec, DashboardCard, DashboardView, DataView, FilterNode, JsonValue, MetricSpec, ReportDocument, ReportQuery } from './schema'
 import { nextFreeId } from '@xihan-ui/designer-kit'
+import { fieldFormulaSites, renameFormulas } from './formula-sites'
 
 /** 列表项所在的对象：报表主体或表格卡片的视图，或图表与指标卡片的查询。 */
 interface ResolvedOwner {
@@ -327,7 +328,7 @@ function queryFieldPaths(query: ReportQuery, name: string): JsonPath[] {
 
 /**
  * 字段改名：updateField，并把绑定这个数据集的视图与查询里引用它的地方一起改掉——列、分组、维度与度量的 field，
- * 筛选条件与明细排序的 field，以及目标卡片绑定这个数据集的联动目标的 field。计算字段与公式里写到的名字不改（交给校验报出）。
+ * 筛选条件与明细排序的 field、目标卡片绑定这个数据集的联动目标的 field，以及同一数据集里计算字段公式对它的引用。
  * 新旧名字相同时为空数组；数据集或字段不存在时抛 RangeError。
  */
 export function planRenameField(document: ReportDocument, dataset: string, name: string, next: string): ReportOperation[] {
@@ -342,7 +343,7 @@ export function planRenameField(document: ReportDocument, dataset: string, name:
   if (body.type !== 'dashboard') {
     if (body.dataset === dataset)
       operations.push(...viewUpdate(undefined, rename(viewFieldPaths(body, name))))
-    return operations
+    return [...operations, ...fieldFormulas(document, dataset, name, next)]
   }
   const bound = new Set<string>()
   for (const card of body.cards) {
@@ -366,7 +367,12 @@ export function planRenameField(document: ReportDocument, dataset: string, name:
     if (changes.length > 0)
       operations.push({ type: 'updateLink', id: link.id, changes })
   }
-  return operations
+  return [...operations, ...fieldFormulas(document, dataset, name, next)]
+}
+
+/** 同一数据集里计算字段公式对改名字段的引用。 */
+function fieldFormulas(document: ReportDocument, dataset: string, name: string, next: string): ReportOperation[] {
+  return renameFormulas(fieldFormulaSites(document, dataset, name), path => path[0] === name ? [next, ...path.slice(1)] : undefined)
 }
 
 /** 所在对象里已有的列表项 id（维度、度量、列与分组共用一套命名）。 */
