@@ -8,6 +8,8 @@
 export { planFillBindings } from './binding-plans'
 export { cardTemplate, cardTypeOf, REPORT_CARD_TYPES } from './card-templates'
 export type { CardTemplate, ReportCardType } from './card-templates'
+export { datasetUsage, planRemoveDataset, planRemoveField, planRemoveParameter, planRenameParameter } from './data-plans'
+export type { DataCascade, DataRemoval } from './data-plans'
 export * from './engine'
 export type { CompiledExpression, EngineCompileOptions, EngineCompileResult, EngineEvaluation, ExpressionEngine, ExpressionIssue } from './expression'
 export { gridItems, layoutOperations, planAddCard, planCardLayout, planCompactLayout, planRemoveCard } from './grid'
