@@ -12,10 +12,7 @@ import type { RenderContext } from './context'
 import type { TableColumnDef } from './table'
 import { crosstabAxes } from '@xihan-report/core'
 import { dimensionType, fieldLabel, measureLabel, measureType } from '../labels'
-import { headerRow, tableRow, tableShell } from './table'
-
-/** 行表头列与数值列的宽度：分组表头按叶子列的宽度求和，叶子列须给出宽度。 */
-const COLUMN_WIDTH = '8rem'
+import { COLUMN_WIDTH, headerRow, tableRow, tableShell } from './table'
 
 function labelText(label: CrosstabLabel, dataset: DatasetSchema, ctx: RenderContext): string {
   switch (label.kind) {

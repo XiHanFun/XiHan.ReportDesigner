@@ -66,9 +66,9 @@ describe('<xh-report-viewer>：分组报表', () => {
   it('每级分组占一列冻结在行首，组头、明细与小计依次成行，总计写进表尾', async () => {
     const table = await show(view)
     expect(table.columns).toEqual([
-      { id: 'g0', label: '区域', sticky: 'start' },
-      { id: 'product', label: '产品' },
-      { id: 'amount', label: '金额' },
+      { id: 'g0', label: '区域', width: '8rem', sticky: 'start' },
+      { id: 'product', label: '产品', width: '8rem' },
+      { id: 'amount', label: '金额', width: '8rem' },
     ])
     expect(bodyRows(table)).toEqual([
       ['East', '', ''],
@@ -87,10 +87,12 @@ describe('<xh-report-viewer>：分组报表', () => {
     expect(table.querySelectorAll('[data-kind="group"]')).toHaveLength(3)
   })
 
-  it('组头的键横跨其后各列', async () => {
-    const table = await show(view)
-    expect(table.cellSpanOf('r0', 'g0')).toMatchObject({ colSpan: 3 })
-    expect(table.cellSpanOf('r1', 'g0')).toMatchObject({ colSpan: 1, rowSpan: 1 })
+  it('组头的键只横跨其后的分组列，留在冻结区里', async () => {
+    const two = await show({ ...view, groups: [{ id: 'region', field: 'region' }, { id: 'product', field: 'product' }], columns: [{ id: 'amount', field: 'amount', summary: { aggregate: 'sum' } }] })
+    expect(two.cellSpanOf('r0', 'g0')).toMatchObject({ colSpan: 2 })
+    expect(two.cellSpanOf('r1', 'g1')).toMatchObject({ colSpan: 1 })
+    const one = await show(view)
+    expect(one.cellSpanOf('r0', 'g0')).toMatchObject({ colSpan: 1, rowSpan: 1 })
   })
 
   it('不列明细时最后一级每组一行，带上小计', async () => {
