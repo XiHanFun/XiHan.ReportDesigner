@@ -22,10 +22,10 @@ import { getLocalTimeZone } from '@xihan-ui/core/date'
 import { createIdAllocator, selectInMarquee } from '@xihan-ui/designer-kit'
 import { defineDesignerShellElement, parseDesignerPanels, registerDropTarget, XhDesignerFrameElement, XhDesignerIssuesElement, XhDesignerPaletteElement, XhDesignerPropertiesElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
 import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, setText, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
-import { defineXhElement, XhSortableElement, XhTagElement, XhToolbarElement, XhTreeElement } from '@xihan-ui/web-components/define'
+import { defineXhElement, XhContextMenuElement, XhSortableElement, XhTagElement, XhToolbarElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import { CanvasContent } from './canvas'
 import { readReportClipboardData, writeReportClipboardData } from './clipboard'
-import { COMMAND_LABELS, isReportCommand, TOOLBAR_GROUPS } from './commands'
+import { COMMAND_LABELS, isReportCommand, MENU_ENTRIES, TOOLBAR_GROUPS } from './commands'
 import { dataFieldPayload, DataPanel } from './data-panel'
 import { createReportEditor, writeReportClipboard } from './editor'
 import { cellSize, cellToRect, centeredCell, clipCell, measureGrid, rectToCell } from './grid-geometry'
@@ -84,6 +84,11 @@ interface Layers {
   readonly toolbar: HTMLElement
   readonly toolbarRoot: HTMLElement
   readonly commands: ReadonlyMap<ReportCommand, HTMLButtonElement>
+  /** 包着画布的 <xh-context-menu> 与它的菜单内容。 */
+  readonly menu: HTMLElement
+  readonly menuContent: HTMLElement
+  /** 菜单的触发区：关闭菜单后焦点回到这里，键盘与剪贴板把它当作画布。 */
+  readonly menuTrigger: HTMLElement
   readonly canvas: HTMLElement
   readonly scroller: HTMLElement
   readonly surface: HTMLElement
@@ -481,13 +486,22 @@ export class XhReportDesigner extends XhReactiveElement {
     overlay.addEventListener('marquee', this.#onMarquee)
     const canvas = createAuthoredElement(doc, 'div', { 'data-part': 'canvas', 'role': 'group', 'tabindex': 0 }, [scroller, overlay])
     canvas.addEventListener('pan-request', this.#onPanRequest)
+    const menuContent = createAuthoredElement(doc, 'div', { 'data-xh-part': 'content' })
+    const menuTrigger = createAuthoredElement(doc, 'div', { 'data-xh-part': 'trigger', 'data-report-canvas': '' }, [canvas])
+    const menu = createAuthoredElement(doc, 'xh-context-menu', { 'size': 'sm', 'data-report-canvas-menu': '' }, [
+      createAuthoredElement(doc, 'div', { 'data-xh-part': 'root', 'data-report-canvas-root': '' }, [
+        menuTrigger,
+        createAuthoredElement(doc, 'div', { 'data-xh-part': 'positioner' }, [menuContent]),
+      ]),
+    ])
+    menu.addEventListener('select', this.#onMenuSelect)
     registerDropTarget(scroller, {
       over: (point, payload) => this.#dropOver(point, payload),
       drop: () => this.#fieldDrop ? this.#dropField() : this.#dropCard(),
       leave: () => this.#clearDrop(),
     })
     const preview = createAuthoredElement(doc, 'div', { 'data-part': 'preview', 'hidden': true })
-    const workspace = createAuthoredElement(doc, 'div', { 'data-part': 'workspace' }, [canvas, preview])
+    const workspace = createAuthoredElement(doc, 'div', { 'data-part': 'workspace' }, [menu, preview])
     const palette = createGeneratedElement(doc, 'xh-designer-palette', { 'data-part': 'palette', 'slot': 'palette' }) as XhDesignerPaletteElement
     palette.addEventListener('item-activate', this.#onPaletteActivate)
     const data = new DataPanel({
@@ -528,7 +542,7 @@ export class XhReportDesigner extends XhReactiveElement {
     canvas.addEventListener('pointerleave', this.#onHoverEnd)
     canvas.addEventListener('dblclick', this.#onDoubleClick)
     canvas.addEventListener('contextmenu', this.#onContextMenu)
-    canvas.addEventListener('keydown', this.#onKeyDown)
+    menuTrigger.addEventListener('keydown', this.#onKeyDown)
     scroller.addEventListener('scroll', () => this.#renderSelection(), { passive: true })
     this.#resize?.disconnect()
     if (typeof ResizeObserver === 'function') {
@@ -542,7 +556,7 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#drop = undefined
     this.#paletteKey = ''
     this.#viewer = undefined
-    this.#layers = { frame, toolbar, toolbarRoot, commands, canvas, scroller, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues }
+    this.#layers = { frame, toolbar, toolbarRoot, commands, menu, menuContent, menuTrigger, canvas, scroller, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues }
     return this.#layers
   }
 
@@ -576,6 +590,7 @@ export class XhReportDesigner extends XhReactiveElement {
     if (!layers || !document || !this.#content)
       return
     const preview = this.#mode() === 'preview'
+    layers.menu.hidden = preview
     layers.canvas.hidden = preview
     layers.preview.hidden = !preview
     if (preview) {
@@ -1034,13 +1049,43 @@ export class XhReportDesigner extends XhReactiveElement {
     const proceed = id === undefined
       ? this.dispatchEvent(new CustomEvent('blank-contextmenu', { detail, bubbles: true, composed: true, cancelable: true }))
       : this.dispatchEvent(new CustomEvent('card-contextmenu', { detail: { id, ...detail }, bubbles: true, composed: true, cancelable: true }))
-    if (!proceed)
+    if (!proceed) {
       event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+    this.#fillMenu(id === undefined ? 'blank' : 'card')
+  }
+
+  /** 内建右键菜单的条目：不可用的命令写 aria-disabled。 */
+  #fillMenu(subject: 'card' | 'blank'): void {
+    const layers = this.#layers
+    if (!layers)
+      return
+    const t = this.#translations()
+    const doc = this.ownerDocument
+    layers.menuContent.replaceChildren(...MENU_ENTRIES[subject].map(entry => entry === '|'
+      ? createAuthoredElement(doc, 'div', { 'data-xh-part': 'separator' })
+      : createAuthoredElement(doc, 'div', { 'data-xh-part': 'item', 'value': entry, 'aria-disabled': this.#commandEnabled(entry) ? undefined : 'true' }, [
+          createAuthoredElement(doc, 'span', { 'data-xh-part': 'item-text' }, [t[COMMAND_LABELS[entry]] as string]),
+        ])))
+  }
+
+  /** 焦点在画布上，或在关闭菜单后接住焦点的菜单触发区上。 */
+  #isCanvasFocus(target: EventTarget | null): boolean {
+    const layers = this.#layers
+    return layers !== undefined && (target === layers.canvas || target === layers.menuTrigger)
+  }
+
+  readonly #onMenuSelect = (event: Event): void => {
+    const { value } = (event as CustomEvent<{ value: string }>).detail
+    if (isReportCommand(value))
+      this.#run(value)
   }
 
   readonly #onKeyDown = (event: KeyboardEvent): void => {
     const editor = this.#editor
-    if (!editor || event.target !== this.#layers?.canvas || this.#gesture)
+    if (!editor || !this.#isCanvasFocus(event.target) || this.#gesture)
       return
     const command = event.ctrlKey || event.metaKey
     let handled = true
@@ -1106,7 +1151,7 @@ export class XhReportDesigner extends XhReactiveElement {
   readonly #onClipboard = (event: ClipboardEvent): void => {
     const data = event.clipboardData
     const root = this.getRootNode() as Document | ShadowRoot
-    if (!data || !this.#editor || !this.#layers || root.activeElement !== this.#layers.canvas)
+    if (!data || !this.#editor || !this.#isCanvasFocus(root.activeElement))
       return
     if (event.type === 'paste') {
       const content = this.readonly ? undefined : readReportClipboardData(data)
@@ -1127,6 +1172,7 @@ export class XhReportDesigner extends XhReactiveElement {
 /** 注册 <xh-report-designer> 与它用到的查看器、UI 元素与 designer-shell 零件；import 时不注册。 */
 export function defineReportDesigner(): void {
   defineReportViewer()
+  defineXhElement('xh-context-menu', XhContextMenuElement)
   defineXhElement('xh-sortable', XhSortableElement)
   defineXhElement('xh-tag', XhTagElement)
   defineXhElement('xh-toolbar', XhToolbarElement)
