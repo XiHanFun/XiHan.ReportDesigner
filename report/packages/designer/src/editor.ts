@@ -18,7 +18,7 @@ import type {
 } from '@xihan-report/core'
 import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
 import type { DataField, ExecuteOptions, GridRect, History, HistoryChangeKind } from '@xihan-ui/designer-kit'
-import { applyOperation, gridItems, planAddCard, planCardLayout, planRemoveCard, validateDocument } from '@xihan-report/core'
+import { applyOperation, gridItems, planAddCard, planCardLayout, planRemoveCard, planRemoveItem, validateDocument } from '@xihan-report/core'
 import { formatJsonPath, isPlainObject } from '@xihan-ui/core/json'
 import { createHistory, createIdAllocator, decodeClipboard, encodeClipboard, remapIds } from '@xihan-ui/designer-kit'
 
@@ -307,7 +307,7 @@ export function createReportEditor(options: ReportEditorOptions): ReportEditor {
     deleteSelection(executeOptions) {
       if (selection.item) {
         const { card, list, id } = selection.item
-        execute([card === undefined ? { type: 'removeItem', list, id } : { type: 'removeItem', card, list, id }], executeOptions)
+        execute(planRemoveItem(history.document, card === undefined ? {} : { card }, list, id), executeOptions)
         return true
       }
       if (selection.cards.length === 0 || !dashboardOf(history.document))
