@@ -24,6 +24,7 @@ export interface ReportDesignerTranslations {
   readonly cut: string
   readonly paste: string
   readonly duplicate: string
+  readonly selectAll: string
   readonly design: string
   readonly preview: string
   /** 数据面板的标题与分组。 */
@@ -131,6 +132,7 @@ export const DEFAULT_REPORT_DESIGNER_TRANSLATIONS: ReportDesignerTranslations = 
   cut: 'Cut',
   paste: 'Paste',
   duplicate: 'Duplicate',
+  selectAll: 'Select all',
   design: 'Design',
   preview: 'Preview',
   data: 'Data',

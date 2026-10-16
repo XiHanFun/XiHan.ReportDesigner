@@ -497,6 +497,30 @@ describe('<xh-report-designer>：编辑', () => {
     expect(modes).toEqual([{ mode: 'preview' }, { mode: 'design' }])
   })
 
+  it('工具栏：按钮随选择与历史启用，点按钮执行命令，设计与预览两个按钮切换模式；只读时编辑类命令不可用', async () => {
+    const designer = await mount()
+    const button = (command: string): HTMLButtonElement => designer.querySelector(`[data-region="toolbar"] button[value="${command}"]`)!
+    expect([...designer.querySelectorAll('[data-region="toolbar"] button[value]')].map(item => item.textContent)).toEqual(['Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Duplicate', 'Delete', 'Design', 'Preview'])
+    expect([button('undo').disabled, button('delete').disabled]).toEqual([true, true])
+    designer.select({ cards: ['a'] })
+    await designer.updateComplete
+    expect(button('delete').disabled).toBe(false)
+    button('delete').click()
+    await designer.updateComplete
+    expect(cards(designer).map(item => item.id)).toEqual(['pie', 'b'])
+    button('undo').click()
+    expect(designer.schema).toEqual(board)
+    button('preview').click()
+    await designer.updateComplete
+    expect([designer.mode, button('preview').getAttribute('aria-pressed'), button('design').getAttribute('aria-pressed')]).toEqual(['preview', 'true', 'false'])
+    expect(designer.querySelector('[data-region="toolbar"]')).not.toBeNull()
+    button('design').click()
+    designer.readonly = true
+    designer.select({ cards: ['a'] })
+    await designer.updateComplete
+    expect([button('delete').disabled, button('copy').disabled, button('preview').disabled]).toEqual([true, false, false])
+  })
+
   it('赋新的 schema 装载并派发 load，赋回当前文档不重新装载', async () => {
     const designer = await mount()
     const schemaChanges = events(designer, 'schema-change') as { kind: string }[]

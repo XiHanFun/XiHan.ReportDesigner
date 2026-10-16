@@ -310,6 +310,7 @@ export const reportZhCN: XhConfig = mergeXhConfig(designerShellZhCN, {
       cut: '剪切',
       paste: '粘贴',
       duplicate: '再制',
+      selectAll: '全选',
       design: '设计',
       preview: '预览',
       data: '数据',
