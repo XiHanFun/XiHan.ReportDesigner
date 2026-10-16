@@ -7,7 +7,8 @@
 import type { DashboardView, DatasetRequest, ReportDocument } from '@xihan-report/core'
 import type { XhSortableElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import type { XhReportDesigner } from '../src'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { formatJsonPath } from '@xihan-ui/core/json'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineReportDesigner } from '../src'
 
 function metric(id: string, x: number): DashboardView['cards'][number] {
@@ -45,13 +46,40 @@ const board: ReportDocument = {
   },
 }
 
+// jsdom 不排版：属性面板里多行文本框自动增高要读的计算样式与内容高度给出浏览器里的缺省值
+const STYLE_FALLBACK: Readonly<Record<string, string>> = {
+  'writing-mode': 'horizontal-tb',
+  'box-sizing': 'border-box',
+  'max-block-size': 'none',
+  'padding-top': '0px',
+  'padding-bottom': '0px',
+  'border-top-width': '0px',
+  'border-bottom-width': '0px',
+  'font-size': '14px',
+  'line-height': '20px',
+}
+
 beforeAll(() => {
   defineReportDesigner()
   Element.prototype.scrollIntoView ??= function () {}
 })
 
+beforeEach(() => {
+  const real = window.getComputedStyle.bind(window)
+  vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => new Proxy(real(element, pseudo), {
+    get(target, key) {
+      if (key === 'getPropertyValue')
+        return (name: string) => target.getPropertyValue(name) || STYLE_FALLBACK[name] || ''
+      const value = Reflect.get(target, key) as unknown
+      return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(target) : value
+    },
+  }))
+  vi.spyOn(HTMLTextAreaElement.prototype, 'scrollHeight', 'get').mockReturnValue(20)
+})
+
 afterEach(() => {
   document.body.replaceChildren()
+  vi.restoreAllMocks()
 })
 
 function events(element: HTMLElement, name: string): unknown[] {
@@ -359,6 +387,70 @@ describe('<xh-report-designer>：编辑', () => {
     await designer.updateComplete
     expect(well(designer, 'columns').querySelector('xh-tag')!.hasAttribute('closable')).toBe(false)
     expect(well(designer, 'columns').querySelector<XhSortableElement>('xh-sortable')!.disabled).toBe(true)
+  })
+
+  it('属性面板：没有选中时编辑报表与看板网格，选中卡片时编辑卡片与图表配置，引用类的取值是带候选项的 select', async () => {
+    const designer = await mount()
+    const panel = designer.querySelector('xh-designer-properties')!
+    expect(panel.closest('[data-region="properties"]')).not.toBeNull()
+    expect(panel.targets!.map(target => [target.kind, target.id])).toEqual([['document', 'board']])
+    expect(panel.targets![0]!.descriptors.map(descriptor => formatJsonPath(descriptor.path))).toEqual(['title', 'description', 'body.grid.columns', 'body.grid.rowHeight'])
+    expect(panel.heading).toBe('Report · board')
+    designer.select({ cards: ['pie'] })
+    await designer.updateComplete
+    const descriptors = panel.targets![0]!.descriptors
+    expect(descriptors.find(descriptor => formatJsonPath(descriptor.path) === 'chart.nameField')!.control).toEqual({ kind: 'select', options: [{ value: 'region', label: 'region' }] })
+    expect(descriptors.find(descriptor => formatJsonPath(descriptor.path) === 'dataset')!.control).toEqual({ kind: 'select', options: [{ value: 'sales', label: 'sales' }] })
+    expect(panel.labelOf!(descriptors.find(descriptor => formatJsonPath(descriptor.path) === 'chart.nameField')!)).toBe('nameField')
+  })
+
+  it('属性写入换成操作：同一合并键的连续输入并成一步，property-commit 之后另起一步；多选时每个对象一条，合为一步', async () => {
+    const designer = await mount()
+    const panel = designer.querySelector('xh-designer-properties')!
+    const change = (path: (string | number)[], value: unknown, targets: { kind: string, id: string }[]): void => {
+      panel.dispatchEvent(new CustomEvent('property-change', { detail: { path, value, targets, merge: `m:${path.join('.')}` } }))
+    }
+    designer.select({ cards: ['pie'] })
+    await designer.updateComplete
+    change(['title'], '区', [{ kind: 'card', id: 'pie' }])
+    change(['title'], '区域', [{ kind: 'card', id: 'pie' }])
+    change(['chart', 'variant'], 'donut', [{ kind: 'card', id: 'pie' }])
+    expect(cards(designer)[0]).toMatchObject({ title: '区域', chart: { variant: 'donut' } })
+    panel.dispatchEvent(new CustomEvent('property-commit', { detail: { path: ['chart', 'variant'] } }))
+    change(['chart', 'variant'], 'pie', [{ kind: 'card', id: 'pie' }])
+    designer.undo()
+    expect(cards(designer)[0]).toMatchObject({ chart: { variant: 'donut' } })
+    designer.undo()
+    designer.undo()
+    expect(designer.schema).toEqual(board)
+    designer.select({ cards: ['a', 'b'] })
+    await designer.updateComplete
+    expect(panel.heading).toBe('2 selected')
+    change(['title'], '指标', [{ kind: 'card', id: 'a' }, { kind: 'card', id: 'b' }])
+    expect(cards(designer).slice(1).map(item => item.title)).toEqual(['指标', '指标'])
+    designer.undo()
+    expect(designer.schema).toEqual(board)
+  })
+
+  it('列表项与数据面板字段的属性：项写 updateItem；字段不显示名字，datasetEditing 为 none 时只读；校验问题落到字段上', async () => {
+    const designer = await mount()
+    const panel = designer.querySelector('xh-designer-properties')!
+    designer.select({ cards: ['pie'], item: { card: 'pie', list: 'measures', id: 'amount' } })
+    await designer.updateComplete
+    expect(panel.targets!.map(target => target.kind)).toEqual(['measure'])
+    panel.dispatchEvent(new CustomEvent('property-change', { detail: { path: ['aggregate'], value: 'avg', targets: [{ kind: 'measure', id: 'amount' }], merge: 'x' } }))
+    expect(cards(designer)[0]).toMatchObject({ query: { measures: [{ id: 'amount', aggregate: 'avg' }] } })
+    designer.select({ data: { kind: 'field', dataset: 'sales', name: 'region' } })
+    await designer.updateComplete
+    expect(panel.targets![0]!.descriptors.map(descriptor => formatJsonPath(descriptor.path))).toEqual(['type', 'title', 'formula'])
+    expect(panel.readonly).toBe(false)
+    designer.datasetEditing = 'none'
+    await designer.updateComplete
+    expect(panel.readonly).toBe(true)
+    designer.select({ cards: ['pie'] })
+    designer.execute([{ type: 'updateCard', id: 'pie', changes: [{ path: ['chart', 'nameField'], value: 'ghost' }] }])
+    await designer.updateComplete
+    expect(panel.errors).toContainEqual(expect.objectContaining({ target: { kind: 'card', id: 'pie' }, path: ['chart', 'nameField'] }))
   })
 
   it('赋新的 schema 装载并派发 load，赋回当前文档不重新装载', async () => {

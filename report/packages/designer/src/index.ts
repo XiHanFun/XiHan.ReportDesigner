@@ -8,4 +8,4 @@
 export type { ReportAddCardInit, ReportClipboard, ReportDataRef, ReportItemRef, ReportSelection } from './editor'
 export { readReportClipboard, REPORT_CLIPBOARD_PRODUCT, REPORT_CLIPBOARD_VERSION, writeReportClipboard } from './editor'
 export { defineReportDesigner, REPORT_DESIGNER_PANELS, REPORT_DESIGNER_TAG, XhReportDesigner } from './report-designer'
-export type { ReportDatasetEditing, ReportDesignerEventMap, ReportDesignerMode, ReportDesignerPanel, ReportSchemaChangeKind } from './report-designer'
+export type { ReportDatasetEditing, ReportDesignerEventMap, ReportDesignerMode, ReportDesignerPanel, ReportPropertyEditor, ReportSchemaChangeKind } from './report-designer'
