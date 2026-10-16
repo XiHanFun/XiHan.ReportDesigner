@@ -56,3 +56,73 @@ xh-report-viewer xh-table [data-kind='subtotal'] [data-xh-part='cell'],
 xh-report-viewer xh-table [data-kind='total'] [data-xh-part='cell'] {
   font-weight: var(--xh-text-label-weight);
 }
+
+/* 看板：卡片按网格位置排；列数、行高与各卡片的位置大小由查看器写成 CSS 变量 */
+xh-report-viewer [data-part='dashboard'] {
+  display: grid;
+  grid-template-columns: repeat(var(--xh-report-columns), minmax(0, 1fr));
+  grid-auto-rows: var(--xh-report-row-h);
+  gap: var(--xh-space-3);
+}
+
+xh-report-viewer [data-part='card'] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xh-space-2);
+  grid-column: var(--xh-report-x) / span var(--xh-report-w);
+  grid-row: var(--xh-report-y) / span var(--xh-report-h);
+  min-inline-size: 0;
+  min-block-size: 0;
+  padding: var(--xh-space-3);
+  overflow: hidden;
+  background: var(--xh-bg-surface);
+  border: var(--xh-stroke-thin) solid var(--xh-border-default);
+  border-radius: var(--xh-radius-md);
+}
+
+xh-report-viewer [data-part='card-title'] {
+  font-size: var(--xh-text-label-size);
+  font-weight: var(--xh-text-label-weight);
+}
+
+xh-report-viewer [data-part='card-description'] {
+  margin: 0;
+  color: var(--xh-fg-muted);
+  font-size: var(--xh-text-secondary-size);
+}
+
+xh-report-viewer [data-part='card-body'] {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+}
+
+xh-report-viewer [data-part='card-body'] > * {
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+xh-report-viewer [data-part='card-status'] {
+  color: var(--xh-fg-muted);
+  font-size: var(--xh-text-secondary-size);
+}
+
+xh-report-viewer [data-part='card'][data-state='error'] [data-part='card-status'] {
+  color: var(--xh-fg-danger);
+}
+
+/* 窄屏退成单列，按网格位置自上而下排，卡片保持原来的高度 */
+@media not all and (min-width: 768px) {
+  xh-report-viewer [data-part='dashboard'] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: auto;
+  }
+
+  xh-report-viewer [data-part='card'] {
+    grid-column: auto;
+    grid-row: auto;
+    order: calc(var(--xh-report-y) * 1000 + var(--xh-report-x));
+    block-size: calc(var(--xh-report-row-h) * var(--xh-report-h));
+  }
+}
