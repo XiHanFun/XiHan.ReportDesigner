@@ -14,6 +14,9 @@ import { uiPart } from './dom'
 /** 超过这个行数时虚拟滚动。 */
 export const VIRTUAL_ROW_THRESHOLD = 200
 
+/** 没写宽度的列取的列宽：各行的单元格按同一列宽排，表头与表体对齐。 */
+export const COLUMN_WIDTH = '8rem'
+
 /** 虚拟滚动时每行的估算高度（px），只用于首帧排布，之后按实测。 */
 const ESTIMATED_ROW_SIZE = 36
 
@@ -71,7 +74,7 @@ export function columnDef(column: TableColumn, dataset: DatasetSchema): TableCol
   return {
     id: column.id,
     label: columnLabel(column, dataset),
-    ...(column.width === undefined ? {} : { width: column.width }),
+    width: column.width ?? COLUMN_WIDTH,
     ...(column.align === undefined ? {} : { align: column.align }),
     ...(column.sticky === undefined ? {} : { sticky: column.sticky }),
   }

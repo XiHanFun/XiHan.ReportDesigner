@@ -11,7 +11,7 @@ import type { RenderContext } from './context'
 import type { TableColumnDef } from './table'
 import { dimensionType, fieldLabel } from '../labels'
 import { fieldType } from './context'
-import { columnDef, headerRow, summaryCells, summaryType, tableRow, tableShell } from './table'
+import { COLUMN_WIDTH, columnDef, headerRow, summaryCells, summaryType, tableRow, tableShell } from './table'
 
 /** 分组报表里一行的种类。 */
 type GroupRowKind = 'group' | 'detail' | 'subtotal'
@@ -85,7 +85,7 @@ function groupRows(view: GroupView, dataset: DatasetSchema, result: GroupReportR
 /** 把分组报表排进 container，返回表格元素。 */
 export function renderGroupReport(container: HTMLElement, view: GroupView, dataset: DatasetSchema, result: GroupReportResult, ctx: RenderContext): XhTableElement {
   const { groups, columns } = view
-  const groupColumns: TableColumnDef[] = groups.map((group, index) => ({ id: groupColumnId(index), label: fieldLabel(dataset, group.field, group.title), sticky: 'start' }))
+  const groupColumns: TableColumnDef[] = groups.map((group, index) => ({ id: groupColumnId(index), label: fieldLabel(dataset, group.field, group.title), width: COLUMN_WIDTH, sticky: 'start' }))
   const definitions = [...groupColumns, ...columns.map(column => columnDef(column, dataset))]
   const shell = tableShell(ctx, result.total !== null)
   shell.header.append(headerRow(definitions.map(column => ({ id: column.id, label: column.label ?? '' }))))
@@ -101,12 +101,11 @@ export function renderGroupReport(container: HTMLElement, view: GroupView, datas
     ], { 'data-kind': 'total' }))
   }
 
-  const width = definitions.length
   shell.table.columns = definitions
   shell.table.rows = rows.map((_, index) => ({ id: `r${index}` }))
   shell.table.cellSpan = ({ rowIndex, columnIndex }) => {
     const row = rows[rowIndex]
-    return row?.kind === 'group' && columnIndex === row.level ? { colSpan: width - row.level } : null
+    return row?.kind === 'group' && columnIndex === row.level && row.level < groups.length - 1 ? { colSpan: groups.length - row.level } : null
   }
   container.replaceChildren(shell.table)
   return shell.table

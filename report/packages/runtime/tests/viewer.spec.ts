@@ -74,8 +74,8 @@ describe('<xh-report-viewer>：明细表', () => {
     const element = viewer.querySelector('xh-table') as HTMLElement & { columns: unknown[], rows: unknown[] }
     expect(element.columns).toEqual([
       { id: 'region', label: '区域', width: 120 },
-      { id: 'date', label: '日期' },
-      { id: 'amount', label: '销售额', align: 'end' },
+      { id: 'date', label: '日期', width: '8rem' },
+      { id: 'amount', label: '销售额', width: '8rem', align: 'end' },
     ])
     expect(element.rows).toEqual([{ id: 'r0' }, { id: 'r1' }, { id: 'r2' }])
     const header = [...element.querySelectorAll('[data-xh-part="column-label"]')].map(label => label.textContent)
