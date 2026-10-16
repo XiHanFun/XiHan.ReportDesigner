@@ -30,42 +30,42 @@ xh-report-viewer > [data-part='body'] {
   contain: inline-size;
 }
 
-xh-report-viewer xh-table {
+:is(xh-report-viewer, xh-report-designer) xh-table {
   display: block;
   inline-size: 100%;
 }
 
 /* 虚拟滚动：表格根不再限高，竖向滚动交给表体里虚拟列表的视口，横向仍由表格根滚动 */
-xh-report-viewer xh-table [data-xh-part='root'][data-virtual] {
+:is(xh-report-viewer, xh-report-designer) xh-table [data-xh-part='root'][data-virtual] {
   max-block-size: none;
   overflow: auto hidden;
 }
 
-xh-report-viewer xh-table [data-virtual] xh-virtualizer [data-xh-part='viewport'] {
+:is(xh-report-viewer, xh-report-designer) xh-table [data-virtual] xh-virtualizer [data-xh-part='viewport'] {
   block-size: var(--xh-report-table-h, var(--xh-viewport-h-lg));
 }
 
 /* 虚拟条目彼此不是兄弟节点，行之间的分隔线写在行上 */
-xh-report-viewer xh-table [data-virtual] xh-virtualizer [data-xh-part='row'] {
+:is(xh-report-viewer, xh-report-designer) xh-table [data-virtual] xh-virtualizer [data-xh-part='row'] {
   border-block-end: var(--xh-stroke-thin) solid var(--xh-border-subtle);
 }
 
 /* 分组报表的组头、小计与交叉表的小计、总计行加重 */
-xh-report-viewer xh-table [data-kind='group'] [data-xh-part='cell'],
-xh-report-viewer xh-table [data-kind='subtotal'] [data-xh-part='cell'],
-xh-report-viewer xh-table [data-kind='total'] [data-xh-part='cell'] {
+:is(xh-report-viewer, xh-report-designer) xh-table [data-kind='group'] [data-xh-part='cell'],
+:is(xh-report-viewer, xh-report-designer) xh-table [data-kind='subtotal'] [data-xh-part='cell'],
+:is(xh-report-viewer, xh-report-designer) xh-table [data-kind='total'] [data-xh-part='cell'] {
   font-weight: var(--xh-text-label-weight);
 }
 
 /* 看板：卡片按网格位置排；列数、行高与各卡片的位置大小由查看器写成 CSS 变量 */
-xh-report-viewer [data-part='dashboard'] {
+:is(xh-report-viewer, xh-report-designer) [data-part='dashboard'] {
   display: grid;
   grid-template-columns: repeat(var(--xh-report-columns), minmax(0, 1fr));
   grid-auto-rows: var(--xh-report-row-h);
   gap: var(--xh-space-3);
 }
 
-xh-report-viewer [data-part='card'] {
+:is(xh-report-viewer, xh-report-designer) [data-part='card'] {
   display: flex;
   flex-direction: column;
   gap: var(--xh-space-2);
@@ -80,35 +80,35 @@ xh-report-viewer [data-part='card'] {
   border-radius: var(--xh-radius-md);
 }
 
-xh-report-viewer [data-part='card-title'] {
+:is(xh-report-viewer, xh-report-designer) [data-part='card-title'] {
   font-size: var(--xh-text-label-size);
   font-weight: var(--xh-text-label-weight);
 }
 
-xh-report-viewer [data-part='card-description'] {
+:is(xh-report-viewer, xh-report-designer) [data-part='card-description'] {
   margin: 0;
   color: var(--xh-fg-muted);
   font-size: var(--xh-text-secondary-size);
 }
 
-xh-report-viewer [data-part='card-body'] {
+:is(xh-report-viewer, xh-report-designer) [data-part='card-body'] {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   min-block-size: 0;
 }
 
-xh-report-viewer [data-part='card-body'] > * {
+:is(xh-report-viewer, xh-report-designer) [data-part='card-body'] > * {
   flex: 1 1 auto;
   min-block-size: 0;
 }
 
-xh-report-viewer [data-part='card-status'] {
+:is(xh-report-viewer, xh-report-designer) [data-part='card-status'] {
   color: var(--xh-fg-muted);
   font-size: var(--xh-text-secondary-size);
 }
 
-xh-report-viewer [data-part='card'][data-state='error'] [data-part='card-status'] {
+:is(xh-report-viewer, xh-report-designer) [data-part='card'][data-state='error'] [data-part='card-status'] {
   color: var(--xh-fg-danger);
 }
 
