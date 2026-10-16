@@ -38,6 +38,20 @@ xh-report-designer [data-part='workspace'] {
   min-block-size: 0;
 }
 
+/* 画布包在内建右键菜单的触发区里，菜单的几层都铺满工作区 */
+xh-report-designer [data-report-canvas],
+xh-report-designer [data-report-canvas-root],
+xh-report-designer [data-report-canvas-menu] {
+  display: flex;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+xh-report-designer [data-report-canvas-menu][hidden] {
+  display: none;
+}
+
 /* 画布：可聚焦的外壳里是滚动区 scroller 与叠在可见区上的覆盖层；滚动区里的 surface 是世界坐标的原点 */
 xh-report-designer [data-part='canvas'] {
   position: relative;
