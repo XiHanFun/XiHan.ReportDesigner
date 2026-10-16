@@ -12,6 +12,7 @@ import type { Checker, JsonObject } from './checker'
 import { isPlainObject } from '@xihan-ui/core/json'
 import { checkExpressions, checkFormatSpec } from '@xihan-ui/expression'
 import { createDateTools } from '../engine/date'
+import { NULLS_POSITIONS, SORT_DIRECTIONS } from '../schema'
 
 /** 一个公式：结果名、表达式与它在文档里的位置。 */
 export interface FormulaSite {
@@ -21,8 +22,6 @@ export interface FormulaSite {
 }
 
 const NUMERIC_KINDS = ['number', 'percent'] as const
-const DIRECTIONS = ['asc', 'desc'] as const
-const NULLS = ['first', 'last'] as const
 
 /** 两种字段类型是否可以互相比较或赋值：相同，或同为日期类。 */
 export function typeCompatible(actual: FieldType, expected: FieldType): boolean {
@@ -86,14 +85,14 @@ export function checkAxisSort(c: Checker, owner: JsonObject, path: JsonPath, key
   const by = c.string(sort, 'by', at)
   if (by !== undefined && !keys.has(by))
     c.report('unknown-measure', [...at, 'by'], { key: by })
-  c.oneOf(sort, 'direction', at, DIRECTIONS)
-  c.oneOf(sort, 'nulls', at, NULLS)
+  c.oneOf(sort, 'direction', at, SORT_DIRECTIONS)
+  c.oneOf(sort, 'nulls', at, NULLS_POSITIONS)
 }
 
 /** 校验排序方向与缺失值位置。 */
 export function checkSortOrder(c: Checker, owner: JsonObject, path: JsonPath): void {
-  c.oneOf(owner, 'direction', path, DIRECTIONS)
-  c.oneOf(owner, 'nulls', path, NULLS)
+  c.oneOf(owner, 'direction', path, SORT_DIRECTIONS)
+  c.oneOf(owner, 'nulls', path, NULLS_POSITIONS)
 }
 
 /**
