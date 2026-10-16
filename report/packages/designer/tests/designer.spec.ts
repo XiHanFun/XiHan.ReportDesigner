@@ -334,6 +334,17 @@ describe('<xh-report-designer>：编辑', () => {
     expect(wellLabels(designer).measures).toEqual(['单数', 'amount'])
   })
 
+  it('移除图表正在用的度量后，绑定换到剩下的度量上，同一步撤销', async () => {
+    const designer = await mount()
+    designer.select({ cards: ['pie'] })
+    designer.execute([{ type: 'addItem', card: 'pie', list: 'measures', item: { id: 'n', aggregate: 'count' } }])
+    await designer.updateComplete
+    well(designer, 'measures').querySelector('[item-id="amount"] xh-tag')!.dispatchEvent(new CustomEvent('open-change', { detail: { open: false } }))
+    expect(cards(designer)[0]).toMatchObject({ query: { measures: [{ id: 'n' }] }, chart: { valueField: 'n' } })
+    designer.undo()
+    expect(cards(designer)[0]).toMatchObject({ chart: { valueField: 'amount' } })
+  })
+
   it('交叉表的行与列同组，在两者之间拖动即透视；只读时不能移除与拖动', async () => {
     const designer = await mount()
     designer.schema = { ...board, body: { type: 'crosstab', dataset: 'sales', rows: [{ id: 'region', field: 'region' }], columns: [], measures: [{ id: 'amount', aggregate: 'sum', field: 'amount' }] } }

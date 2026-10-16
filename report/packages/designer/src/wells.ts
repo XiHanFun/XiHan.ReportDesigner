@@ -6,12 +6,12 @@
 // 字段栏：编辑对象（报表主体的视图，或选中的那张卡片）的各个列表，一个列表一个 <xh-sortable>，项是可移除的 <xh-tag>。
 // 列表内拖动排序；交叉表的行与列同组，在两者之间拖动即透视。从数据面板拖来的字段按落点插进列表。
 
-import type { DashboardCard, DataView, ItemList, ItemOwner, ReportDocument, ReportOperation } from '@xihan-report/core'
+import type { DashboardCard, DataView, FieldType, ItemList, ItemOwner, ReportDocument, ReportOperation } from '@xihan-report/core'
 import type { ReportDesignerTranslations } from '@xihan-report/runtime'
 import type { DropOver } from '@xihan-ui/designer-shell'
 import type { XhSortableElement, XhTagElement } from '@xihan-ui/web-components/define'
 import type { ReportItemRef, ReportSelection } from './editor'
-import { planAddFieldItem, planRemoveItem } from '@xihan-report/core'
+import { applyOperations, planAddFieldItem, planFillBindings, planRemoveItem } from '@xihan-report/core'
 import { registerDropTarget } from '@xihan-ui/designer-shell'
 import { createAuthoredElement, createGeneratedElement, setText } from '@xihan-ui/web-components/authoring'
 import { dataFieldPayload } from './data-panel'
@@ -45,6 +45,23 @@ export interface WellsHost {
   readonly execute: (operations: readonly ReportOperation[]) => void
   readonly selectItem: (ref: ReportItemRef) => void
   readonly isReadonly: () => boolean
+}
+
+/** 字段直接拖到卡片或主体视图上时进哪个列表：数值字段进度量（明细表、分组报表进列），其余进维度、交叉表的行或列。 */
+export function fieldList(source: WellsOwner['source'], type: FieldType): ItemList {
+  if ('type' in source) {
+    if (source.type === 'crosstab')
+      return type === 'number' ? 'measures' : 'rows'
+    return 'columns'
+  }
+  return type === 'number' ? 'measures' : 'dimensions'
+}
+
+/** 在操作之后补全卡片的必填绑定（planFillBindings），与操作合为一组；不是卡片时原样返回。 */
+export function withFilledBindings(document: ReportDocument, owner: ItemOwner, operations: readonly ReportOperation[]): ReportOperation[] {
+  if (owner.card === undefined || operations.length === 0)
+    return [...operations]
+  return [...operations, ...planFillBindings(applyOperations(document, operations).document, owner.card)]
 }
 
 /** 字段栏的编辑对象：主体不是看板时是主体的视图；是看板时是唯一选中的那张卡片，否则没有。 */
@@ -190,7 +207,7 @@ export class Wells {
       tag.translations = { close: `${t.delete} ${entry.label}` }
       tag.addEventListener('open-change', (event) => {
         if ((event as CustomEvent<{ open: boolean }>).detail.open === false)
-          this.#execute(owner => planRemoveItem(this.#host.document()!, owner, list.list, entry.id))
+          this.#execute(owner => planRemoveItem(this.#host.document()!, owner, list.list, entry.id), true)
       })
       const item = createAuthoredElement(doc, 'div', { 'data-xh-part': 'item', 'item-id': entry.id, 'aria-label': entry.label }, [
         createAuthoredElement(doc, 'button', { 'data-xh-part': 'item-drag-trigger', 'item-id': entry.id, 'type': 'button' }),
@@ -214,11 +231,15 @@ export class Wells {
       this.#host.selectItem(owner.card === undefined ? { list, id } : { card: owner.card, list, id })
   }
 
-  #execute(build: (owner: ItemOwner) => ReportOperation[]): void {
+  /** 对编辑对象执行一组操作；fill 为真时之后补全卡片的必填绑定，合为一步撤销。 */
+  #execute(build: (owner: ItemOwner) => ReportOperation[], fill = false): void {
     const owner = this.#owner
-    if (!owner || this.#host.isReadonly())
+    const document = this.#host.document()
+    if (!owner || !document || this.#host.isReadonly())
       return
-    const operations = build(owner.card === undefined ? {} : { card: owner.card })
+    const target: ItemOwner = owner.card === undefined ? {} : { card: owner.card }
+    const built = build(target)
+    const operations = fill ? withFilledBindings(document, target, built) : built
     if (operations.length > 0)
       this.#host.execute(operations)
   }
@@ -249,6 +270,6 @@ export class Wells {
     if (!field)
       return
     const index = this.#indexAt(well, point)
-    this.#execute(owner => planAddFieldItem(this.#host.document()!, owner, list, field.field, { index }))
+    this.#execute(owner => planAddFieldItem(this.#host.document()!, owner, list, field.field, { index }), true)
   }
 }
