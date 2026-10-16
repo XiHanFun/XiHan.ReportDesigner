@@ -7,12 +7,12 @@
 
 import type {
   ColumnSummary,
-  CrosstabHeader,
+  CrosstabAxisNode,
+  CrosstabLabel,
   CrosstabResult,
   CrosstabView,
   DatasetSchema,
   DateTools,
-  Dimension,
   FieldType,
   FormatSpec,
   GroupNode,
@@ -24,9 +24,9 @@ import type {
   TableView,
 } from '@xihan-report/core'
 import type { XlsxCell, XlsxHeaderNode, XlsxMerge, XlsxRow, XlsxSheet } from '@xihan-ui/xlsx'
-import { createDateTools, isAggregateMeasure } from '@xihan-report/core'
+import { createDateTools, crosstabAxes, isAggregateMeasure } from '@xihan-report/core'
 import { formatValue } from '@xihan-ui/expression'
-import { isMissing, valueKey } from '@xihan-ui/viz'
+import { isMissing } from '@xihan-ui/viz'
 import { formatCode, headerRows, sheetName } from '@xihan-ui/xlsx'
 
 /** 工作表里的内建文字。 */
@@ -318,71 +318,24 @@ export function groupSheet(view: GroupView, result: GroupReportResult, options: 
   }
 }
 
-interface HeaderLabel {
-  readonly id: string
-  readonly cell: XlsxCell | null
-}
-
-interface Leaf {
-  readonly tuple: number
-  readonly measure: number | null
-  readonly emphasis: boolean
-  /** 各层的标签；null 表示被上一层的标签纵向合并。 */
-  readonly labels: readonly (HeaderLabel | null)[]
-}
-
-function prefixId(keys: readonly unknown[], length: number): string {
-  return `m${JSON.stringify(keys.slice(0, length).map(valueKey))}`
-}
-
-function axisLeaves(headers: readonly CrosstabHeader[], dimensions: readonly Dimension[], measures: readonly Measure[] | null, ctx: Context): Leaf[] {
-  const leaves: Leaf[] = []
-  headers.forEach((header, tuple) => {
-    const labels: (HeaderLabel | null)[] = dimensions.map((dimension, level) => {
-      const keyLabel = (): HeaderLabel => ({
-        id: prefixId(header.keys, level + 1),
-        cell: valueCell(header.keys[level], dimension.bucket ? undefined : fieldOf(ctx, dimension.field)?.type, dimension.format, ctx, true),
-      })
-      if (header.kind === 'member')
-        return keyLabel()
-      if (header.kind === 'total')
-        return level === 0 ? { id: 't', cell: label(ctx.t.total) } : null
-      const depth = header.keys.length
-      if (level < depth)
-        return keyLabel()
-      return level === depth ? { id: `s${prefixId(header.keys, depth)}`, cell: label(ctx.t.subtotal) } : null
-    })
-    const emphasis = header.kind !== 'member'
-    if (!measures) {
-      leaves.push({ tuple, measure: null, emphasis, labels })
-      return
-    }
-    measures.forEach((measure, index) => {
-      leaves.push({ tuple, measure: index, emphasis, labels: [...labels, { id: `${tuple}|${index}`, cell: label(measureTitle(measure, ctx)) }] })
-    })
-  })
-  return leaves
-}
-
-/** 叶子按各层标签组成表头树：某一层上相邻的同一标签合成一个节点，标签下方被它合并的层记作 span。 */
-function headerTree(leaves: readonly Leaf[], level: number, levels: number): XlsxHeaderNode[] {
-  const nodes: XlsxHeaderNode[] = []
-  if (level >= levels)
-    return nodes
-  let i = 0
-  while (i < leaves.length) {
-    const current = leaves[i]!.labels[level]!
-    let j = i
-    while (j + 1 < leaves.length && leaves[j + 1]!.labels[level]?.id === current.id)
-      j++
-    let span = 1
-    while (level + span < levels && leaves[i]!.labels[level + span] === null)
-      span++
-    const children = headerTree(leaves.slice(i, j + 1), level + span, levels)
-    nodes.push(children.length > 0 ? { cell: current.cell, children, span } : { cell: current.cell })
-    i = j + 1
+function headerCell(item: CrosstabLabel, ctx: Context): XlsxCell | null {
+  switch (item.kind) {
+    case 'member':
+      return valueCell(item.value, item.dimension.bucket ? undefined : fieldOf(ctx, item.dimension.field)?.type, item.dimension.format, ctx, true)
+    case 'total':
+      return label(ctx.t.total)
+    case 'subtotal':
+      return label(ctx.t.subtotal)
+    case 'measure':
+      return label(measureTitle(item.measure, ctx))
   }
-  return nodes
+}
+
+/** 表头树换成 headerRows 的节点：有下级的节点带上它纵向占的层数。 */
+function headerNodes(nodes: readonly CrosstabAxisNode[], ctx: Context): XlsxHeaderNode[] {
+  return nodes.map(node => node.children.length > 0
+    ? { cell: headerCell(node.label, ctx), children: headerNodes(node.children, ctx), span: node.span }
+    : { cell: headerCell(node.label, ctx) })
 }
 
 /**
@@ -393,14 +346,9 @@ function headerTree(leaves: readonly Leaf[], level: number, levels: number): Xls
 export function crosstabSheet(view: CrosstabView, result: CrosstabResult, options: SheetOptions): XlsxSheet {
   const ctx = context(options)
   const measures = view.measures
-  const measuresOnRows = view.measuresOn === 'rows' && measures.length > 1
-  const measureColumns = !measuresOnRows && (measures.length > 1 || view.columns.length === 0)
-  const columnLeaves = axisLeaves(result.columns, view.columns, measureColumns ? measures : null, ctx)
-  const rowLeaves = axisLeaves(result.rows, view.rows, measuresOnRows ? measures : null, ctx)
-  const columnLevels = view.columns.length + (measureColumns ? 1 : 0)
-  const rowLevels = view.rows.length + (measuresOnRows ? 1 : 0)
-  const top = Math.max(columnLevels, 1)
-  const left = rowLevels
+  const axes = crosstabAxes(view, result)
+  const top = Math.max(axes.columns.levels, 1)
+  const left = axes.rows.levels
 
   const rows: Cells[] = []
   const merges: XlsxMerge[] = []
@@ -408,10 +356,10 @@ export function crosstabSheet(view: CrosstabView, result: CrosstabResult, option
     (rows[row] ??= [])[column] = cell
   }
 
-  const columnHeader = headerRows(headerTree(columnLeaves, 0, columnLevels))
+  const columnHeader = headerRows(headerNodes(axes.columns.tree, ctx))
   columnHeader.rows.forEach((cells, row) => cells.forEach((cell, column) => cell && set(row, left + column, cell)))
   merges.push(...columnHeader.merges.map(merge => ({ ...merge, column: left + merge.column })))
-  const rowHeader = headerRows(headerTree(rowLeaves, 0, rowLevels), { axis: 'row' })
+  const rowHeader = headerRows(headerNodes(axes.rows.tree, ctx), { axis: 'row' })
   rowHeader.rows.forEach((cells, row) => cells.forEach((cell, column) => cell && set(top + row, column, cell)))
   merges.push(...rowHeader.merges.map(merge => ({ ...merge, row: top + merge.row })))
 
@@ -425,13 +373,13 @@ export function crosstabSheet(view: CrosstabView, result: CrosstabResult, option
     })
   }
 
-  rowLeaves.forEach((rowLeaf, r) => {
-    columnLeaves.forEach((columnLeaf, c) => {
+  axes.rows.leaves.forEach((rowLeaf, r) => {
+    axes.columns.leaves.forEach((columnLeaf, c) => {
       const index = columnLeaf.measure ?? rowLeaf.measure ?? 0
       const measure = measures[index]
       if (!measure)
         return
-      const value = result.cells[rowLeaf.tuple]?.[columnLeaf.tuple]?.[index]
+      const value = result.cells[rowLeaf.header]?.[columnLeaf.header]?.[index]
       set(top + r, left + c, measureCell(measure, value, ctx, rowLeaf.emphasis || columnLeaf.emphasis))
     })
   })
