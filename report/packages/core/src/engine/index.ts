@@ -6,11 +6,13 @@
 // 汇总导出计算引擎。
 
 export { createRollupAccumulator, isAdditive, NEEDS_ROLLUP } from './aggregate'
-export type { ComputeEnvironment, ComputeOptions } from './context'
 export { chartData } from './chart-data'
 export type { CartesianChartData, CartesianSeriesData, ChartData, DateHeatmapData, HierarchyChartData, HierarchyNodeData, MatrixHeatmapData, RowsChartData, SankeyChartData } from './chart-data'
+export type { ComputeEnvironment, ComputeOptions } from './context'
 export { buildCrosstab } from './crosstab'
 export type { CrosstabHeader, CrosstabResult } from './crosstab'
+export { crosstabAxes } from './crosstab-axis'
+export type { CrosstabAxes, CrosstabAxis, CrosstabAxisNode, CrosstabLabel, CrosstabLeaf } from './crosstab-axis'
 export { isAggregateMeasure } from './cube'
 export { cardDimension, computeMetric, findCard, resolveLinkFilters } from './dashboard'
 export type { CardDimension, LinkSelections, MetricResult } from './dashboard'
