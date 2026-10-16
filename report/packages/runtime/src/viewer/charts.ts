@@ -57,11 +57,9 @@ class Labels {
   }
 }
 
-function chartShell(tag: string, caption: string | undefined, parts: { readonly legend?: boolean, readonly center?: boolean, readonly path?: boolean }, emptyText: string): HTMLElement {
+function chartShell(tag: string, label: string, parts: { readonly legend?: boolean, readonly center?: boolean, readonly path?: boolean }, emptyText: string): HTMLElement {
   const element = document.createElement(tag)
-  const root = uiPart('figure', 'root')
-  if (caption)
-    root.append(uiPart('figcaption', 'caption', {}, caption))
+  const root = uiPart('figure', 'root', { 'aria-label': label })
   if (parts.path)
     root.append(uiPart('nav', 'path'))
   if (parts.legend)
@@ -160,14 +158,14 @@ function cartesian(chart: Extract<ChartSpec, { type: 'cartesian' }>, data: Carte
 }
 
 /**
- * 把图表卡片排成 UI 图表元素。热力图暂不支持（返回 undefined）：UI 的热力图还没有与其它图表一致的数据与事件约定。
+ * 把图表卡片排成 UI 图表元素，label 是图表的可及名。热力图暂不支持（返回 undefined）：UI 的热力图还没有与其它图表一致的数据与事件约定。
  */
-export function renderChart(chart: ChartSpec, data: ChartData, query: ReportQuery, dataset: DatasetSchema, ctx: RenderContext, caption: string | undefined): RenderedChart | undefined {
+export function renderChart(chart: ChartSpec, data: ChartData, query: ReportQuery, dataset: DatasetSchema, ctx: RenderContext, label: string): RenderedChart | undefined {
   const empty = ctx.translations.empty
   switch (chart.type) {
     case 'cartesian': {
       const rendered = cartesian(chart, data as CartesianChartData, query, dataset, ctx)
-      const element = chartShell('xh-cartesian-chart', caption, { legend: true }, empty)
+      const element = chartShell('xh-cartesian-chart', label, { legend: true }, empty)
       Object.assign(element, rendered.props)
       return { element, valueOf: rendered.valueOf, keyOf: rendered.keyOf }
     }
@@ -177,7 +175,7 @@ export function renderChart(chart: ChartSpec, data: ChartData, query: ReportQuer
       const labels = memberLabels(query, chart.nameField, dataset, ctx)
       const rows = (data as { rows: readonly Readonly<Record<string, unknown>>[] }).rows.map(row => ({ ...row, [chart.nameField]: labels.text(row[chart.nameField]) }))
       const tag = chart.type === 'pie' ? 'xh-pie-chart' : chart.type === 'funnel' ? 'xh-funnel-chart' : 'xh-radar-chart'
-      const element = chartShell(tag, caption, { legend: chart.type !== 'funnel', center: chart.type === 'pie' }, empty)
+      const element = chartShell(tag, label, { legend: chart.type !== 'funnel', center: chart.type === 'pie' }, empty)
       const rest = chart.type === 'radar'
         ? { ...without(chart, ['type', 'format', 'indicators']), indicators: chart.indicators.map((indicator) => {
             const measure = query.measures.find(item => item.id === indicator.key)
@@ -195,7 +193,7 @@ export function renderChart(chart: ChartSpec, data: ChartData, query: ReportQuer
       const sankey = data as Extract<ChartData, { type: 'sankey' }>
       const source = memberLabels(query, chart.sourceField, dataset, ctx)
       const values = new Map(sankey.nodes.map(node => [node.id, node.value]))
-      const element = chartShell('xh-sankey-chart', caption, { legend: true }, empty)
+      const element = chartShell('xh-sankey-chart', label, { legend: true }, empty)
       Object.assign(element, without(chart, ['type', 'format', 'sourceField', 'targetField', 'valueField']), {
         nodes: sankey.nodes.map(node => ({ id: node.id, name: source.text(node.value) })),
         links: sankey.links,
@@ -211,9 +209,9 @@ export function renderChart(chart: ChartSpec, data: ChartData, query: ReportQuer
       const hierarchy = data as Extract<ChartData, { type: 'hierarchy' }>
       const levels = chart.levels.map(level => memberLabels(query, level, dataset, ctx))
       const nodes = new Map(hierarchy.nodes.map(node => [node.id, node]))
-      const element = chartShell('xh-hierarchy-chart', caption, { path: true }, empty)
+      const element = chartShell('xh-hierarchy-chart', label, { path: true }, empty)
       Object.assign(element, without(chart, ['type', 'format', 'levels', 'valueField']), {
-        data: hierarchy.nodes.map(node => ({ id: node.id, parent: node.parent, name: node.depth === 0 ? (caption ?? '') : levels[node.depth - 1]!.text(node.value), value: node.size })),
+        data: hierarchy.nodes.map(node => ({ id: node.id, parent: node.parent, name: node.depth === 0 ? label : levels[node.depth - 1]!.text(node.value), value: node.size })),
         idField: 'id',
         parentField: 'parent',
         nameField: 'name',
