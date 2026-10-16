@@ -129,6 +129,12 @@ describe('<xh-report-viewer>：看板', () => {
     expect(bar.series).toEqual([{ mark: 'bar', x: 'product', id: 's', name: '金额', y: 'amount' }])
   })
 
+  it('图表的可及名取卡片标题，没有标题时取度量标题', async () => {
+    const viewer = await mount()
+    expect(card(viewer, 'byRegion').querySelector('xh-pie-chart [data-xh-part="root"]')!.getAttribute('aria-label')).toBe('各区域')
+    expect(card(viewer, 'byProduct').querySelector('xh-cartesian-chart [data-xh-part="root"]')!.getAttribute('aria-label')).toBe('金额')
+  })
+
   it('指标卡片写成 xh-statistic，热力图卡片暂不支持', async () => {
     const viewer = await mount()
     const statistic = card(viewer, 'total').querySelector('xh-statistic')!

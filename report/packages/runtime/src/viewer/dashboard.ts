@@ -11,6 +11,7 @@ import type { ViewResult } from './compute'
 import type { RenderContext } from './context'
 import { chartData, computeMetric, gridItems, runQuery } from '@xihan-report/core'
 import { clampToGrid } from '@xihan-ui/designer-kit'
+import { measureLabel } from '../labels'
 import { renderChart } from './charts'
 import { computeView } from './compute'
 import { renderCrosstab } from './crosstab'
@@ -97,7 +98,8 @@ export function renderCard(body: HTMLElement, state: CardState, ctx: RenderConte
   const result = state.result
   switch (result.kind) {
     case 'chart': {
-      const rendered = renderChart(result.card.chart, result.data, result.card.query, result.dataset, ctx, undefined)
+      const label = result.card.title ?? result.card.query.measures.map(measure => measureLabel(measure, result.dataset)).join(' / ')
+      const rendered = renderChart(result.card.chart, result.data, result.card.query, result.dataset, ctx, label)
       if (!rendered) {
         section?.setAttribute('data-state', 'unsupported')
         body.replaceChildren(ownPart('div', 'card-status', ctx.translations.unsupported))
