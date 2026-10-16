@@ -45,11 +45,13 @@
   },
   "scripts": {
     "build": "tsdown",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@xihan-report/core": "workspace:^",
-    "@xihan-report/runtime": "workspace:^"
+    "@xihan-report/runtime": "workspace:^",
+    "@xihan-ui/core": "catalog:",
+    "@xihan-ui/designer-kit": "catalog:"
   }
 }
