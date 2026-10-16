@@ -6,10 +6,60 @@
 // 图表与指标卡片配置的校验：取值范围与对查询维度、度量的引用。
 
 import type { JsonPath } from '@xihan-ui/core/json'
-import type { ChartTone } from '../schema'
 import type { Checker, JsonObject } from './checker'
 import { SYMBOL_NAMES } from '@xihan-ui/viz'
-import { CHART_TYPES } from '../schema'
+import {
+  ANNOTATION_AXES,
+  ANNOTATION_KINDS,
+  ANNOTATION_POINTS,
+  AXIS_FITS,
+  AXIS_LABEL_OVERFLOWS,
+  AXIS_SCALES,
+  BAR_LABELS,
+  BAR_SHAPES,
+  BAR_STACK_OFFSETS,
+  CARTESIAN_ORIENTATIONS,
+  CHART_INTERACTION_AXES,
+  CHART_PALETTES,
+  CHART_RENDERERS,
+  CHART_SIZES,
+  CHART_TONES,
+  CHART_TRIGGERS,
+  CHART_TYPES,
+  FUNNEL_ALIGNS,
+  FUNNEL_CONVERSIONS,
+  FUNNEL_DIRECTIONS,
+  FUNNEL_LABELS,
+  FUNNEL_SHAPES,
+  HEATMAP_SCALES,
+  HEATMAP_VARIANTS,
+  HIERARCHY_COLOR_BY,
+  HIERARCHY_LAYOUTS,
+  HIERARCHY_ORIENTATIONS,
+  HIERARCHY_TILES,
+  LINE_CURVES,
+  LINE_LABELS,
+  LINE_STACK_OFFSETS,
+  LINE_SYMBOLS,
+  PIE_LABEL_CONTENTS,
+  PIE_LABELS,
+  PIE_SORTS,
+  PIE_SWEEPS,
+  PIE_VARIANTS,
+  RADAR_CURVES,
+  RADAR_SCALES,
+  RADAR_SHAPES,
+  SANKEY_LINK_COLORS,
+  SANKEY_NODE_ALIGNS,
+  SANKEY_NODE_SORTS,
+  SANKEY_ORIENTATIONS,
+  SERIES_MARKS,
+  SPARKLINE_CURVES,
+  SPARKLINE_MARKERS,
+  SPARKLINE_VARIANTS,
+  TOOLTIP_ORDERS,
+  TREND_METHODS,
+} from '../schema'
 import { checkFormat } from './common'
 
 /** 卡片查询的输出键。 */
@@ -20,10 +70,6 @@ export interface QueryKeys {
 
 type Role = 'dimension' | 'measure' | 'any'
 
-const TONES = ['brand', 'neutral', 'success', 'warning', 'danger', 'info'] as const satisfies readonly ChartTone[]
-const PALETTES = ['red', 'orange', 'amber', 'yellow', 'lime', 'green', 'teal', 'cyan', 'blue', 'indigo', 'purple', 'pink', 'gray'] as const
-const SYMBOLS = SYMBOL_NAMES
-const SIZES = ['sm', 'md', 'lg'] as const
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 function checkKey(c: Checker, value: string, path: JsonPath, keys: QueryKeys, role: Role): void {
@@ -84,7 +130,7 @@ function checkAxis(c: Checker, owner: JsonObject, key: string, path: JsonPath): 
   if (!axis)
     return
   const at = [...path, key]
-  c.oneOf(axis, 'scale', at, ['band', 'point', 'linear', 'log', 'sqrt', 'pow', 'symlog', 'time', 'utc'] as const)
+  c.oneOf(axis, 'scale', at, AXIS_SCALES)
   const domain = c.array(axis, 'domain', at)
   domain?.forEach((item, index) => {
     if (typeof item !== 'string' && (typeof item !== 'number' || !Number.isFinite(item)))
@@ -98,14 +144,14 @@ function checkAxis(c: Checker, owner: JsonObject, key: string, path: JsonPath): 
   checkFormat(c, axis, 'format', at)
   c.string(axis, 'title', at)
   c.boolean(axis, 'grid', at)
-  c.oneOf(axis, 'labelOverflow', at, ['auto', 'rotate', 'truncate', 'wrap'] as const)
+  c.oneOf(axis, 'labelOverflow', at, AXIS_LABEL_OVERFLOWS)
   c.boolean(axis, 'reverse', at)
   c.number(axis, 'exponent', at, { min: 0, exclusiveMin: true })
   c.number(axis, 'constant', at, { min: 0, exclusiveMin: true })
   c.string(axis, 'timeZone', at)
   c.number(axis, 'minSize', at, { min: 0 })
   c.boolean(axis, 'ordinal', at)
-  c.oneOf(axis, 'fit', at, ['all', 'window'] as const)
+  c.oneOf(axis, 'fit', at, AXIS_FITS)
 }
 
 function checkCartesian(c: Checker, chart: JsonObject, path: JsonPath, keys: QueryKeys): void {
@@ -114,27 +160,27 @@ function checkCartesian(c: Checker, chart: JsonObject, path: JsonPath, keys: Que
   for (const { item, path: at, key } of series) {
     if (key !== undefined)
       seriesIds.add(key)
-    const mark = c.oneOf(item, 'mark', at, ['bar', 'line', 'scatter'] as const, true)
+    const mark = c.oneOf(item, 'mark', at, SERIES_MARKS, true)
     c.string(item, 'name', at)
     c.number(item, 'slot', at, { integer: true, min: 1, max: 8 })
-    c.oneOf(item, 'tone', at, TONES)
+    c.oneOf(item, 'tone', at, CHART_TONES)
     if (mark === 'bar' || mark === 'line') {
       reference(c, item, 'x', at, keys, 'dimension')
       measureOrRange(c, item, 'y', at, keys)
       c.string(item, 'stack', at)
     }
     if (mark === 'bar') {
-      c.oneOf(item, 'shape', at, ['bar', 'lollipop'] as const)
-      c.oneOf(item, 'stackOffset', at, ['none', 'expand', 'diverging'] as const)
-      c.oneOf(item, 'labels', at, ['none', 'inside', 'end'] as const)
+      c.oneOf(item, 'shape', at, BAR_SHAPES)
+      c.oneOf(item, 'stackOffset', at, BAR_STACK_OFFSETS)
+      c.oneOf(item, 'labels', at, BAR_LABELS)
     }
     else if (mark === 'line') {
-      c.oneOf(item, 'curve', at, ['linear', 'monotone', 'step', 'step-before', 'step-after'] as const)
+      c.oneOf(item, 'curve', at, LINE_CURVES)
       c.boolean(item, 'area', at)
-      c.oneOf(item, 'stackOffset', at, ['none', 'expand', 'silhouette', 'wiggle'] as const)
-      c.oneOf(item, 'symbols', at, ['auto', 'always', 'none'] as const)
+      c.oneOf(item, 'stackOffset', at, LINE_STACK_OFFSETS)
+      c.oneOf(item, 'symbols', at, LINE_SYMBOLS)
       c.boolean(item, 'connectNulls', at)
-      c.oneOf(item, 'labels', at, ['none', 'end'] as const)
+      c.oneOf(item, 'labels', at, LINE_LABELS)
       c.boolean(item, 'endLabel', at)
     }
     else if (mark === 'scatter') {
@@ -142,31 +188,31 @@ function checkCartesian(c: Checker, chart: JsonObject, path: JsonPath, keys: Que
       reference(c, item, 'y', at, keys, 'measure')
       reference(c, item, 'size', at, keys, 'measure', false)
       reference(c, item, 'color', at, keys, 'measure', false)
-      c.oneOf(item, 'symbol', at, SYMBOLS)
+      c.oneOf(item, 'symbol', at, SYMBOL_NAMES)
       c.number(item, 'jitter', at, { min: 0, max: 1 })
     }
   }
   reference(c, chart, 'splitBy', path, keys, 'dimension', false)
-  c.oneOf(chart, 'orientation', path, ['vertical', 'horizontal'] as const)
+  c.oneOf(chart, 'orientation', path, CARTESIAN_ORIENTATIONS)
   checkAxis(c, chart, 'xAxis', path)
   checkAxis(c, chart, 'yAxis', path)
-  c.oneOf(chart, 'renderer', path, ['svg', 'canvas', 'auto'] as const)
-  c.oneOf(chart, 'trigger', path, ['axis', 'item'] as const)
+  c.oneOf(chart, 'renderer', path, CHART_RENDERERS)
+  c.oneOf(chart, 'trigger', path, CHART_TRIGGERS)
   c.boolean(chart, 'totals', path)
-  c.oneOf(chart, 'tooltipOrder', path, ['series', 'descending', 'ascending'] as const)
-  c.oneOf(chart, 'palette', path, PALETTES)
-  c.oneOf(chart, 'zoom', path, ['none', 'x', 'y', 'xy'] as const)
-  c.oneOf(chart, 'brush', path, ['none', 'x', 'y', 'xy'] as const)
+  c.oneOf(chart, 'tooltipOrder', path, TOOLTIP_ORDERS)
+  c.oneOf(chart, 'palette', path, CHART_PALETTES)
+  c.oneOf(chart, 'zoom', path, CHART_INTERACTION_AXES)
+  c.oneOf(chart, 'brush', path, CHART_INTERACTION_AXES)
   const annotations = c.array(chart, 'annotations', path)
   annotations?.forEach((value, index) => {
     const at = [...path, 'annotations', index]
     const annotation = c.object(value, at)
     if (!annotation)
       return
-    const kind = c.oneOf(annotation, 'kind', at, ['line', 'band', 'point', 'average', 'trend'] as const, true)
+    const kind = c.oneOf(annotation, 'kind', at, ANNOTATION_KINDS, true)
     c.string(annotation, 'label', at)
     if (kind === 'line' || kind === 'band')
-      c.oneOf(annotation, 'axis', at, ['x', 'y'] as const, true)
+      c.oneOf(annotation, 'axis', at, ANNOTATION_AXES, true)
     if (kind === 'line')
       numberOrString(c, annotation, 'value', at, true)
     if (kind === 'band') {
@@ -183,12 +229,12 @@ function checkCartesian(c: Checker, chart: JsonObject, path: JsonPath, keys: Que
       if (target === undefined)
         c.report('required', [...at, 'at'])
       else if (typeof target === 'string')
-        c.oneOf(annotation, 'at', at, ['max', 'min', 'last'] as const)
+        c.oneOf(annotation, 'at', at, ANNOTATION_POINTS)
       else if (c.object(target, [...at, 'at']))
         numberOrString(c, target as JsonObject, 'x', [...at, 'at'], true)
     }
     if (kind === 'trend') {
-      c.oneOf(annotation, 'method', at, ['linear', 'moving-average'] as const, true)
+      c.oneOf(annotation, 'method', at, TREND_METHODS, true)
       c.number(annotation, 'window', at, { integer: true, min: 1 })
     }
   })
@@ -214,24 +260,24 @@ export function checkChart(c: Checker, owner: JsonObject, path: JsonPath, keys: 
     case 'pie':
       reference(c, chart, 'nameField', at, keys, 'dimension')
       reference(c, chart, 'valueField', at, keys, 'measure')
-      c.oneOf(chart, 'variant', at, ['pie', 'donut'] as const)
+      c.oneOf(chart, 'variant', at, PIE_VARIANTS)
       c.boolean(chart, 'rose', at)
-      c.oneOf(chart, 'sweep', at, ['full', 'half'] as const)
-      c.oneOf(chart, 'sort', at, ['none', 'descending'] as const)
+      c.oneOf(chart, 'sweep', at, PIE_SWEEPS)
+      c.oneOf(chart, 'sort', at, PIE_SORTS)
       c.number(chart, 'maxSlices', at, { integer: true, min: 1 })
-      c.oneOf(chart, 'labels', at, ['none', 'inside', 'outside'] as const)
-      c.oneOf(chart, 'labelContent', at, ['name-share', 'name-value', 'name', 'share', 'value'] as const)
+      c.oneOf(chart, 'labels', at, PIE_LABELS)
+      c.oneOf(chart, 'labelContent', at, PIE_LABEL_CONTENTS)
       checkFormat(c, chart, 'format', at, true)
       break
     case 'funnel':
       reference(c, chart, 'nameField', at, keys, 'dimension')
       reference(c, chart, 'valueField', at, keys, 'measure')
-      c.oneOf(chart, 'shape', at, ['trapezoid', 'bar'] as const)
-      c.oneOf(chart, 'align', at, ['center', 'start'] as const)
-      c.oneOf(chart, 'direction', at, ['down', 'up'] as const)
-      c.oneOf(chart, 'conversion', at, ['previous', 'first', 'none'] as const)
-      c.oneOf(chart, 'labels', at, ['inside', 'outside'] as const)
-      c.oneOf(chart, 'palette', at, PALETTES)
+      c.oneOf(chart, 'shape', at, FUNNEL_SHAPES)
+      c.oneOf(chart, 'align', at, FUNNEL_ALIGNS)
+      c.oneOf(chart, 'direction', at, FUNNEL_DIRECTIONS)
+      c.oneOf(chart, 'conversion', at, FUNNEL_CONVERSIONS)
+      c.oneOf(chart, 'labels', at, FUNNEL_LABELS)
+      c.oneOf(chart, 'palette', at, CHART_PALETTES)
       checkFormat(c, chart, 'format', at, true)
       break
     case 'radar': {
@@ -249,10 +295,10 @@ export function checkChart(c: Checker, owner: JsonObject, path: JsonPath, keys: 
         c.number(indicator, 'min', ip)
         c.number(indicator, 'max', ip)
       })
-      c.oneOf(chart, 'shape', at, ['polygon', 'circle'] as const)
+      c.oneOf(chart, 'shape', at, RADAR_SHAPES)
       c.boolean(chart, 'area', at)
-      c.oneOf(chart, 'scale', at, ['shared', 'independent'] as const)
-      c.oneOf(chart, 'curve', at, ['linear', 'catmull-rom'] as const)
+      c.oneOf(chart, 'scale', at, RADAR_SCALES)
+      c.oneOf(chart, 'curve', at, RADAR_CURVES)
       c.number(chart, 'rings', at, { integer: true, min: 2, max: 10 })
       c.boolean(chart, 'ringLabels', at)
       checkFormat(c, chart, 'format', at, true)
@@ -262,14 +308,14 @@ export function checkChart(c: Checker, owner: JsonObject, path: JsonPath, keys: 
       reference(c, chart, 'sourceField', at, keys, 'dimension')
       reference(c, chart, 'targetField', at, keys, 'dimension')
       reference(c, chart, 'valueField', at, keys, 'measure')
-      c.oneOf(chart, 'orientation', at, ['horizontal', 'vertical'] as const)
-      c.oneOf(chart, 'nodeAlign', at, ['justify', 'start', 'end', 'center'] as const)
-      c.oneOf(chart, 'linkColor', at, ['neutral', 'source', 'target', 'gradient'] as const)
-      c.oneOf(chart, 'nodeSort', at, ['auto', 'input'] as const)
+      c.oneOf(chart, 'orientation', at, SANKEY_ORIENTATIONS)
+      c.oneOf(chart, 'nodeAlign', at, SANKEY_NODE_ALIGNS)
+      c.oneOf(chart, 'linkColor', at, SANKEY_LINK_COLORS)
+      c.oneOf(chart, 'nodeSort', at, SANKEY_NODE_SORTS)
       checkFormat(c, chart, 'format', at, true)
       break
     case 'heatmap': {
-      const variant = c.oneOf(chart, 'variant', at, ['calendar', 'month', 'matrix'] as const, true)
+      const variant = c.oneOf(chart, 'variant', at, HEATMAP_VARIANTS, true)
       reference(c, chart, 'valueField', at, keys, 'measure')
       if (variant === 'matrix') {
         reference(c, chart, 'rowField', at, keys, 'dimension')
@@ -286,12 +332,12 @@ export function checkChart(c: Checker, owner: JsonObject, path: JsonPath, keys: 
         if (typeof value !== 'number' || !Number.isFinite(value))
           c.report('invalid-type', [...at, 'thresholds', index], { expected: 'number' })
       })
-      c.oneOf(chart, 'scale', at, ['sequential', 'diverging'] as const)
+      c.oneOf(chart, 'scale', at, HEATMAP_SCALES)
       c.number(chart, 'midpoint', at)
       c.boolean(chart, 'continuous', at)
-      c.oneOf(chart, 'tone', at, TONES)
-      c.oneOf(chart, 'palette', at, PALETTES)
-      c.oneOf(chart, 'size', at, SIZES)
+      c.oneOf(chart, 'tone', at, CHART_TONES)
+      c.oneOf(chart, 'palette', at, CHART_PALETTES)
+      c.oneOf(chart, 'size', at, CHART_SIZES)
       break
     }
     case 'hierarchy': {
@@ -303,12 +349,12 @@ export function checkChart(c: Checker, owner: JsonObject, path: JsonPath, keys: 
           checkKey(c, value, [...at, 'levels', index], keys, 'dimension')
       })
       reference(c, chart, 'valueField', at, keys, 'measure')
-      c.oneOf(chart, 'layout', at, ['treemap', 'sunburst', 'icicle', 'pack'] as const)
-      c.oneOf(chart, 'tile', at, ['squarify', 'binary', 'slice-dice'] as const)
+      c.oneOf(chart, 'layout', at, HIERARCHY_LAYOUTS)
+      c.oneOf(chart, 'tile', at, HIERARCHY_TILES)
       c.number(chart, 'depth', at, { integer: true, min: 1 })
-      c.oneOf(chart, 'colorBy', at, ['branch', 'value', 'uniform'] as const)
-      c.oneOf(chart, 'palette', at, PALETTES)
-      c.oneOf(chart, 'orientation', at, ['vertical', 'horizontal'] as const)
+      c.oneOf(chart, 'colorBy', at, HIERARCHY_COLOR_BY)
+      c.oneOf(chart, 'palette', at, CHART_PALETTES)
+      c.oneOf(chart, 'orientation', at, HIERARCHY_ORIENTATIONS)
       checkFormat(c, chart, 'format', at, true)
       break
     }
@@ -326,18 +372,18 @@ export function checkMetric(c: Checker, owner: JsonObject, path: JsonPath, keys:
   c.string(metric, 'prefix', at)
   c.string(metric, 'suffix', at)
   checkFormat(c, metric, 'format', at, true)
-  c.oneOf(metric, 'size', at, SIZES)
-  c.oneOf(metric, 'tone', at, TONES)
+  c.oneOf(metric, 'size', at, CHART_SIZES)
+  c.oneOf(metric, 'tone', at, CHART_TONES)
   const sparkline = c.objectAt(metric, 'sparkline', at)
   if (!sparkline)
     return
   const sp = [...at, 'sparkline']
   reference(c, sparkline, 'x', sp, keys, 'dimension')
   reference(c, sparkline, 'y', sp, keys, 'measure')
-  c.oneOf(sparkline, 'variant', sp, ['line', 'area', 'bar', 'win-loss'] as const)
-  c.oneOf(sparkline, 'curve', sp, ['linear', 'monotone'] as const)
-  c.oneOf(sparkline, 'markers', sp, ['none', 'last', 'extremes'] as const)
-  c.oneOf(sparkline, 'tone', sp, TONES)
+  c.oneOf(sparkline, 'variant', sp, SPARKLINE_VARIANTS)
+  c.oneOf(sparkline, 'curve', sp, SPARKLINE_CURVES)
+  c.oneOf(sparkline, 'markers', sp, SPARKLINE_MARKERS)
+  c.oneOf(sparkline, 'tone', sp, CHART_TONES)
   const band = sparkline.band
   if (band !== undefined && (!Array.isArray(band) || band.length !== 2 || band.some(item => typeof item !== 'number' || !Number.isFinite(item))))
     c.report('invalid-value', [...sp, 'band'], { expected: '[number, number]' })

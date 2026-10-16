@@ -14,7 +14,7 @@ import type { FormulaSite } from './common'
 import { isPlainObject } from '@xihan-ui/core/json'
 import { withSeverity } from '@xihan-ui/designer-kit/schema'
 import { itemKey } from '../operations'
-import { AGGREGATE_KINDS, DATE_BUCKETS, FIELD_TYPES, FILTER_OPERATORS, REPORT_SCHEMA_VERSION } from '../schema'
+import { AGGREGATE_KINDS, CARD_KINDS, COLUMN_ALIGNS, COLUMN_STICKY_SIDES, DATE_BUCKETS, FIELD_TYPES, FILTER_LOGICS, FILTER_OPERATORS, MEASURES_ON, REPORT_SCHEMA_VERSION } from '../schema'
 import { checkChart, checkMetric } from './chart'
 import { Checker } from './checker'
 import { checkAxisSort, checkFormat, checkFormulas, checkSortOrder, isParameterRef, isScalar, literalMatches, typeCompatible } from './common'
@@ -200,7 +200,7 @@ function checkConditionValue(scope: Scope, condition: JsonObject, path: JsonPath
 /** 校验条件组；ids 收集整棵树里的条件与子组 id。 */
 function checkFilterGroup(scope: Scope, group: JsonObject, path: JsonPath, dataset: DatasetInfo | undefined, ids: Set<string>): void {
   const { c } = scope
-  c.oneOf(group, 'logic', path, ['and', 'or'] as const, true)
+  c.oneOf(group, 'logic', path, FILTER_LOGICS, true)
   for (const node of c.keyed(group, 'conditions', path, 'id', { required: true, scope: ids })) {
     if ('conditions' in node.item) {
       checkFilterGroup(scope, node.item, node.path, dataset, ids)
@@ -299,8 +299,8 @@ function checkColumns(scope: Scope, owner: JsonObject, path: JsonPath, dataset: 
     c.string(item, 'title', at)
     checkFormat(c, item, 'format', at)
     c.number(item, 'width', at, { min: 0, exclusiveMin: true })
-    c.oneOf(item, 'align', at, ['start', 'center', 'end'] as const)
-    c.oneOf(item, 'sticky', at, ['start', 'end'] as const)
+    c.oneOf(item, 'align', at, COLUMN_ALIGNS)
+    c.oneOf(item, 'sticky', at, COLUMN_STICKY_SIDES)
     const summary = c.objectAt(item, 'summary', at)
     if (!summary)
       continue
@@ -379,7 +379,7 @@ function checkCrosstab(scope: Scope, view: JsonObject, path: JsonPath): ViewInfo
       c.boolean(totals, 'grandTotal', [...path, key])
     }
   }
-  c.oneOf(view, 'measuresOn', path, ['columns', 'rows'] as const)
+  c.oneOf(view, 'measuresOn', path, MEASURES_ON)
   return { dataset, dimensions }
 }
 
@@ -435,7 +435,7 @@ function checkDashboard(scope: Scope, view: JsonObject, path: JsonPath): void {
   const cards = new Map<string, ViewInfo>()
   const placed: { id: string, x: number, y: number, w: number, h: number }[] = []
   for (const { item, path: at, key } of c.keyed(view, 'cards', path, 'id', { required: true })) {
-    const kind = c.oneOf(item, 'kind', at, ['chart', 'metric', 'table'] as const, true)
+    const kind = c.oneOf(item, 'kind', at, CARD_KINDS, true)
     c.string(item, 'title', at)
     c.string(item, 'description', at)
     const layout = c.objectAt(item, 'layout', at, true)
