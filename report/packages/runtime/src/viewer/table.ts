@@ -77,13 +77,13 @@ export function headerRow(columns: readonly { readonly id: string, readonly labe
   return row
 }
 
-/** xh-table 的外壳：root 里依次是 header、body、footer 与加载、空态占位。 */
-export function tableShell(ctx: RenderContext, footer: boolean): TableShell {
+/** xh-table 的外壳：root 里依次是 header、body、footer 与加载、空态占位；表格不放标题，可及名写在 root 上。 */
+export function tableShell(ctx: RenderContext, footer: boolean, label: string): TableShell {
   const table = document.createElement('xh-table') as XhTableElement
   table.setAttribute('sticky-header', '')
   if (footer)
     table.setAttribute('footer', '')
-  const root = uiPart('div', 'root')
+  const root = uiPart('div', 'root', { 'aria-label': label })
   const header = uiPart('div', 'header')
   const body = uiPart('div', 'body')
   const foot = footer ? uiPart('div', 'footer') : undefined
@@ -123,7 +123,7 @@ export function summaryCells(columns: readonly TableColumn[], dataset: DatasetSc
 }
 
 /** 把明细表排进 container。 */
-export function renderDetailTable(container: HTMLElement, view: TableView, dataset: DatasetSchema, result: TableResult, ctx: RenderContext): RenderedTable {
+export function renderDetailTable(container: HTMLElement, view: TableView, dataset: DatasetSchema, result: TableResult, ctx: RenderContext, label: string): RenderedTable {
   const columns = view.columns
   const cellOf = (row: string, column: string | null): TableCellRef | undefined => {
     const data = result.rows[rowIndex(row)]
@@ -135,7 +135,7 @@ export function renderDetailTable(container: HTMLElement, view: TableView, datas
       values: Object.fromEntries(columns.map(item => [item.id, data[item.field]])),
     }
   }
-  const shell = tableShell(ctx, result.summary !== null)
+  const shell = tableShell(ctx, result.summary !== null, label)
   shell.header.append(headerRow(columns.map(column => ({ id: column.id, label: columnLabel(column, dataset) }))))
   if (result.summary)
     shell.footer!.append(tableRow(undefined, summaryCells(columns, dataset, result.summary, ctx.translations.total, ctx)))

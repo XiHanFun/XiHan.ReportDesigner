@@ -87,13 +87,18 @@ export function renderDashboardFrame(container: HTMLElement, dashboard: Dashboar
   return cards
 }
 
-/** 把明细表、分组报表或交叉表排进 container。 */
-export function renderView(container: HTMLElement, view: ViewResult, ctx: RenderContext): RenderedTable {
+/** 把明细表、分组报表或交叉表排进 container；label 是表格的可及名。 */
+export function renderView(container: HTMLElement, view: ViewResult, ctx: RenderContext, label: string): RenderedTable {
   if (view.type === 'table')
-    return renderDetailTable(container, view.view, view.dataset, view.result, ctx)
+    return renderDetailTable(container, view.view, view.dataset, view.result, ctx, label)
   if (view.type === 'group')
-    return renderGroupReport(container, view.view, view.dataset, view.result, ctx)
-  return renderCrosstab(container, view.view, view.dataset, view.result, ctx)
+    return renderGroupReport(container, view.view, view.dataset, view.result, ctx, label)
+  return renderCrosstab(container, view.view, view.dataset, view.result, ctx, label)
+}
+
+/** 表格的可及名：给出的标题，没有时取数据集的标题或 id。 */
+export function tableLabel(title: string | undefined, view: ViewResult): string {
+  return title ?? view.dataset.title ?? view.dataset.id
 }
 
 /** 把一张卡片的状态绘进内容区；图表与表格卡片返回绘好的元素，供联动与下钻接线。 */
@@ -117,6 +122,6 @@ export function renderCard(body: HTMLElement, state: CardState, ctx: RenderConte
       body.replaceChildren(renderMetric(result.card, result.result, result.metric, result.dataset, ctx))
       return undefined
     case 'table':
-      return renderView(body, result.view, ctx)
+      return renderView(body, result.view, ctx, tableLabel(result.card.title, result.view))
   }
 }

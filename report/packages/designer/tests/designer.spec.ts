@@ -191,6 +191,18 @@ describe('<xh-report-designer>：画布', () => {
   })
 })
 
+describe('<xh-report-designer>：画布上的表格', () => {
+  it('主体视图的表格以报表标题命名，表格卡片以卡片标题命名', async () => {
+    const designer = await mount({ provider: () => {} })
+    designer.schema = { ...board, title: '区域明细', body: { type: 'table', dataset: 'sales', columns: [{ id: 'region', field: 'region' }] } }
+    await settle()
+    expect(designer.querySelector('[data-part="surface"] xh-table [data-xh-part="root"]')!.getAttribute('aria-label')).toBe('区域明细')
+    designer.schema = { ...board, body: { type: 'dashboard', grid: { columns: 12, rowHeight: 40 }, cards: [{ id: 't', kind: 'table', title: '区域列表', layout: { x: 0, y: 0, w: 6, h: 4 }, view: { type: 'table', dataset: 'sales', columns: [{ id: 'region', field: 'region' }] } }] } }
+    await settle()
+    expect(designer.querySelector('[data-part="surface"] xh-table [data-xh-part="root"]')!.getAttribute('aria-label')).toBe('区域列表')
+  })
+})
+
 describe('<xh-report-designer>：编辑', () => {
   it('点卡片选中，Shift 追加，点空白清空；选中的卡片交给覆盖层', async () => {
     const designer = await mount()

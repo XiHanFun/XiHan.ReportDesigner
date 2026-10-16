@@ -65,7 +65,7 @@ function fillHeader(table: XhTableElement, header: HTMLElement): void {
 }
 
 /** 把交叉表排进 container。 */
-export function renderCrosstab(container: HTMLElement, view: CrosstabView, dataset: DatasetSchema, result: CrosstabResult, ctx: RenderContext): RenderedTable {
+export function renderCrosstab(container: HTMLElement, view: CrosstabView, dataset: DatasetSchema, result: CrosstabResult, ctx: RenderContext, label: string): RenderedTable {
   const axes = crosstabAxes(view, result)
   const rowLevels = axes.rows.levels
   const rowColumns: TableColumnDef[] = Array.from({ length: rowLevels }, (_, level) => {
@@ -88,7 +88,7 @@ export function renderCrosstab(container: HTMLElement, view: CrosstabView, datas
     }
   })
 
-  const shell = tableShell(ctx, false)
+  const shell = tableShell(ctx, false, label)
   const rows = axes.rows.leaves.map((rowLeaf, r) => tableRow(`r${r}`, [
     ...rowColumns.map((column, level) => {
       const label = rowLeaf.labels[level]
