@@ -6,7 +6,7 @@
 // <xh-report-viewer>：报表查看器。校验报表定义与参数，经使用方的 dataProvider 取数，交给 core 计算后排成 UI 元素；
 // 看板的图表卡片可作联动源，选中值换成目标卡片的筛选后只重算目标卡片。
 
-import type { ComputeOptions, DashboardView, DatasetData, DatasetRequest, ExpressionEngine, LinkSelections, ParameterIssueCode, ParameterValues, ReportDocument, ScalarValue, ValidationIssueCode } from '@xihan-report/core'
+import type { ComputeOptions, DashboardView, DatasetData, DatasetRequest, ExpressionEngine, LinkSelections, ParameterIssueCode, ParameterValue, ParameterValues, ReportDocument, ScalarValue, ValidationIssueCode } from '@xihan-report/core'
 import type { SchemaIssue } from '@xihan-ui/designer-kit/schema'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { ReportViewerTranslations } from '../translations'
@@ -28,6 +28,7 @@ import { cardDataset, computeCard, renderCard, renderDashboardFrame } from './da
 import { ownPart } from './dom'
 import { defaultFormatter } from './format'
 import { renderGroupReport } from './group'
+import { renderParameterBar } from './parameters'
 import { renderDetailTable } from './table'
 
 /** 查看器的标签名。 */
@@ -50,6 +51,8 @@ export interface ReportViewerEventMap {
   'load-error': CustomEvent<{ card: string | null, error: unknown }>
   'loading-change': CustomEvent<{ loading: boolean }>
   'selections-change': CustomEvent<{ value: LinkSelections }>
+  /** 参数栏改了参数：value 是新的参数取值，清空的参数写 null。 */
+  'parameters-change': CustomEvent<{ value: ParameterValues }>
   /** 转发图表卡片的 datum-press：link 与 value 是这次点按对应的联动与源维度上的取值，与联动无关时为 null。 */
   'datum-press': CustomEvent<{ card: string, link: string | null, value: unknown, chart: unknown }>
 }
@@ -58,6 +61,7 @@ export interface ReportViewerEventMap {
 type ViewerState = 'idle' | 'loading' | 'ready' | 'invalid' | 'parameters' | 'error'
 
 interface Layers {
+  readonly header: HTMLElement
   readonly status: HTMLElement
   readonly body: HTMLElement
 }
@@ -126,6 +130,9 @@ export class XhReportViewer extends XhReactiveElement {
   #frameOf: DashboardView | undefined
   #charts = new Map<string, RenderedChart>()
   #ownSelections: LinkSelections = {}
+  #ownParameters: ParameterValues | undefined
+  #emittedParameters: string | undefined
+  #headerFor: string | undefined
   #pendingCards = 0
 
   /** 最近一次校验报表定义与检查参数得到的问题。 */
@@ -157,6 +164,7 @@ export class XhReportViewer extends XhReactiveElement {
     super.update(changed)
     const layers = this.#ensureLayers()
     this.setAttribute('aria-label', this.#translations().label)
+    this.#renderHeader(layers, changed)
     if (DATA_PROPERTIES.some(key => changed.has(key)))
       void this.#load()
     else if (changed.has('selections') && this.#inputs && this.#dashboard())
@@ -185,6 +193,54 @@ export class XhReportViewer extends XhReactiveElement {
     return this.selections ?? this.#ownSelections
   }
 
+  #parametersNow(): ParameterValues {
+    return this.parameters ?? this.#ownParameters ?? {}
+  }
+
+  #setParameter(name: string, value: ParameterValue | undefined): void {
+    const next: Record<string, ParameterValue> = { ...this.#parametersNow(), [name]: value === undefined ? null : value }
+    this.#emittedParameters = JSON.stringify(next)
+    if (this.parameters === undefined) {
+      this.#ownParameters = next
+      void this.#load()
+    }
+    emitEvent(this, 'parameters-change', { value: next })
+  }
+
+  /** 参数栏与清除联动按钮：报表定义、文案或显隐变了才重排；参数栏自己发出的改动写回时不重排，以免打断输入。 */
+  #renderHeader(layers: Layers, changed: PropertyValues): void {
+    const schema = this.schema
+    const external = changed.has('parameters') && JSON.stringify(this.parameters ?? {}) !== this.#emittedParameters
+    const links = schema?.body.type === 'dashboard' ? (schema.body.links ?? []).length : 0
+    const key = JSON.stringify([schema?.id, schema?.parameters, links, this.hideParameters, this.#translations(), this.#locale()])
+    if (key === this.#headerFor && !external && layers.header.isConnected)
+      return
+    this.#headerFor = key
+    const ctx = this.#context()
+    const parts: HTMLElement[] = []
+    if (schema && !this.hideParameters) {
+      const values = resolveParameters(schema.parameters, this.#parametersNow()).values
+      const bar = renderParameterBar(schema.parameters, values, ctx, { change: (name, value) => this.#setParameter(name, value) })
+      if (bar)
+        parts.push(bar)
+    }
+    if (schema?.body.type === 'dashboard' && (schema.body.links ?? []).length > 0) {
+      const button = document.createElement('xh-button')
+      button.setAttribute('variant', 'outline')
+      button.setAttribute('size', 'sm')
+      button.dataset.part = 'clear-selections'
+      const root = document.createElement('button')
+      root.dataset.xhPart = 'root'
+      root.type = 'button'
+      root.textContent = ctx.translations.clearSelections
+      button.append(root)
+      root.addEventListener('click', () => this.clearSelections())
+      parts.push(button)
+    }
+    layers.header.replaceChildren(...parts)
+    layers.header.hidden = parts.length === 0
+  }
+
   #dashboard(): DashboardView | undefined {
     const body = this.#inputs?.schema.body
     return body?.type === 'dashboard' ? body : undefined
@@ -193,11 +249,13 @@ export class XhReportViewer extends XhReactiveElement {
   #ensureLayers(): Layers {
     if (this.#layers && this.#layers.body.parentNode === this)
       return this.#layers
+    const header = ownPart('div', 'header')
     const status = ownPart('div', 'status')
     status.setAttribute('role', 'status')
     const body = ownPart('div', 'body')
-    this.replaceChildren(status, body)
-    this.#layers = { status, body }
+    this.replaceChildren(header, status, body)
+    this.#layers = { header, status, body }
+    this.#headerFor = undefined
     this.#frame = undefined
     return this.#layers
   }
@@ -241,7 +299,7 @@ export class XhReportViewer extends XhReactiveElement {
       this.#setIssues(issues)
       return this.#reset('invalid')
     }
-    const resolved = resolveParameters(schema.parameters, this.parameters ?? {})
+    const resolved = resolveParameters(schema.parameters, this.#parametersNow())
     const parameterIssues = withSeverity(resolved.issues, {})
     this.#setIssues([...issues, ...parameterIssues])
     if (hasErrors(parameterIssues))

@@ -126,3 +126,26 @@ xh-report-viewer [data-part='card'][data-state='error'] [data-part='card-status'
     block-size: calc(var(--xh-report-row-h) * var(--xh-report-h));
   }
 }
+
+/* 参数栏与清除联动按钮 */
+xh-report-viewer [data-part='header'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xh-space-3);
+  align-items: end;
+  padding-block-end: var(--xh-space-3);
+}
+
+xh-report-viewer [data-part='parameters'] {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: var(--xh-space-3);
+  align-items: end;
+}
+
+xh-report-viewer [data-part='parameter-switch'] {
+  display: inline-flex;
+  gap: var(--xh-space-2);
+  align-items: center;
+}
