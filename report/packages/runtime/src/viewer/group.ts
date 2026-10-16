@@ -6,12 +6,11 @@
 // 分组报表：排成 <xh-table>，每级分组占一列（行首冻结），组头、明细与组小计依次成行，组头的键横跨其后各列，总计写进表尾。
 
 import type { DatasetSchema, GroupNode, GroupReportResult, GroupView } from '@xihan-report/core'
-import type { XhTableElement } from '@xihan-ui/web-components/define'
 import type { RenderContext } from './context'
-import type { TableColumnDef } from './table'
+import type { RenderedTable, TableCellRef, TableColumnDef } from './table'
 import { dimensionType, fieldLabel } from '../labels'
 import { fieldType } from './context'
-import { COLUMN_WIDTH, columnDef, headerRow, summaryCells, summaryType, tableRow, tableShell } from './table'
+import { COLUMN_WIDTH, columnDef, headerRow, rowIndex, summaryCells, summaryType, tableRow, tableShell } from './table'
 
 /** 分组报表里一行的种类。 */
 type GroupRowKind = 'group' | 'detail' | 'subtotal'
@@ -20,6 +19,8 @@ interface GroupRow {
   readonly kind: GroupRowKind
   readonly level: number
   readonly cells: readonly { readonly id: string, readonly text: string }[]
+  /** 这一行的组键（分组 id 到键），明细行另带各列 id 到字段值。 */
+  readonly values: Readonly<Record<string, unknown>>
 }
 
 /** 分组列的 id。 */
@@ -44,20 +45,21 @@ function groupRows(view: GroupView, dataset: DatasetSchema, result: GroupReportR
     return column?.summary ? { id: cell.id, text: ctx.text(node.summary[column.id], column.format, summaryType(column, dataset)) } : cell
   })
 
-  const walk = (nodes: readonly GroupNode[]): void => {
+  const walk = (nodes: readonly GroupNode[], path: Readonly<Record<string, unknown>>): void => {
     for (const node of nodes) {
       const group = groups[node.level]!
       const leaf = node.level === groups.length - 1
+      const values = { ...path, [group.id]: node.key }
       if (leaf && !detail) {
         const cells = blank()
         cells[node.level] = { id: groupColumnId(node.level), text: keyText(node) }
-        rows.push({ kind: 'subtotal', level: node.level, cells: withSummaries(cells, node) })
+        rows.push({ kind: 'subtotal', level: node.level, cells: withSummaries(cells, node), values })
         continue
       }
       if (group.header !== false) {
         const cells = blank()
         cells[node.level] = { id: groupColumnId(node.level), text: keyText(node) }
-        rows.push({ kind: 'group', level: node.level, cells })
+        rows.push({ kind: 'group', level: node.level, cells, values })
       }
       if (leaf) {
         for (const row of node.rows) {
@@ -65,25 +67,25 @@ function groupRows(view: GroupView, dataset: DatasetSchema, result: GroupReportR
           columns.forEach((column, index) => {
             cells[groups.length + index] = { id: column.id, text: ctx.text(row[column.field], column.format, fieldType(dataset, column.field)) }
           })
-          rows.push({ kind: 'detail', level: node.level, cells })
+          rows.push({ kind: 'detail', level: node.level, cells, values: { ...Object.fromEntries(columns.map(column => [column.id, row[column.field]])), ...values } })
         }
       }
       else {
-        walk(node.children)
+        walk(node.children, values)
       }
       if (group.subtotal !== false) {
         const cells = blank()
         cells[node.level] = { id: groupColumnId(node.level), text: group.header === false ? keyText(node) : ctx.translations.subtotal }
-        rows.push({ kind: 'subtotal', level: node.level, cells: withSummaries(cells, node) })
+        rows.push({ kind: 'subtotal', level: node.level, cells: withSummaries(cells, node), values })
       }
     }
   }
-  walk(result.groups)
+  walk(result.groups, {})
   return rows
 }
 
-/** 把分组报表排进 container，返回表格元素。 */
-export function renderGroupReport(container: HTMLElement, view: GroupView, dataset: DatasetSchema, result: GroupReportResult, ctx: RenderContext): XhTableElement {
+/** 把分组报表排进 container。 */
+export function renderGroupReport(container: HTMLElement, view: GroupView, dataset: DatasetSchema, result: GroupReportResult, ctx: RenderContext): RenderedTable {
   const { groups, columns } = view
   const groupColumns: TableColumnDef[] = groups.map((group, index) => ({ id: groupColumnId(index), label: fieldLabel(dataset, group.field, group.title), width: COLUMN_WIDTH, sticky: 'start' }))
   const definitions = [...groupColumns, ...columns.map(column => columnDef(column, dataset))]
@@ -108,5 +110,17 @@ export function renderGroupReport(container: HTMLElement, view: GroupView, datas
     return row?.kind === 'group' && columnIndex === row.level && row.level < groups.length - 1 ? { colSpan: groups.length - row.level } : null
   }
   container.replaceChildren(shell.table)
-  return shell.table
+  const columnOf = (column: string | null): string | null => {
+    const level = column?.startsWith('g') ? groups.findIndex((_, index) => groupColumnId(index) === column) : -1
+    if (level >= 0)
+      return groups[level]!.id
+    return columns.some(item => item.id === column) ? column : null
+  }
+  return {
+    element: shell.table,
+    cellOf(row, column): TableCellRef | undefined {
+      const item = rows[rowIndex(row)]
+      return item ? { kind: item.kind, column: columnOf(column), values: item.values } : undefined
+    },
+  }
 }

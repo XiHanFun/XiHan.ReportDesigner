@@ -16,6 +16,7 @@ import type { ViewResult } from './compute'
 import type { RenderContext } from './context'
 import type { CardState } from './dashboard'
 import type { ReportFormatter } from './format'
+import type { RenderedTable, TableCellRef } from './table'
 import { createDatasetRequest, findDataset, resolveLinkFilters, resolveParameters, validateDocument } from '@xihan-report/core'
 import { getLocalTimeZone } from '@xihan-ui/core/date'
 import { hasErrors, withSeverity } from '@xihan-ui/designer-kit/schema'
@@ -24,13 +25,10 @@ import { emitEvent, registerElement, XhConfigController, XhReactiveElement } fro
 import { DEFAULT_REPORT_VIEWER_TRANSLATIONS } from '../translations'
 import { computeView } from './compute'
 import { createRenderContext } from './context'
-import { renderCrosstab } from './crosstab'
-import { cardDataset, computeCard, renderCard, renderDashboardFrame } from './dashboard'
+import { cardDataset, computeCard, renderCard, renderDashboardFrame, renderView } from './dashboard'
 import { ownPart } from './dom'
 import { defaultFormatter } from './format'
-import { renderGroupReport } from './group'
 import { renderParameterBar } from './parameters'
-import { renderDetailTable } from './table'
 
 /** 查看器的标签名。 */
 export const REPORT_VIEWER_TAG = 'xh-report-viewer'
@@ -56,6 +54,12 @@ export interface ReportViewerEventMap {
   'parameters-change': CustomEvent<{ value: ParameterValues }>
   /** 转发图表卡片的 datum-press：link 与 value 是这次点按对应的联动与源维度上的取值，与联动无关时为 null。 */
   'datum-press': CustomEvent<{ card: string, link: string | null, value: unknown, chart: unknown }>
+  /**
+   * 表格的行主操作（点一格，或焦点行上按 Enter），用来下钻：card 是看板里的表格卡片，报表主体是表格时为 null；
+   * kind、column、values 说明点中的那一格（见 TableCellRef）。表格卡片作联动源时，link 与 value 是这次点按对应的联动
+   * 与源维度上的取值，与联动无关时为 null。
+   */
+  'action': CustomEvent<{ card: string | null, link: string | null, value: unknown } & TableCellRef>
 }
 
 /** 查看器的状态。 */
@@ -473,20 +477,15 @@ export class XhReportViewer extends XhReactiveElement {
     emitEvent(this, 'selections-change', { value: next })
   }
 
-  #onPress(cardId: string, event: Event): void {
-    event.stopPropagation()
-    const detail = (event as CustomEvent<ChartPress>).detail
-    const dashboard = this.#dashboard()
-    const rendered = this.#charts.get(cardId)
-    if (!dashboard || !rendered)
-      return
+  /** 源卡片上点了一下：以源卡片为源的各联动按 resolve 得到的取值切换选中（再点同一个值取消）。 */
+  #select(cardId: string, resolve: (dimension: string) => { readonly value: unknown } | undefined): { link: string | null, value: unknown, apply: () => void } {
     const selections: Record<string, readonly ScalarValue[]> = { ...this.#selectionsNow() }
     let link: string | null = null
     let value: unknown = null
-    for (const item of dashboard.links ?? []) {
+    for (const item of this.#dashboard()?.links ?? []) {
       if (item.card !== cardId)
         continue
-      const resolved = rendered.valueOf(detail, item.dimension)
+      const resolved = resolve(item.dimension)
       if (!resolved)
         continue
       link ??= item.id
@@ -495,9 +494,33 @@ export class XhReportViewer extends XhReactiveElement {
       const same = current.length === 1 && valueKey(current[0]) === valueKey(resolved.value)
       selections[item.id] = same ? [] : [resolved.value as ScalarValue]
     }
+    return { link, value, apply: () => link !== null && this.#setSelections(selections) }
+  }
+
+  #onPress(cardId: string, event: Event): void {
+    event.stopPropagation()
+    const detail = (event as CustomEvent<ChartPress>).detail
+    const rendered = this.#charts.get(cardId)
+    if (!this.#dashboard() || !rendered)
+      return
+    const { link, value, apply } = this.#select(cardId, dimension => rendered.valueOf(detail, dimension))
     emitEvent(this, 'datum-press', { card: cardId, link, value, chart: detail })
-    if (link !== null)
-      this.#setSelections(selections)
+    apply()
+  }
+
+  /** 表格的行主操作：换成报表里的那一格转发出去；表格卡片同时按联动切换选中。 */
+  #bindTable(cardId: string | null, rendered: RenderedTable): void {
+    rendered.element.addEventListener('action', (event) => {
+      event.stopPropagation()
+      const detail = (event as CustomEvent<{ value: string, column: string | null }>).detail
+      const cell = rendered.cellOf(detail.value, detail.column)
+      if (!cell)
+        return
+      const resolve = (dimension: string): { value: unknown } | undefined => (Object.hasOwn(cell.values, dimension) ? { value: cell.values[dimension] } : undefined)
+      const { link, value, apply } = cardId === null ? { link: null, value: null, apply: () => {} } : this.#select(cardId, resolve)
+      emitEvent(this, 'action', { card: cardId, link, value, ...cell })
+      apply()
+    })
   }
 
   /** 源图表的 activeKey 写成当前选中值在图表里的键。 */
@@ -522,7 +545,10 @@ export class XhReportViewer extends XhReactiveElement {
       return
     this.#charts.delete(cardId)
     const rendered = renderCard(frame.body, state, ctx)
-    if (rendered) {
+    if (rendered && 'cellOf' in rendered) {
+      this.#bindTable(cardId, rendered)
+    }
+    else if (rendered) {
       this.#charts.set(cardId, rendered)
       rendered.element.addEventListener('datum-press', event => this.#onPress(cardId, event))
     }
@@ -565,12 +591,7 @@ export class XhReportViewer extends XhReactiveElement {
     const view = this.#view
     if (!view)
       return
-    if (view.type === 'table')
-      renderDetailTable(layers.body, view.view, view.dataset, view.result, ctx)
-    else if (view.type === 'group')
-      renderGroupReport(layers.body, view.view, view.dataset, view.result, ctx)
-    else
-      renderCrosstab(layers.body, view.view, view.dataset, view.result, ctx)
+    this.#bindTable(null, renderView(layers.body, view, ctx))
   }
 }
 

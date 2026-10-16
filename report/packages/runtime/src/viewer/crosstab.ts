@@ -6,13 +6,13 @@
 // 交叉表：排成 <xh-table>。列轴的表头树写成列定义的 children（多级表头由表格的 headerRows 逐层铺），
 // 行维度各占一列冻结在行首，相同的上层成员与小计、总计的标签经 cellSpan 合并。
 
-import type { CrosstabAxisNode, CrosstabLabel, CrosstabResult, CrosstabView, DatasetSchema } from '@xihan-report/core'
+import type { CrosstabAxisNode, CrosstabLabel, CrosstabLeaf, CrosstabResult, CrosstabView, DatasetSchema } from '@xihan-report/core'
 import type { XhTableElement } from '@xihan-ui/web-components/define'
 import type { RenderContext } from './context'
-import type { TableColumnDef } from './table'
+import type { RenderedTable, TableCellRef, TableColumnDef } from './table'
 import { crosstabAxes } from '@xihan-report/core'
 import { dimensionType, fieldLabel, measureLabel, measureType } from '../labels'
-import { COLUMN_WIDTH, headerRow, tableRow, tableShell } from './table'
+import { COLUMN_WIDTH, headerRow, rowIndex, tableRow, tableShell } from './table'
 
 function labelText(label: CrosstabLabel, dataset: DatasetSchema, ctx: RenderContext): string {
   switch (label.kind) {
@@ -31,6 +31,16 @@ function columnTree(nodes: readonly CrosstabAxisNode[], dataset: DatasetSchema, 
   return nodes.map(node => node.children.length > 0
     ? { id: `h${node.level}:${node.start}`, label: labelText(node.label, dataset, ctx), children: columnTree(node.children, dataset, ctx) }
     : { id: `c${node.start}`, label: labelText(node.label, dataset, ctx), width: COLUMN_WIDTH, align: 'end' })
+}
+
+/** 一个叶子上各维度成员的取值，键是维度 id。 */
+function memberValues(leaf: CrosstabLeaf): Record<string, unknown> {
+  const values: Record<string, unknown> = {}
+  for (const label of leaf.labels) {
+    if (label?.kind === 'member')
+      values[label.dimension.id] = label.value
+  }
+  return values
 }
 
 function forEachNode(nodes: readonly CrosstabAxisNode[], visit: (node: CrosstabAxisNode) => void): void {
@@ -54,8 +64,8 @@ function fillHeader(table: XhTableElement, header: HTMLElement): void {
     void customElements.whenDefined('xh-table').then(() => queueMicrotask(fill))
 }
 
-/** 把交叉表排进 container，返回表格元素。 */
-export function renderCrosstab(container: HTMLElement, view: CrosstabView, dataset: DatasetSchema, result: CrosstabResult, ctx: RenderContext): XhTableElement {
+/** 把交叉表排进 container。 */
+export function renderCrosstab(container: HTMLElement, view: CrosstabView, dataset: DatasetSchema, result: CrosstabResult, ctx: RenderContext): RenderedTable {
   const axes = crosstabAxes(view, result)
   const rowLevels = axes.rows.levels
   const rowColumns: TableColumnDef[] = Array.from({ length: rowLevels }, (_, level) => {
@@ -98,5 +108,21 @@ export function renderCrosstab(container: HTMLElement, view: CrosstabView, datas
   shell.table.cellSpan = ({ rowIndex, columnIndex }) => (columnIndex < rowLevels ? spans.get(`${rowIndex}:${columnIndex}`) ?? null : null)
   container.replaceChildren(shell.table)
   fillHeader(shell.table, shell.header)
-  return shell.table
+  return {
+    element: shell.table,
+    cellOf(row, column): TableCellRef | undefined {
+      const rowLeaf = axes.rows.leaves[rowIndex(row)]
+      if (!rowLeaf)
+        return undefined
+      const kinds = new Set(rowLeaf.labels.map(label => label?.kind))
+      const kind = kinds.has('total') ? 'total' : kinds.has('subtotal') ? 'subtotal' : 'detail'
+      const columnLeaf = column !== null && /^c\d+$/.test(column) ? valueLeaves[Number(column.slice(1))] : undefined
+      if (columnLeaf) {
+        const measure = view.measures[columnLeaf.measure ?? rowLeaf.measure ?? 0]
+        return { kind, column: measure?.id ?? null, values: { ...memberValues(columnLeaf), ...memberValues(rowLeaf) } }
+      }
+      const level = column !== null && /^row\d+$/.test(column) ? Number(column.slice(3)) : -1
+      return { kind, column: view.rows[level]?.id ?? null, values: memberValues(rowLeaf) }
+    },
+  }
 }

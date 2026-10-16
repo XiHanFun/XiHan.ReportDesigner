@@ -9,6 +9,7 @@ import type { ChartCard, ChartData, ComputeOptions, DashboardCard, DashboardView
 import type { RenderedChart } from './charts'
 import type { ViewResult } from './compute'
 import type { RenderContext } from './context'
+import type { RenderedTable } from './table'
 import { chartData, computeMetric, gridItems, runQuery } from '@xihan-report/core'
 import { clampToGrid } from '@xihan-ui/designer-kit'
 import { measureLabel } from '../labels'
@@ -86,8 +87,17 @@ export function renderDashboardFrame(container: HTMLElement, dashboard: Dashboar
   return cards
 }
 
-/** 把一张卡片的状态绘进内容区；图表卡片返回绘好的图表，供联动接线。 */
-export function renderCard(body: HTMLElement, state: CardState, ctx: RenderContext): RenderedChart | undefined {
+/** 把明细表、分组报表或交叉表排进 container。 */
+export function renderView(container: HTMLElement, view: ViewResult, ctx: RenderContext): RenderedTable {
+  if (view.type === 'table')
+    return renderDetailTable(container, view.view, view.dataset, view.result, ctx)
+  if (view.type === 'group')
+    return renderGroupReport(container, view.view, view.dataset, view.result, ctx)
+  return renderCrosstab(container, view.view, view.dataset, view.result, ctx)
+}
+
+/** 把一张卡片的状态绘进内容区；图表与表格卡片返回绘好的元素，供联动与下钻接线。 */
+export function renderCard(body: HTMLElement, state: CardState, ctx: RenderContext): RenderedChart | RenderedTable | undefined {
   const section = body.parentElement
   if (state.status !== 'ready') {
     section?.setAttribute('data-state', state.status)
@@ -106,15 +116,7 @@ export function renderCard(body: HTMLElement, state: CardState, ctx: RenderConte
     case 'metric':
       body.replaceChildren(renderMetric(result.card, result.result, result.metric, result.dataset, ctx))
       return undefined
-    case 'table': {
-      const view = result.view
-      if (view.type === 'table')
-        renderDetailTable(body, view.view, view.dataset, view.result, ctx)
-      else if (view.type === 'group')
-        renderGroupReport(body, view.view, view.dataset, view.result, ctx)
-      else
-        renderCrosstab(body, view.view, view.dataset, view.result, ctx)
-      return undefined
-    }
+    case 'table':
+      return renderView(body, result.view, ctx)
   }
 }

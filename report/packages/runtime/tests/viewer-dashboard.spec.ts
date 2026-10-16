@@ -164,6 +164,42 @@ describe('<xh-report-viewer>：看板', () => {
     expect((card(viewer, 'heat').querySelector('xh-heatmap') as HTMLElement & { activeKey?: unknown }).activeKey).toBeUndefined()
   })
 
+  it('表格卡片作联动源：点一行按联动的维度发出取值，转发 action；再点一次取消', async () => {
+    const viewer = document.createElement('xh-report-viewer') as XhReportViewer
+    viewer.timeZone = 'UTC'
+    viewer.dataProvider = async request => filterRows(request)
+    viewer.schema = {
+      schemaVersion: 1,
+      id: 'list',
+      datasets: [dataset],
+      body: {
+        type: 'dashboard',
+        grid: { columns: 12, rowHeight: 40 },
+        cards: [
+          { id: 'list', kind: 'table', layout: { x: 0, y: 0, w: 8, h: 6 }, view: { type: 'table', dataset: 'sales', columns: [{ id: 'region', field: 'region' }, { id: 'amount', field: 'amount' }] } },
+          { id: 'sum', kind: 'metric', layout: { x: 8, y: 0, w: 4, h: 3 }, dataset: 'sales', query: { dimensions: [], measures: [amount] }, metric: { value: 'amount' } },
+        ],
+        links: [{ id: 'pick', card: 'list', dimension: 'region', targets: [{ card: 'sum', field: 'region' }] }],
+      },
+    } as ReportDocument
+    document.body.append(viewer)
+    await viewer.refresh()
+    const actions: unknown[] = []
+    const changes: unknown[] = []
+    viewer.addEventListener('action', event => actions.push((event as CustomEvent).detail))
+    viewer.addEventListener('selections-change', event => changes.push((event as CustomEvent).detail.value))
+    const cell = (): HTMLElement => card(viewer, 'list').querySelector('[data-xh-part="row"][value="r2"] [data-xh-part="cell"][value="amount"]') as HTMLElement
+    cell().click()
+    await settle(viewer)
+    expect(actions).toEqual([expect.objectContaining({ card: 'list', link: 'pick', value: 'West', kind: 'detail', column: 'amount' })])
+    expect(changes).toEqual([{ pick: ['West'] }])
+    expect(card(viewer, 'sum').querySelector('[data-xh-part="value"]')!.textContent).toBe('80')
+    cell().click()
+    await settle(viewer)
+    expect(changes.at(-1)).toEqual({ pick: [] })
+    expect(card(viewer, 'sum').querySelector('[data-xh-part="value"]')!.textContent).toBe('230')
+  })
+
   it('日历热力图作联动源：按日期发出取值，选中的日期写回 activeKey；没写区间时取数据的起止日期', async () => {
     const viewer = document.createElement('xh-report-viewer') as XhReportViewer
     viewer.timeZone = 'UTC'

@@ -23,6 +23,33 @@ const ESTIMATED_ROW_SIZE = 36
 /** xh-table 的列定义。 */
 export type TableColumnDef = NonNullable<XhTableElement['columns']>[number]
 
+/** 表格里被行主操作点中的那一格在报表里的含义。 */
+export interface TableCellRef {
+  /** 行的种类：明细行（交叉表是成员行）、组头、小计、总计。 */
+  readonly kind: 'detail' | 'group' | 'subtotal' | 'total'
+  /**
+   * 点中那一格所在的报表列：明细表与分组报表是列 id 或分组 id，交叉表的值格是度量 id、行表头格是行维度 id；
+   * 焦点行上按 Enter 时为 null。
+   */
+  readonly column: string | null
+  /**
+   * 这一行（与点中那一列）在各维度上的取值，键与看板联动的 dimension 同一套写法：
+   * 明细表是列 id，分组报表是分组 id（明细行另带各列 id），交叉表是行、列维度 id。
+   */
+  readonly values: Readonly<Record<string, unknown>>
+}
+
+/** 渲染好的表格：按 xh-table 行主操作报出的行 id 与列 id 查出点中的那一格。 */
+export interface RenderedTable {
+  readonly element: XhTableElement
+  readonly cellOf: (row: string, column: string | null) => TableCellRef | undefined
+}
+
+/** 行 id（r 加下标）里的下标；对不上时为 -1。 */
+export function rowIndex(id: string): number {
+  return /^r\d+$/.test(id) ? Number(id.slice(1)) : -1
+}
+
 /** xh-table 的外壳。 */
 export interface TableShell {
   readonly table: XhTableElement
@@ -95,9 +122,19 @@ export function summaryCells(columns: readonly TableColumn[], dataset: DatasetSc
   }))
 }
 
-/** 把明细表排进 container，返回表格元素。 */
-export function renderDetailTable(container: HTMLElement, view: TableView, dataset: DatasetSchema, result: TableResult, ctx: RenderContext): XhTableElement {
+/** 把明细表排进 container。 */
+export function renderDetailTable(container: HTMLElement, view: TableView, dataset: DatasetSchema, result: TableResult, ctx: RenderContext): RenderedTable {
   const columns = view.columns
+  const cellOf = (row: string, column: string | null): TableCellRef | undefined => {
+    const data = result.rows[rowIndex(row)]
+    if (!data)
+      return undefined
+    return {
+      kind: 'detail',
+      column: columns.some(item => item.id === column) ? column : null,
+      values: Object.fromEntries(columns.map(item => [item.id, data[item.field]])),
+    }
+  }
   const shell = tableShell(ctx, result.summary !== null)
   shell.header.append(headerRow(columns.map(column => ({ id: column.id, label: columnLabel(column, dataset) }))))
   if (result.summary)
@@ -113,7 +150,7 @@ export function renderDetailTable(container: HTMLElement, view: TableView, datas
   if (result.rows.length <= VIRTUAL_ROW_THRESHOLD) {
     shell.body.append(...result.rows.map((_, index) => tableRow(`r${index}`, rowCells(index))))
     container.replaceChildren(shell.table)
-    return shell.table
+    return { element: shell.table, cellOf }
   }
 
   shell.root.dataset.virtual = ''
@@ -143,5 +180,5 @@ export function renderDetailTable(container: HTMLElement, view: TableView, datas
   if (virtualizer.isConnected && typeof virtualizer.requestUpdate === 'function')
     render(virtualizer.virtualItems)
   virtualizer.addEventListener('range-change', event => render((event as CustomEvent<{ virtualItems: readonly { index: number }[] }>).detail.virtualItems))
-  return shell.table
+  return { element: shell.table, cellOf }
 }
