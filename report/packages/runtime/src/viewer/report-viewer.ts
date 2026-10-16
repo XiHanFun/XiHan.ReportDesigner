@@ -27,6 +27,7 @@ import { computeView } from './compute'
 import { createRenderContext } from './context'
 import { cardDataset, computeCard, renderCard, renderDashboardFrame, renderView } from './dashboard'
 import { ownPart } from './dom'
+import { defineViewerElements } from './elements'
 import { defaultFormatter } from './format'
 import { renderParameterBar } from './parameters'
 
@@ -595,8 +596,9 @@ export class XhReportViewer extends XhReactiveElement {
   }
 }
 
-/** 注册 <xh-report-viewer>；用到的 UI 元素由宿主先经 defineXhElements() 注册。 */
+/** 注册 <xh-report-viewer> 与它排出的 UI 元素（按需注册），宿主不必再全量注册 UI 元素。 */
 export function defineReportViewer(): void {
+  defineViewerElements()
   registerElement(REPORT_VIEWER_TAG, XhReportViewer)
 }
 
