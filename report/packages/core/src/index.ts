@@ -5,6 +5,7 @@
 
 // 导出 @xihan-report/core 的公共接口。
 
+export { planFillBindings } from './binding-plans'
 export { cardTemplate, cardTypeOf, REPORT_CARD_TYPES } from './card-templates'
 export type { CardTemplate, ReportCardType } from './card-templates'
 export * from './engine'
