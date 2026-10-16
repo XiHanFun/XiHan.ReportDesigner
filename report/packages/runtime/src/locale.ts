@@ -363,6 +363,21 @@ export const reportZhCN: XhConfig = mergeXhConfig(designerShellZhCN, {
       emptyList: '把字段拖到这里',
       placeholder: '给了取数回调后这里显示示例数据',
       issue: issueText,
+      addDataset: '新增数据集',
+      addField: '新增字段',
+      addParameter: '新增参数',
+      removeTitle: name => `删除「${name}」`,
+      removeCascade: (cascade) => {
+        const parts = [
+          [cascade.items, '个列表项'],
+          [cascade.conditions, '个筛选条件'],
+          [cascade.sorts, '条排序'],
+          [cascade.links, '个联动目标'],
+          [cascade.bindings, '个参数绑定'],
+        ] as const
+        return `会一并删掉 ${parts.filter(([count]) => count > 0).map(([count, unit]) => `${count} ${unit}`).join('、')}，可以撤销。`
+      },
+      removeConfirm: '删除',
     },
   },
 })

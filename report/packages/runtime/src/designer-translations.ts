@@ -5,6 +5,15 @@
 
 // 报表设计器的内建文案；类型补进 UI 的 XhTranslationOverrides。几张对照表（属性名、选项、卡片种类等）按键整份覆盖。
 
+/** 删除数据面板对象时一并删掉的别处的数目。 */
+export interface ReportDesignerCascade {
+  readonly items: number
+  readonly conditions: number
+  readonly sorts: number
+  readonly links: number
+  readonly bindings: number
+}
+
 /** 问题文案的入参：校验问题的码与参数。 */
 export interface ReportDesignerIssueDetails {
   readonly code: string
@@ -69,6 +78,26 @@ export interface ReportDesignerTranslations {
   readonly placeholder: string
   /** 问题说明。 */
   readonly issue: (issue: ReportDesignerIssueDetails) => string
+  /** 数据面板的新增按钮。 */
+  readonly addDataset: string
+  readonly addField: string
+  readonly addParameter: string
+  /** 删除会一并删掉别处时的确认框：标题、说明（各删几处）与确认按钮。 */
+  readonly removeTitle: (name: string) => string
+  readonly removeCascade: (cascade: ReportDesignerCascade) => string
+  readonly removeConfirm: string
+}
+
+function cascadeText(cascade: ReportDesignerCascade): string {
+  const parts = [
+    [cascade.items, 'list item', 'list items'],
+    [cascade.conditions, 'filter condition', 'filter conditions'],
+    [cascade.sorts, 'sort rule', 'sort rules'],
+    [cascade.links, 'link target', 'link targets'],
+    [cascade.bindings, 'parameter binding', 'parameter bindings'],
+  ] as const
+  const listed = parts.filter(([count]) => count > 0).map(([count, one, many]) => `${count} ${count === 1 ? one : many}`)
+  return `This also deletes ${listed.join(', ')}. You can undo it.`
 }
 
 const CHART_TYPES: Readonly<Record<string, string>> = {
@@ -177,6 +206,12 @@ export const DEFAULT_REPORT_DESIGNER_TRANSLATIONS: ReportDesignerTranslations = 
   emptyList: 'Drop fields here',
   placeholder: 'Sample data appears when a data provider is set',
   issue: issueText,
+  addDataset: 'Add dataset',
+  addField: 'Add field',
+  addParameter: 'Add parameter',
+  removeTitle: name => `Delete "${name}"`,
+  removeCascade: cascadeText,
+  removeConfirm: 'Delete',
 }
 
 declare module '@xihan-ui/web-components' {

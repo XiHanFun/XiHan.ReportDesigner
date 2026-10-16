@@ -4,14 +4,14 @@
  */
 
 // 数据面板：数据集与字段一棵树、报表参数一棵树，都用 <xh-tree> 画。点选的对象交给编辑模型的选择，
-// 字段按下拖动时经 designer-shell 的 startDrag 拖向字段栏与看板卡片。
+// 字段按下拖动时经 designer-shell 的 startDrag 拖向字段栏与看板卡片。两棵树下各有新增按钮，树上按 Delete 删除选中的对象。
 
 import type { ReportDocument } from '@xihan-report/core'
 import type { ReportDesignerTranslations } from '@xihan-report/runtime'
 import type { XhTreeElement } from '@xihan-ui/web-components/define'
 import type { ReportDataRef } from './editor'
 import { startDrag } from '@xihan-ui/designer-shell'
-import { createAuthoredElement, createGeneratedElement } from '@xihan-ui/web-components/authoring'
+import { createAuthoredElement, createGeneratedElement, setText } from '@xihan-ui/web-components/authoring'
 
 /** 从数据面板拖出的字段。 */
 export interface DataFieldDragPayload {
@@ -50,12 +50,25 @@ function refOf(value: string | null): ReportDataRef | undefined {
   return parts[0] === 'field' ? { kind: 'field', dataset: parts[1]!, name: parts[2]! } : undefined
 }
 
+/** 数据面板里能新增的对象。 */
+export type DataAddKind = 'dataset' | 'field' | 'parameter'
+
 /** 数据面板需要设计器提供的能力。 */
 export interface DataPanelHost {
   readonly ownerDocument: Document
   readonly select: (ref: ReportDataRef) => void
   /** 只读时字段不能拖出。 */
   readonly isReadonly: () => boolean
+  /** 按只读与 datasetEditing 能不能新增这种对象。 */
+  readonly canAdd: (kind: DataAddKind) => boolean
+  readonly add: (kind: DataAddKind) => void
+  /** 删除选中的对象（树上按 Delete 或 Backspace）。 */
+  readonly remove: () => void
+}
+
+interface AddButton {
+  readonly element: HTMLElement
+  readonly button: HTMLButtonElement
 }
 
 interface TreeParts {
@@ -69,15 +82,24 @@ export class DataPanel {
   readonly #host: DataPanelHost
   readonly #datasets: TreeParts
   readonly #parameters: TreeParts
+  readonly #buttons: Readonly<Record<DataAddKind, AddButton>>
   #key = ''
-  #expanded: string[] | undefined
+  #expanded: string[] = []
+  #datasetValues = new Set<string>()
+  #revealed: string | undefined
 
   constructor(host: DataPanelHost) {
     this.#host = host
     const doc = host.ownerDocument
     this.#datasets = this.#tree(doc, 'datasets')
     this.#parameters = this.#tree(doc, 'parameters')
-    this.element = createGeneratedElement(doc, 'div', { 'data-part': 'data', 'slot': 'data' }, [this.#datasets.element, this.#parameters.element])
+    this.#buttons = { dataset: this.#button(doc, 'dataset'), field: this.#button(doc, 'field'), parameter: this.#button(doc, 'parameter') }
+    this.element = createGeneratedElement(doc, 'div', { 'data-part': 'data', 'slot': 'data' }, [
+      this.#datasets.element,
+      createAuthoredElement(doc, 'div', { 'data-part': 'data-actions' }, [this.#buttons.dataset.element, this.#buttons.field.element]),
+      this.#parameters.element,
+      createAuthoredElement(doc, 'div', { 'data-part': 'data-actions' }, [this.#buttons.parameter.element]),
+    ])
     this.#datasets.element.addEventListener('expanded-value-change', (event) => {
       this.#expanded = (event as CustomEvent<{ value: string[] }>).detail.value
       this.#datasets.element.expandedValue = this.#expanded
@@ -85,7 +107,7 @@ export class DataPanel {
     this.#datasets.tree.addEventListener('pointerdown', this.#onPointerDown)
   }
 
-  /** 按文档重排两棵树（结构或文案变了才重建标记），选中项随选择同步。 */
+  /** 按文档重排两棵树（结构或文案变了才重建标记），选中项随选择同步；新出现的数据集与选中字段所在的数据集展开。 */
   update(document: ReportDocument, data: ReportDataRef | undefined, t: ReportDesignerTranslations): void {
     const typeLabel = (type: string): string => t.optionLabels[`type=${type}`] ?? t.optionLabels[type] ?? type
     const datasets: DataNode[] = document.datasets.map(dataset => ({
@@ -103,14 +125,37 @@ export class DataPanel {
       this.#key = key
       this.#fill(this.#datasets, t.datasets, datasets)
       this.#fill(this.#parameters, t.parameters, parameters)
-      this.#parameters.element.hidden = parameters.length === 0
-      const values = new Set(datasets.map(node => node.value))
-      this.#expanded = this.#expanded?.filter(value => values.has(value)) ?? [...values]
+      const values = datasets.map(node => node.value)
+      const added = values.filter(value => !this.#datasetValues.has(value))
+      this.#datasetValues = new Set(values)
+      this.#expanded = [...this.#expanded.filter(value => this.#datasetValues.has(value)), ...added]
       this.#datasets.element.expandedValue = this.#expanded
     }
     const selected = data === undefined ? [] : [valueOf(data)]
+    if (selected[0] !== this.#revealed) {
+      this.#revealed = selected[0]
+      const owner = data?.kind === 'field' ? valueOf({ kind: 'dataset', dataset: data.dataset }) : undefined
+      if (owner !== undefined && !this.#expanded.includes(owner)) {
+        this.#expanded = [...this.#expanded, owner]
+        this.#datasets.element.expandedValue = this.#expanded
+      }
+    }
     this.#datasets.element.selection = data?.kind === 'parameter' ? [] : selected
     this.#parameters.element.selection = data?.kind === 'parameter' ? selected : []
+    const labels: Readonly<Record<DataAddKind, string>> = { dataset: t.addDataset, field: t.addField, parameter: t.addParameter }
+    for (const kind of ['dataset', 'field', 'parameter'] as const) {
+      const { element, button } = this.#buttons[kind]
+      setText(button, labels[kind])
+      element.hidden = !this.#host.canAdd(kind)
+      button.disabled = kind === 'field' && data?.kind !== 'dataset' && data?.kind !== 'field'
+    }
+    this.#parameters.element.hidden = parameters.length === 0 && !this.#host.canAdd('parameter')
+  }
+
+  #button(doc: Document, kind: DataAddKind): AddButton {
+    const button = createAuthoredElement(doc, 'button', { 'data-xh-part': 'root', 'type': 'button' }) as HTMLButtonElement
+    button.addEventListener('click', () => this.#host.add(kind))
+    return { element: createAuthoredElement(doc, 'xh-button', { 'variant': 'ghost', 'size': 'sm', 'data-part': 'data-add', 'data-kind': kind }, [button]), button }
   }
 
   #tree(doc: Document, name: string): TreeParts {
@@ -119,6 +164,12 @@ export class DataPanel {
     const element = createAuthoredElement(doc, 'xh-tree', { 'variant': 'ghost', 'size': 'sm', 'data-part': name }, [
       createAuthoredElement(doc, 'div', { 'data-xh-part': 'root' }, [label, tree]),
     ]) as XhTreeElement
+    element.addEventListener('keydown', (event) => {
+      if ((event.key === 'Delete' || event.key === 'Backspace') && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault()
+        this.#host.remove()
+      }
+    })
     element.addEventListener('selection-change', (event) => {
       const value = (event as CustomEvent<{ value: string[] }>).detail.value[0]
       const ref = value === undefined ? undefined : refOf(value)
