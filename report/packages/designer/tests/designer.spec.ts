@@ -205,11 +205,14 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.validate().map(issue => issue.code)).toContain('unknown-dimension')
   })
 
-  it('panels 列出要显示的面板；右键事件可以取消', async () => {
+  it('版式交给外框：panels 原样转交，画布总是显示；右键事件可以取消', async () => {
     const designer = await mount()
-    designer.panels = 'properties issues'
+    const frame = designer.querySelector('xh-designer-frame')!
+    expect(frame.querySelector('[data-part="region"][data-region="canvas"] [data-part="canvas"]')).not.toBeNull()
+    designer.panels = ''
     await designer.updateComplete
-    expect(designer.querySelector<HTMLElement>('[data-part="root"]')!.dataset.panels).toBe('properties issues')
+    expect(frame.panels).toBe('')
+    expect(frame.querySelector('[data-region="canvas"] [data-part="canvas"]')).not.toBeNull()
     designer.addEventListener('card-contextmenu', event => event.preventDefault())
     const menu = new MouseEvent('contextmenu', { bubbles: true, cancelable: true })
     card(designer, 'a').dispatchEvent(menu)

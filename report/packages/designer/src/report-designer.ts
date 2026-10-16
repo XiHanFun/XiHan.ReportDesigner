@@ -4,20 +4,20 @@
  */
 
 // <xh-report-designer>：报表设计器元素。编辑模型（历史、选择、剪贴板、布局手势）在 createReportEditor 里，
-// 画布内容复用查看器的计算与渲染；物料、属性、问题等面板用 @xihan-ui/designer-shell 的零件。
+// 画布内容复用查看器的计算与渲染；整体版式用 @xihan-ui/designer-shell 的外框，panels 决定显示哪些区，面板用 designer-shell 的零件。
 
 import type { DashboardCard, DashboardView, ExpressionEngine, ParameterValues, ReportDocument, ReportOperation, ValidationIssue } from '@xihan-report/core'
 import type { ReportDataProvider, ReportDesignerTranslations, ReportFormatter, ReportViewerTranslations } from '@xihan-report/runtime'
 import type { ExecuteOptions, HistoryChangeKind, Rect } from '@xihan-ui/designer-kit'
-import type { DesignerTransformItem } from '@xihan-ui/designer-shell'
+import type { DesignerFrameRegion, DesignerTransformItem } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { ReportAddCardInit, ReportClipboard, ReportEditor, ReportItemRef, ReportSelection } from './editor'
 import { resolveParameters } from '@xihan-report/core'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS, DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter } from '@xihan-report/runtime'
 import { createRenderContext, defineViewerElements } from '@xihan-report/runtime/design'
 import { getLocalTimeZone } from '@xihan-ui/core/date'
-import { defineDesignerShellElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
-import { createAuthoredElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
+import { defineDesignerShellElement, XhDesignerFrameElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
+import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { CanvasContent } from './canvas'
 import { readReportClipboardData, writeReportClipboardData } from './clipboard'
 import { createReportEditor, writeReportClipboard } from './editor'
@@ -53,8 +53,13 @@ export interface ReportDesignerEventMap {
   'blank-contextmenu': CustomEvent<{ x: number, y: number }>
 }
 
+/** 外框的命名区：中间是画布。 */
+const FRAME_REGIONS: readonly DesignerFrameRegion[] = [
+  { name: 'canvas', position: 'center' },
+]
+
 interface Layers {
-  readonly root: HTMLElement
+  readonly frame: XhDesignerFrameElement
   readonly canvas: HTMLElement
   readonly surface: HTMLElement
   readonly content: HTMLElement
@@ -66,13 +71,6 @@ const EMPTY_SELECTION: ReportSelection = { cards: [] }
 
 function sameIssues(a: readonly ValidationIssue[], b: readonly ValidationIssue[]): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
-}
-
-function parsePanels(value: string | null | undefined): ReadonlySet<ReportDesignerPanel> {
-  if (value === null || value === undefined)
-    return new Set(REPORT_DESIGNER_PANELS)
-  const tokens = value.split(/\s+/).filter(Boolean)
-  return new Set(REPORT_DESIGNER_PANELS.filter(panel => tokens.includes(panel)))
 }
 
 export class XhReportDesigner extends XhReactiveElement {
@@ -88,7 +86,7 @@ export class XhReportDesigner extends XhReactiveElement {
     timeZone: { attribute: 'time-zone' },
     readonly: { type: Boolean },
     mode: { attribute: 'mode' },
-    panels: { attribute: 'panels' },
+    panels: { converter: { fromAttribute: (value: string | null) => value ?? undefined } },
     datasetEditing: { attribute: 'dataset-editing' },
   }
 
@@ -109,7 +107,7 @@ export class XhReportDesigner extends XhReactiveElement {
   declare readonly: boolean
   /** design 或 preview，缺省 design。 */
   declare mode: ReportDesignerMode | undefined
-  /** 空格分隔的可收起面板：toolbar data palette wells properties issues；不写即全部显示。 */
+  /** 空格分隔的可收起面板：toolbar data palette wells properties issues；不写即全部显示，写空串只留画布。 */
   declare panels: string | undefined
   /** 缺省 fields。 */
   declare datasetEditing: ReportDatasetEditing | undefined
@@ -271,7 +269,7 @@ export class XhReportDesigner extends XhReactiveElement {
     layers.canvas.setAttribute('aria-label', t.canvas)
     if (changed.has('schema'))
       this.#load()
-    this.#applyPanels(layers)
+    this.#syncFrame(layers.frame, t)
     layers.overlay.readonly = this.readonly
     this.#renderCanvas()
   }
@@ -381,7 +379,7 @@ export class XhReportDesigner extends XhReactiveElement {
   }
 
   #ensureLayers(): Layers {
-    if (this.#layers?.root.isConnected && this.#layers.root.parentElement === this)
+    if (this.#layers?.frame.parentElement === this)
       return this.#layers
     const doc = this.ownerDocument
     const content = createAuthoredElement(doc, 'div', { 'data-part': 'content' })
@@ -391,8 +389,8 @@ export class XhReportDesigner extends XhReactiveElement {
     const surface = createAuthoredElement(doc, 'div', { 'data-part': 'surface' }, [content, overlay, empty])
     const canvas = createAuthoredElement(doc, 'div', { 'data-part': 'canvas', 'role': 'group', 'tabindex': 0 }, [surface])
     const workspace = createAuthoredElement(doc, 'div', { 'data-part': 'workspace' }, [canvas])
-    const root = createAuthoredElement(doc, 'div', { 'data-part': 'root' }, [workspace])
-    this.replaceChildren(root)
+    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [workspace]) as XhDesignerFrameElement
+    this.replaceChildren(frame)
     canvas.addEventListener('pointerdown', this.#onPointerDown)
     canvas.addEventListener('dblclick', this.#onDoubleClick)
     canvas.addEventListener('contextmenu', this.#onContextMenu)
@@ -405,13 +403,19 @@ export class XhReportDesigner extends XhReactiveElement {
     }
     this.#content?.dispose()
     this.#content = new CanvasContent(content)
-    this.#layers = { root, canvas, surface, content, overlay, empty }
+    this.#layers = { frame, canvas, surface, content, overlay, empty }
     return this.#layers
   }
 
-  #applyPanels(layers: Layers): void {
-    const shown = parsePanels(this.panels)
-    layers.root.dataset.panels = [...shown].join(' ')
+  /** panels 原样交给外框；区名换成文案，供分隔条的无障碍名称使用，文案没变时不重设。 */
+  #syncFrame(frame: XhDesignerFrameElement, t: ReportDesignerTranslations): void {
+    frame.panels = this.panels
+    const labels: Readonly<Record<string, string>> = { canvas: t.canvas }
+    const regions = FRAME_REGIONS.map(region => ({ ...region, label: labels[region.name] ?? region.name }))
+    const current = frame.regions
+    if (current?.length === regions.length && current.every((region, index) => region.label === regions[index]!.label))
+      return
+    frame.regions = regions
   }
 
   #renderCanvas(): void {
@@ -607,6 +611,7 @@ export class XhReportDesigner extends XhReactiveElement {
 /** 注册 <xh-report-designer> 与它用到的 UI 元素、designer-shell 零件；import 时不注册。 */
 export function defineReportDesigner(): void {
   defineViewerElements()
+  defineDesignerShellElement('xh-designer-frame', XhDesignerFrameElement)
   defineDesignerShellElement('xh-designer-transform', XhDesignerTransformElement)
   registerElement(REPORT_DESIGNER_TAG, XhReportDesigner)
 }
