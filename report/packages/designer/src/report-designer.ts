@@ -385,6 +385,7 @@ export class XhReportDesigner extends XhReactiveElement {
       return
     if (this.#editor) {
       this.#editor.load(schema)
+      this.#fillMenu('blank')
       return
     }
     const editor = createReportEditor({ document: schema })
@@ -399,6 +400,7 @@ export class XhReportDesigner extends XhReactiveElement {
       this.#onDocument(change.cause, change.document, change.operations)
     })
     this.#refreshIssues()
+    this.#fillMenu('blank')
   }
 
   /**
@@ -557,6 +559,7 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#paletteKey = ''
     this.#viewer = undefined
     this.#layers = { frame, toolbar, toolbarRoot, commands, menu, menuContent, menuTrigger, canvas, scroller, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues }
+    this.#fillMenu('blank')
     return this.#layers
   }
 
