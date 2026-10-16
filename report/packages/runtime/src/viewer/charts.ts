@@ -162,16 +162,16 @@ function cartesian(chart: Extract<ChartSpec, { type: 'cartesian' }>, data: Carte
 }
 
 /**
- * 热力图：日期形态的格子键是 ISO 日期，选中值写回 activeKey 作强调；没写区间时取数据里最早到最晚的日期。
+ * 热力图：可及名写在网格上（gridLabel）。日期形态的格子键是 ISO 日期，选中值写回 activeKey 作强调；没写区间时取数据里最早到最晚的日期。
  * 矩阵形态按行、列维度发出取值，联动选中的是整行或整列，不对应单独一格，不写 activeKey。
  */
 function heatmap(chart: HeatmapChartSpec, data: DateHeatmapData | MatrixHeatmapData, query: ReportQuery, dataset: DatasetSchema, ctx: RenderContext, label: string): RenderedChart {
   const element = document.createElement('xh-heatmap')
-  element.append(uiPart('div', 'root', { 'aria-label': label }))
+  element.append(uiPart('div', 'root'))
   const measure = query.measures.find(item => item.id === chart.valueField)
   const common = {
     ...(measure?.format ? { format: numberFormat(measure.format, ctx) } : {}),
-    translations: { emptyText: ctx.translations.empty, loadingText: ctx.translations.loading },
+    translations: { gridLabel: label, emptyText: ctx.translations.empty, loadingText: ctx.translations.loading },
   }
   if (chart.variant === 'matrix') {
     const matrix = data as MatrixHeatmapData

@@ -136,17 +136,19 @@ describe('<xh-report-viewer>：看板', () => {
     expect(card(viewer, 'byProduct').querySelector('xh-cartesian-chart [data-xh-part="root"]')!.getAttribute('aria-label')).toBe('金额')
   })
 
-  it('指标卡片写成 xh-statistic，矩阵热力图写成 xh-heatmap 的行、列与格子', async () => {
+  it('指标卡片写成 xh-statistic，矩阵热力图写成 xh-heatmap 的行、列与格子，可及名写在网格上', async () => {
     const viewer = await mount()
     const statistic = card(viewer, 'total').querySelector('xh-statistic')!
     expect(statistic.querySelector('[data-xh-part="value"]')!.textContent).toBe('230')
     expect(statistic.querySelector('[data-xh-part="suffix"]')!.textContent).toBe('元')
-    const heat = card(viewer, 'heat').querySelector('xh-heatmap') as HTMLElement & { variant: string, rows: { label: string }[], columns: { label: string }[], value: unknown[] }
+    const heat = card(viewer, 'heat').querySelector('xh-heatmap') as HTMLElement & { variant: string, rows: { label: string }[], columns: { label: string }[], value: unknown[], updateComplete: Promise<unknown> }
     expect(heat.variant).toBe('matrix')
     expect(heat.rows.map(row => row.label)).toEqual(['East', 'West'])
     expect(heat.columns.map(column => column.label)).toEqual(['A', 'B'])
     expect(heat.value).toHaveLength(3)
-    expect(heat.querySelector('[data-xh-part="root"]')!.getAttribute('aria-label')).toBe('金额')
+    await heat.updateComplete
+    expect(heat.querySelector('[data-part="grid"]')!.getAttribute('aria-label')).toBe('金额')
+    expect(heat.querySelector('[data-part="root"]')!.hasAttribute('aria-label')).toBe(false)
   })
 
   it('矩阵热力图作联动源：点一格按行或列维度发出取值，不写 activeKey', async () => {
