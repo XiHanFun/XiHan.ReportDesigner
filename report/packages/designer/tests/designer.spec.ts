@@ -453,6 +453,19 @@ describe('<xh-report-designer>：编辑', () => {
     expect(panel.errors).toContainEqual(expect.objectContaining({ target: { kind: 'card', id: 'pie' }, path: ['chart', 'nameField'] }))
   })
 
+  it('报表参数的缺省值用查看器参数栏的控件编辑，改动写 updateParameter 并结束这次编辑', async () => {
+    const designer = await mount()
+    designer.schema = { ...board, parameters: [{ name: 'region', type: 'string', options: [{ value: 'East' }, { value: 'West' }] }] }
+    await designer.updateComplete
+    designer.select({ data: { kind: 'parameter', name: 'region' } })
+    await designer.updateComplete
+    const select = designer.querySelector('xh-designer-properties [data-path="defaultValue"] [data-part="parameter-value"] xh-select')!
+    expect(select).not.toBeNull()
+    select.dispatchEvent(new CustomEvent('value-change', { detail: { value: ['o1'] } }))
+    expect(designer.schema!.parameters).toEqual([{ name: 'region', type: 'string', options: [{ value: 'East' }, { value: 'West' }], defaultValue: 'West' }])
+    expect(designer.canUndo).toBe(true)
+  })
+
   it('赋新的 schema 装载并派发 load，赋回当前文档不重新装载', async () => {
     const designer = await mount()
     const schemaChanges = events(designer, 'schema-change') as { kind: string }[]
