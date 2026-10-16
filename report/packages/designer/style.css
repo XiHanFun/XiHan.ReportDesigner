@@ -7,17 +7,22 @@
    面板零件的外观由 @xihan-ui/designer-shell/style.css 负责。 */
 
 xh-report-designer {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
   min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+  contain: inline-size;
+  background: var(--xh-bg-surface);
   color: var(--xh-fg-default);
   font-size: var(--xh-text-body-size);
   line-height: var(--xh-text-body-leading);
 }
 
-xh-report-designer > [data-part='root'] {
-  display: flex;
-  flex-direction: column;
-  block-size: 100%;
+/* 版式由 <xh-designer-frame> 排，各面板按 slot 放进同名区，没写 slot 的工作区放进画布区 */
+xh-report-designer > [data-part='frame'] {
+  flex: 1 1 auto;
   min-block-size: 0;
 }
 
@@ -34,12 +39,12 @@ xh-report-designer [data-part='canvas'] {
   min-block-size: 0;
   overflow: auto;
   padding: var(--xh-space-4);
-  background: var(--xh-bg-subtle);
+  background: var(--xh-bg-canvas);
   outline: none;
 }
 
 xh-report-designer [data-part='canvas']:focus-visible {
-  box-shadow: inset 0 0 0 var(--xh-stroke-thick) var(--xh-ring-focus);
+  box-shadow: inset 0 0 0 var(--xh-ring-width) var(--xh-ring-focus);
 }
 
 xh-report-designer [data-part='surface'] {
@@ -48,14 +53,13 @@ xh-report-designer [data-part='surface'] {
   contain: inline-size;
 }
 
-xh-report-designer [data-part='card'] {
+xh-report-designer [data-part='surface'] [data-part='card'] {
   background: var(--xh-bg-surface);
   cursor: default;
 }
 
 /* 设计态里卡片内容只看不点：指针一律落到卡片外壳上，用来选择与拖动 */
-xh-report-designer [data-part='card-body'],
-xh-report-designer [data-part='view'] {
+xh-report-designer [data-part='surface'] :is([data-part='card-body'], [data-part='view']) {
   pointer-events: none;
 }
 
@@ -71,7 +75,7 @@ xh-report-designer [data-part='placeholder'] {
   text-align: center;
 }
 
-xh-report-designer [data-part='card'] [data-part='placeholder'] {
+xh-report-designer [data-part='surface'] [data-part='card'] [data-part='placeholder'] {
   min-block-size: 0;
 }
 
