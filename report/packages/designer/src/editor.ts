@@ -33,10 +33,17 @@ export interface ReportItemRef {
   readonly id: string
 }
 
-/** 选择：看板上的卡片，以及可选的一个列表项。 */
+/** 数据面板里选中的对象：数据集、数据集的字段或报表参数。 */
+export type ReportDataRef
+  = | { readonly kind: 'dataset', readonly dataset: string }
+    | { readonly kind: 'field', readonly dataset: string, readonly name: string }
+    | { readonly kind: 'parameter', readonly name: string }
+
+/** 选择：看板上的卡片，以及可选的一个列表项；或者数据面板里的一个对象，这时不选卡片与列表项。 */
 export interface ReportSelection {
   readonly cards: readonly string[]
   readonly item?: ReportItemRef
+  readonly data?: ReportDataRef
 }
 
 /** 选择方式：替换、追加或切换。 */
@@ -181,14 +188,19 @@ export function createReportEditor(options: ReportEditorOptions): ReportEditor {
   }
 
   const setSelection = (next: ReportSelection): void => {
-    if (next.cards.length === selection.cards.length && next.cards.every((id, i) => id === selection.cards[i]) && JSON.stringify(next.item) === JSON.stringify(selection.item))
+    if (next.cards.length === selection.cards.length && next.cards.every((id, i) => id === selection.cards[i]) && JSON.stringify(next.item) === JSON.stringify(selection.item) && JSON.stringify(next.data) === JSON.stringify(selection.data))
       return
     selection = next
     emit({ kind: 'selection', selection })
   }
 
-  /** 文档变了之后，去掉已不存在的卡片与列表项。 */
+  /** 文档变了之后，去掉已不存在的卡片、列表项与数据面板对象。 */
   const pruneSelection = (document: ReportDocument): void => {
+    if (selection.data) {
+      if (!dataExists(document, selection.data))
+        setSelection(EMPTY_SELECTION)
+      return
+    }
     const dashboard = dashboardOf(document)
     const ids = new Set(dashboard?.cards.map(card => card.id) ?? [])
     const cards = selection.cards.filter(id => ids.has(id))
@@ -277,6 +289,10 @@ export function createReportEditor(options: ReportEditorOptions): ReportEditor {
     redo: () => history.redo(),
     seal: () => history.seal(),
     select(next, mode = 'replace') {
+      if (next.data) {
+        setSelection({ cards: [], data: next.data })
+        return
+      }
       const cards = next.cards ?? []
       if (mode === 'replace') {
         setSelection(next.item ? { cards: [...cards], item: next.item } : { cards: [...cards] })
@@ -379,6 +395,13 @@ export function createReportEditor(options: ReportEditorOptions): ReportEditor {
 }
 
 /** 列表项是否还在文档里。 */
+function dataExists(document: ReportDocument, ref: ReportDataRef): boolean {
+  if (ref.kind === 'parameter')
+    return document.parameters?.some(parameter => parameter.name === ref.name) ?? false
+  const dataset = document.datasets.find(item => item.id === ref.dataset)
+  return ref.kind === 'dataset' ? dataset !== undefined : dataset?.fields.some(field => field.name === ref.name) ?? false
+}
+
 function itemExists(document: ReportDocument, ref: ReportItemRef): boolean {
   let owner: unknown
   if (ref.card === undefined) {
