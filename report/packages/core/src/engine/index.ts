@@ -7,6 +7,8 @@
 
 export { createRollupAccumulator, isAdditive, NEEDS_ROLLUP } from './aggregate'
 export type { ComputeEnvironment, ComputeOptions } from './context'
+export { chartData } from './chart-data'
+export type { CartesianChartData, CartesianSeriesData, ChartData, DateHeatmapData, HierarchyChartData, HierarchyNodeData, MatrixHeatmapData, RowsChartData, SankeyChartData } from './chart-data'
 export { buildCrosstab } from './crosstab'
 export type { CrosstabHeader, CrosstabResult } from './crosstab'
 export { isAggregateMeasure } from './cube'
