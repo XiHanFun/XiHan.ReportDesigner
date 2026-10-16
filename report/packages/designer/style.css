@@ -26,6 +26,11 @@ xh-report-designer > [data-part='frame'] {
   min-block-size: 0;
 }
 
+xh-report-designer [data-part='toolbar'] {
+  min-inline-size: 0;
+  padding: var(--xh-space-1) var(--xh-space-2);
+}
+
 xh-report-designer [data-part='workspace'] {
   display: flex;
   flex: 1 1 auto;

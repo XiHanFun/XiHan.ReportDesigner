@@ -12,6 +12,7 @@ import type { ExecuteOptions, GridRect, HistoryChangeKind, Point, Rect, Viewport
 import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
 import type { DesignerFrameRegion, DesignerPaletteEventMap, DesignerPropertyEditor, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
+import type { ReportCommand } from './commands'
 import type { LayoutGesture, ReportAddCardInit, ReportClipboard, ReportEditor, ReportItemRef, ReportSelection } from './editor'
 import type { GridMetrics } from './grid-geometry'
 import { cardTemplate, planAddCard, planAddFieldItem, resolveParameters } from '@xihan-report/core'
@@ -20,10 +21,11 @@ import { createRenderContext } from '@xihan-report/runtime/design'
 import { getLocalTimeZone } from '@xihan-ui/core/date'
 import { createIdAllocator, selectInMarquee } from '@xihan-ui/designer-kit'
 import { defineDesignerShellElement, parseDesignerPanels, registerDropTarget, XhDesignerFrameElement, XhDesignerIssuesElement, XhDesignerPaletteElement, XhDesignerPropertiesElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
-import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
-import { defineXhElement, XhSortableElement, XhTagElement, XhTreeElement } from '@xihan-ui/web-components/define'
+import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, setText, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
+import { defineXhElement, XhSortableElement, XhTagElement, XhToolbarElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import { CanvasContent } from './canvas'
 import { readReportClipboardData, writeReportClipboardData } from './clipboard'
+import { COMMAND_LABELS, isReportCommand, TOOLBAR_GROUPS } from './commands'
 import { dataFieldPayload, DataPanel } from './data-panel'
 import { createReportEditor, writeReportClipboard } from './editor'
 import { cellSize, cellToRect, centeredCell, clipCell, measureGrid, rectToCell } from './grid-geometry'
@@ -66,8 +68,9 @@ export interface ReportDesignerEventMap {
   'blank-contextmenu': CustomEvent<{ x: number, y: number }>
 }
 
-/** 外框的命名区：左侧上下是数据与物料，中间是画布、下方是问题列表，右侧上下是字段栏与属性。 */
+/** 外框的命名区：上方是工具栏，左侧上下是数据与物料，中间是画布、下方是问题列表，右侧上下是字段栏与属性。 */
 const FRAME_REGIONS: readonly DesignerFrameRegion[] = [
+  { name: 'toolbar', position: 'top' },
   { name: 'data', position: 'start', size: 18 },
   { name: 'palette', position: 'start' },
   { name: 'canvas', position: 'center' },
@@ -78,6 +81,9 @@ const FRAME_REGIONS: readonly DesignerFrameRegion[] = [
 
 interface Layers {
   readonly frame: XhDesignerFrameElement
+  readonly toolbar: HTMLElement
+  readonly toolbarRoot: HTMLElement
+  readonly commands: ReadonlyMap<ReportCommand, HTMLButtonElement>
   readonly canvas: HTMLElement
   readonly scroller: HTMLElement
   readonly surface: HTMLElement
@@ -450,6 +456,21 @@ export class XhReportDesigner extends XhReactiveElement {
     if (this.#layers?.frame.parentElement === this)
       return this.#layers
     const doc = this.ownerDocument
+    const commands = new Map<ReportCommand, HTMLButtonElement>()
+    const groups: HTMLElement[] = []
+    TOOLBAR_GROUPS.forEach((group, index) => {
+      if (index > 0)
+        groups.push(createAuthoredElement(doc, 'div', { 'data-xh-part': 'separator' }))
+      groups.push(createAuthoredElement(doc, 'div', { 'data-xh-part': 'group' }, group.map((command) => {
+        const item = createAuthoredElement(doc, 'button', { 'data-xh-part': 'item', 'type': 'button', 'value': command }) as HTMLButtonElement
+        commands.set(command, item)
+        return item
+      })))
+    })
+    groups.push(createAuthoredElement(doc, 'button', { 'data-xh-part': 'overflow-trigger', 'type': 'button' }))
+    const toolbarRoot = createAuthoredElement(doc, 'div', { 'data-xh-part': 'root' }, groups)
+    toolbarRoot.addEventListener('click', this.#onCommandClick)
+    const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'toolbar' }, [createAuthoredElement(doc, 'xh-toolbar', { size: 'sm' }, [toolbarRoot])])
     const content = createAuthoredElement(doc, 'div', { 'data-part': 'content' })
     const empty = createAuthoredElement(doc, 'div', { 'data-part': 'empty', 'hidden': true })
     const dropPreview = createAuthoredElement(doc, 'div', { 'data-part': 'drop-preview', 'hidden': true })
@@ -500,7 +521,7 @@ export class XhReportDesigner extends XhReactiveElement {
           this.revealCard(card)
       },
     })
-    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [data.element, palette, workspace, wells.element, properties.element, issues.element]) as XhDesignerFrameElement
+    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, data.element, palette, workspace, wells.element, properties.element, issues.element]) as XhDesignerFrameElement
     this.replaceChildren(frame)
     canvas.addEventListener('pointerdown', this.#onPointerDown)
     canvas.addEventListener('pointermove', this.#onHover)
@@ -521,7 +542,7 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#drop = undefined
     this.#paletteKey = ''
     this.#viewer = undefined
-    this.#layers = { frame, canvas, scroller, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues }
+    this.#layers = { frame, toolbar, toolbarRoot, commands, canvas, scroller, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues }
     return this.#layers
   }
 
@@ -540,7 +561,7 @@ export class XhReportDesigner extends XhReactiveElement {
 
   #syncFrame(frame: XhDesignerFrameElement, t: ReportDesignerTranslations): void {
     frame.panels = this.#framePanels()
-    const labels: Readonly<Record<string, string>> = { data: t.data, palette: t.palette, canvas: t.canvas, wells: t.wells, properties: t.properties, issues: t.issues }
+    const labels: Readonly<Record<string, string>> = { toolbar: t.toolbar, data: t.data, palette: t.palette, canvas: t.canvas, wells: t.wells, properties: t.properties, issues: t.issues }
     const regions = FRAME_REGIONS.map(region => ({ ...region, label: labels[region.name] ?? region.name }))
     const current = frame.regions
     if (current?.length === regions.length && current.every((region, index) => region.label === regions[index]!.label))
@@ -795,6 +816,90 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#layers.wells.update(editor.document, editor.selection, t)
     this.#layers.properties.update(t)
     this.#layers.issues.update(editor.document, this.#issues, t)
+    this.#renderToolbar(this.#layers, t)
+  }
+
+  /** 工具栏：按钮文字取文案，按当前状态禁用；设计、预览两个按钮写 aria-pressed。 */
+  #renderToolbar(layers: Layers, t: ReportDesignerTranslations): void {
+    layers.toolbarRoot.setAttribute('aria-label', t.toolbar)
+    for (const [command, item] of layers.commands) {
+      setText(item, t[COMMAND_LABELS[command]] as string)
+      const disabled = !this.#commandEnabled(command)
+      if (item.disabled !== disabled)
+        item.disabled = disabled
+      if (command === 'design' || command === 'preview')
+        item.setAttribute('aria-pressed', String(this.#mode() === command))
+    }
+  }
+
+  /** 命令此刻能否执行：编辑类命令只在设计态、非只读时可用，设计与预览总是可用。 */
+  #commandEnabled(command: ReportCommand): boolean {
+    const selection = this.#editor?.selection
+    const cards = selection?.cards.length ?? 0
+    const design = this.#mode() === 'design'
+    const editable = design && !this.readonly
+    switch (command) {
+      case 'undo':
+        return design && this.canUndo
+      case 'redo':
+        return design && this.canRedo
+      case 'cut':
+      case 'duplicate':
+        return editable && cards > 0
+      case 'copy':
+        return design && cards > 0
+      case 'paste':
+        return editable && this.canPaste && this.#dashboard() !== undefined
+      case 'delete':
+        return editable && (cards > 0 || selection?.item !== undefined)
+      case 'select-all':
+        return design && this.#dashboard() !== undefined
+      case 'design':
+      case 'preview':
+        return true
+    }
+  }
+
+  /** 执行命令；不可用时什么都不做。 */
+  #run(command: ReportCommand): void {
+    if (!this.#commandEnabled(command))
+      return
+    switch (command) {
+      case 'undo':
+        this.undo()
+        break
+      case 'redo':
+        this.redo()
+        break
+      case 'cut':
+        this.cut()
+        break
+      case 'copy':
+        this.copy()
+        break
+      case 'paste':
+        this.paste()
+        break
+      case 'duplicate':
+        this.duplicate()
+        break
+      case 'delete':
+        this.deleteSelection()
+        break
+      case 'select-all':
+        this.#editor?.selectAll()
+        break
+      case 'design':
+      case 'preview':
+        this.mode = command
+        break
+    }
+  }
+
+  readonly #onCommandClick = (event: MouseEvent): void => {
+    const item = (event.target as Element | null)?.closest<HTMLButtonElement>('button[value]')
+    if (item && !item.disabled && isReportCommand(item.value))
+      this.#run(item.value)
   }
 
   /** 新卡片的模板，取数用第一个数据集。 */
@@ -1024,6 +1129,7 @@ export function defineReportDesigner(): void {
   defineReportViewer()
   defineXhElement('xh-sortable', XhSortableElement)
   defineXhElement('xh-tag', XhTagElement)
+  defineXhElement('xh-toolbar', XhToolbarElement)
   defineXhElement('xh-tree', XhTreeElement)
   defineDesignerShellElement('xh-designer-frame', XhDesignerFrameElement)
   defineDesignerShellElement('xh-designer-issues', XhDesignerIssuesElement)
