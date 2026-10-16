@@ -521,21 +521,22 @@ describe('<xh-report-designer>：编辑', () => {
     expect([button('delete').disabled, button('copy').disabled, button('preview').disabled]).toEqual([true, false, false])
   })
 
-  it('右键事件不取消时填内建菜单：卡片上与空白处各一套条目，不可用的写 aria-disabled，选中条目执行命令', async () => {
+  it('内建菜单建好时填空白处的条目；右键事件不取消时按落点重填：卡片上与空白处各一套，不可用的写 aria-disabled，选中条目执行命令', async () => {
     const designer = await mount()
     const content = designer.querySelector('xh-context-menu [data-xh-part="positioner"] > [data-xh-part="content"]')!
-    const entries = (): [string | null, string | null][] => [...content.querySelectorAll('[data-xh-part="item"]')].map(item => [item.getAttribute('value'), item.getAttribute('aria-disabled')])
+    const entries = (): [string | null, boolean][] => [...content.querySelectorAll('[data-xh-part="item"]')].map(item => [item.getAttribute('value'), item.getAttribute('aria-disabled') === 'true'])
+    expect(entries()).toEqual([['paste', true], ['select-all', false]])
     card(designer, 'a').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
     expect(designer.getSelection()).toEqual({ cards: ['a'] })
-    expect(entries()).toEqual([['cut', null], ['copy', null], ['paste', 'true'], ['duplicate', null], ['delete', null]])
+    expect(entries()).toEqual([['cut', false], ['copy', false], ['paste', true], ['duplicate', false], ['delete', false]])
     expect(content.querySelector('[data-xh-part="item"][value="cut"]')!.textContent).toBe('Cut')
     designer.querySelector('xh-context-menu')!.dispatchEvent(new CustomEvent('select', { detail: { value: 'delete' } }))
     expect(cards(designer).map(item => item.id)).toEqual(['pie', 'b'])
     designer.querySelector('[data-part="surface"]')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
-    expect(entries()).toEqual([['paste', 'true'], ['select-all', null]])
+    expect(entries()).toEqual([['paste', true], ['select-all', false]])
     designer.addEventListener('card-contextmenu', event => event.preventDefault())
     card(designer, 'b').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
-    expect(entries()).toEqual([['paste', 'true'], ['select-all', null]])
+    expect(entries()).toEqual([['paste', true], ['select-all', false]])
   })
 
   it('赋新的 schema 装载并派发 load，赋回当前文档不重新装载', async () => {
