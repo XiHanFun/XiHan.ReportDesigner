@@ -3,13 +3,288 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 报表运行时的中文语言包：宿主用 mergeXhConfig 与 UI 的语言包合并后交给 setXhConfig 或 <xh-config>。
+// 报表的中文语言包：查看器、设计器与设计器零件（designer-shell）的中文文案合在一份里，
+// 宿主用 mergeXhConfig 与 UI 的语言包合并后交给 setXhConfig 或 <xh-config>。
 
 import type { XhConfig } from '@xihan-ui/web-components'
+import type { ReportDesignerIssueDetails } from './designer-translations'
 import type {} from './translations'
+import { designerShellZhCN } from '@xihan-ui/designer-shell/locale'
+import { mergeXhConfig } from '@xihan-ui/web-components'
 
-/** 报表运行时的简体中文文案。 */
-export const reportZhCN: XhConfig = {
+const PROPERTY_LABELS: Readonly<Record<string, string>> = {
+  'title': '标题',
+  'description': '说明',
+  'grid.columns': '列数',
+  'grid.rowHeight': '行高',
+  'dataset': '数据集',
+  'parameters': '参数绑定',
+  'filter': '筛选',
+  'query.filter': '筛选',
+  'query.limit': '行数上限',
+  'limit': '行数上限',
+  'sort': '排序',
+  'detail': '列出明细',
+  'grandTotal': '总计',
+  'measuresOn': '度量排在',
+  'rowTotals.subtotals': '行小计',
+  'rowTotals.grandTotal': '行总计',
+  'columnTotals.subtotals': '列小计',
+  'columnTotals.grandTotal': '列总计',
+  'splitBy': '拆分系列',
+  'orientation': '方向',
+  'totals': '显示合计',
+  'palette': '色板',
+  'renderer': '渲染方式',
+  'xAxis.title': '横轴标题',
+  'xAxis.scale': '横轴刻度',
+  'xAxis.format': '横轴格式',
+  'xAxis.grid': '横轴网格线',
+  'xAxis.zero': '横轴含零',
+  'xAxis.nice': '横轴取整',
+  'xAxis.reverse': '横轴反向',
+  'xAxis.ticks': '横轴刻度数',
+  'xAxis.labelOverflow': '横轴标签过长时',
+  'yAxis.title': '纵轴标题',
+  'yAxis.scale': '纵轴刻度',
+  'yAxis.format': '纵轴格式',
+  'yAxis.grid': '纵轴网格线',
+  'yAxis.zero': '纵轴含零',
+  'yAxis.nice': '纵轴取整',
+  'yAxis.reverse': '纵轴反向',
+  'yAxis.ticks': '纵轴刻度数',
+  'yAxis.labelOverflow': '纵轴标签过长时',
+  'trigger': '提示框触发',
+  'tooltipOrder': '提示框排序',
+  'zoom': '缩放',
+  'brush': '刷选',
+  'annotations': '标注',
+  'nameField': '名称维度',
+  'valueField': '数值度量',
+  'variant': '形态',
+  'rose': '玫瑰图',
+  'sweep': '扇区范围',
+  'maxSlices': '最多扇区数',
+  'labels': '标签',
+  'labelContent': '标签内容',
+  'format': '格式',
+  'shape': '形状',
+  'align': '对齐',
+  'direction': '方向',
+  'conversion': '转化率',
+  'indicators': '指标',
+  'area': '面积',
+  'scale': '刻度',
+  'curve': '曲线',
+  'rings': '环数',
+  'ringLabels': '环标签',
+  'sourceField': '源维度',
+  'targetField': '目标维度',
+  'nodeAlign': '节点对齐',
+  'linkColor': '连线颜色',
+  'nodeSort': '节点排序',
+  'dateField': '日期维度',
+  'startDate': '开始日期',
+  'endDate': '结束日期',
+  'firstDayOfWeek': '每周第一天',
+  'rowField': '行维度',
+  'columnField': '列维度',
+  'levels': '层级',
+  'thresholds': '分档阈值',
+  'midpoint': '中点',
+  'continuous': '连续色阶',
+  'tone': '语气',
+  'size': '尺寸',
+  'layout': '布局',
+  'tile': '切分方式',
+  'depth': '展开层数',
+  'colorBy': '着色依据',
+  'mark': '标记',
+  'name': '名称',
+  'x': '横坐标',
+  'y': '纵坐标',
+  'color': '颜色度量',
+  'stack': '堆叠组',
+  'stackOffset': '堆叠方式',
+  'symbols': '数据点',
+  'connectNulls': '连接空值',
+  'endLabel': '末端标签',
+  'symbol': '点形状',
+  'jitter': '抖动',
+  'slot': '色槽',
+  'value': '数值',
+  'baseline': '基准值',
+  'prefix': '前缀',
+  'suffix': '后缀',
+  'sparkline.x': '迷你图横坐标',
+  'sparkline.y': '迷你图数值',
+  'sparkline.variant': '迷你图形态',
+  'sparkline.curve': '迷你图曲线',
+  'sparkline.markers': '迷你图标记',
+  'sparkline.tone': '迷你图语气',
+  'field': '字段',
+  'width': '列宽',
+  'sticky': '冻结',
+  'summary.aggregate': '汇总方式',
+  'summary.formula': '汇总公式',
+  'bucket': '日期粒度',
+  'sort.by': '排序依据',
+  'sort.direction': '排序方向',
+  'sort.nulls': '空值位置',
+  'header': '组头',
+  'subtotal': '组小计',
+  'aggregate': '聚合',
+  'formula': '公式',
+  'type': '类型',
+  'required': '必填',
+  'multiple': '多选',
+  'defaultValue': '缺省值',
+  'options': '候选项',
+  'card': '源卡片',
+  'dimension': '源维度',
+  'targets': '目标',
+  'series:size': '气泡大小',
+  'measure:field': '字段',
+}
+
+const OPTION_LABELS: Readonly<Record<string, string>> = {
+  'none': '无',
+  'auto': '自动',
+  'start': '开头',
+  'center': '居中',
+  'end': '末端',
+  'inside': '内侧',
+  'outside': '外侧',
+  'vertical': '竖向',
+  'horizontal': '横向',
+  'asc': '升序',
+  'desc': '降序',
+  'ascending': '升序',
+  'descending': '降序',
+  'first': '最前',
+  'last': '最后',
+  'sum': '求和',
+  'avg': '平均',
+  'count': '计数',
+  'min': '最小',
+  'max': '最大',
+  'distinctCount': '去重计数',
+  'year': '年',
+  'quarter': '季度',
+  'month': '月',
+  'week': '周',
+  'day': '日',
+  'hour': '小时',
+  'string': '文本',
+  'number': '数值',
+  'boolean': '布尔',
+  'date': '日期',
+  'datetime': '日期时间',
+  'bar': '柱',
+  'line': '线',
+  'scatter': '散点',
+  'pie': '饼图',
+  'donut': '环形图',
+  'full': '整圆',
+  'half': '半圆',
+  'name': '名称',
+  'share': '占比',
+  'value': '数值',
+  'name-share': '名称与占比',
+  'name-value': '名称与数值',
+  'trapezoid': '梯形',
+  'previous': '相对上一阶段',
+  'up': '向上',
+  'down': '向下',
+  'polygon': '多边形',
+  'circle': '圆形',
+  'shared': '共用刻度',
+  'independent': '各自刻度',
+  'calendar': '日历',
+  'matrix': '矩阵',
+  'sequential': '单向色阶',
+  'diverging': '发散色阶',
+  'treemap': '矩形树图',
+  'sunburst': '旭日图',
+  'icicle': '冰柱图',
+  'pack': '圆堆图',
+  'columns': '列方向',
+  'rows': '行方向',
+  'axis': '整列',
+  'item': '单个数据点',
+  'series': '按系列',
+  'lollipop': '棒棒糖',
+  'expand': '百分比堆叠',
+  'linear': '直线',
+  'monotone': '平滑',
+  'step': '阶梯',
+  'always': '总是显示',
+  'sm': '小',
+  'md': '中',
+  'lg': '大',
+  'brand': '品牌',
+  'neutral': '中性',
+  'success': '成功',
+  'warning': '警告',
+  'danger': '危险',
+  'info': '信息',
+  'measuresOn=columns': '列方向',
+  'measuresOn=rows': '行方向',
+  'conversion=first': '相对第一阶段',
+  'labels=end': '末端',
+}
+
+const LIST_LABELS: Readonly<Record<string, string>> = {
+  dimensions: '维度',
+  measures: '度量',
+  series: '系列',
+  rows: '行',
+  columns: '列',
+  groups: '分组',
+  tableColumns: '列',
+}
+
+function issueText(issue: ReportDesignerIssueDetails): string {
+  const key = issue.params?.key ?? issue.params?.field ?? issue.params?.card ?? issue.params?.dataset ?? issue.params?.parameter ?? issue.params?.series
+  const subject = key === undefined ? '' : `「${String(key)}」`
+  switch (issue.code) {
+    case 'required':
+      return '必须填写'
+    case 'empty':
+      return '不能为空'
+    case 'duplicate-key':
+      return '名字重复'
+    case 'unknown-dataset':
+      return `找不到数据集${subject}`
+    case 'unknown-field':
+      return `找不到字段${subject}`
+    case 'unknown-dimension':
+      return `找不到维度${subject}`
+    case 'unknown-measure':
+      return `找不到度量${subject}`
+    case 'unknown-card':
+      return `找不到卡片${subject}`
+    case 'unknown-parameter':
+      return `找不到参数${subject}`
+    case 'unknown-series':
+      return `找不到系列${subject}`
+    case 'layout-overlap':
+      return '卡片互相重叠'
+    case 'layout-out-of-bounds':
+      return '卡片超出了网格'
+    case 'formula-invalid':
+      return '公式无法解析'
+    case 'formula-cycle':
+      return '公式互相引用成环'
+    case 'format-invalid':
+      return '格式不合格'
+    default:
+      return `问题：${issue.code}`
+  }
+}
+
+/** 报表的简体中文文案：查看器、设计器与 designer-shell 零件。 */
+export const reportZhCN: XhConfig = mergeXhConfig(designerShellZhCN, {
   translations: {
     'xh-report-viewer': {
       label: '报表',
@@ -24,5 +299,62 @@ export const reportZhCN: XhConfig = {
       parameters: '报表参数',
       clearSelections: '清除联动',
     },
+    'xh-report-designer': {
+      label: '报表设计器',
+      toolbar: '设计器操作',
+      canvas: '画布',
+      undo: '撤销',
+      redo: '重做',
+      delete: '删除',
+      copy: '复制',
+      cut: '剪切',
+      paste: '粘贴',
+      duplicate: '再制',
+      design: '设计',
+      preview: '预览',
+      data: '数据',
+      datasets: '数据集',
+      parameters: '报表参数',
+      wells: '字段',
+      lists: LIST_LABELS,
+      paletteGroups: { charts: '图表', metrics: '指标', tables: '表格' },
+      cardTypes: {
+        'chart.cartesian': '柱线图',
+        'chart.pie': '饼图',
+        'chart.funnel': '漏斗图',
+        'chart.radar': '雷达图',
+        'chart.sankey': '桑基图',
+        'chart.heatmap': '热力图',
+        'chart.hierarchy': '层级图',
+        'metric': '指标卡',
+        'table.table': '明细表',
+        'table.group': '分组报表',
+        'table.crosstab': '交叉表',
+      },
+      objectKinds: {
+        document: '报表',
+        dashboard: '看板',
+        card: '卡片',
+        chart: '图表',
+        metric: '指标',
+        view: '视图',
+        dimension: '维度',
+        measure: '度量',
+        column: '列',
+        group: '分组',
+        series: '系列',
+        field: '字段',
+        parameter: '参数',
+        link: '联动',
+      },
+      propertyGroups: { basic: '基本', data: '数据', display: '显示', axis: '坐标轴', style: '样式', interaction: '交互', totals: '汇总', sparkline: '迷你图' },
+      propertyLabels: PROPERTY_LABELS,
+      optionLabels: OPTION_LABELS,
+      selected: count => `已选中 ${count} 个`,
+      emptyDashboard: '把图表、指标或表格拖到这里',
+      emptyList: '把字段拖到这里',
+      placeholder: '给了取数回调后这里显示示例数据',
+      issue: issueText,
+    },
   },
-}
+})
