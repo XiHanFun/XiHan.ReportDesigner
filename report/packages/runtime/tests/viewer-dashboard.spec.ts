@@ -6,7 +6,6 @@
 
 import type { DashboardView, DatasetData, DatasetRequest, DatasetSchema, ReportDocument } from '@xihan-report/core'
 import type { XhReportViewer } from '../src'
-import { defineXhElements } from '@xihan-ui/web-components/define'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { defineReportViewer } from '../src'
 
@@ -72,7 +71,6 @@ const dashboard: DashboardView = {
 }
 
 beforeAll(() => {
-  defineXhElements()
   defineReportViewer()
 })
 

@@ -6,7 +6,6 @@
 
 import type { DatasetRequest, DatasetSchema, ReportDocument, TableView } from '@xihan-report/core'
 import type { XhReportViewer } from '../src'
-import { defineXhElements } from '@xihan-ui/web-components/define'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { defineReportViewer } from '../src'
 
@@ -42,7 +41,6 @@ const schema = {
 } as unknown as ReportDocument
 
 beforeAll(() => {
-  defineXhElements()
   defineReportViewer()
 })
 
