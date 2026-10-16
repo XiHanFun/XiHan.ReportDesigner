@@ -8,7 +8,6 @@
 export * from './engine'
 export type { CompiledExpression, EngineCompileOptions, EngineCompileResult, EngineEvaluation, ExpressionEngine, ExpressionIssue } from './expression'
 export { gridItems, layoutOperations } from './grid'
-export { applyOperation, applyOperations, itemKey, readPath, ReportOperationError } from './operations'
-export type { ReportOperation, ReportOperationErrorCode, ReportOperationResult, ReportPath } from './operations'
+export * from './operations'
 export * from './schema'
 export * from './validate'
