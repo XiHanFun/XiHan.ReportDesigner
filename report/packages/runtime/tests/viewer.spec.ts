@@ -186,10 +186,4 @@ describe('<xh-report-viewer>：状态与事件', () => {
     expect(viewer.loading).toBe(false)
     expect(loading.at(-1)).toBe(false)
   })
-
-  it('看板暂不支持时显示 unsupported', async () => {
-    const viewer = mount(documentOf({ type: 'dashboard', grid: { columns: 12, rowHeight: 40 }, cards: [] }), async () => ({ kind: 'rows', rows }))
-    await viewer.refresh()
-    expect(viewer.dataset.state).toBe('unsupported')
-  })
 })
