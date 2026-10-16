@@ -5,6 +5,7 @@
  */
 
 import type { DashboardView, DatasetRequest, ReportDocument } from '@xihan-report/core'
+import type { XhReportViewer } from '@xihan-report/runtime'
 import type { XhSortableElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import type { XhReportDesigner } from '../src'
 import { formatJsonPath } from '@xihan-ui/core/json'
@@ -475,6 +476,25 @@ describe('<xh-report-designer>：编辑', () => {
     expect(issues.items).toEqual([expect.objectContaining({ subject: '各区域', message: 'Unknown dimension "ghost"' })])
     issues.dispatchEvent(new CustomEvent('issue-activate', { detail: { issue: issues.items![0]!.issue, index: 0 } }))
     expect(designer.getSelection()).toEqual({ cards: ['pie'] })
+  })
+
+  it('切到预览态：画布换成查看器，交给它当前的报表与取数回调，面板只留工具栏；切换时派发 mode-change', async () => {
+    const designer = await mount()
+    const modes = events(designer, 'mode-change')
+    designer.mode = 'preview'
+    await designer.updateComplete
+    const viewer = designer.querySelector<XhReportViewer>('[data-part="preview"] xh-report-viewer')!
+    expect(viewer.schema).toBe(designer.schema)
+    expect(designer.querySelector<HTMLElement>('[data-part="canvas"]')!.hidden).toBe(true)
+    expect(designer.querySelector('xh-designer-frame')!.panels).toBe('toolbar')
+    expect(designer.querySelector('[data-region="palette"]')).toBeNull()
+    designer.mode = 'preview'
+    await designer.updateComplete
+    designer.mode = 'design'
+    await designer.updateComplete
+    expect(designer.querySelector<HTMLElement>('[data-part="preview"]')!.hidden).toBe(true)
+    expect(designer.querySelector('[data-region="palette"]')).not.toBeNull()
+    expect(modes).toEqual([{ mode: 'preview' }, { mode: 'design' }])
   })
 
   it('赋新的 schema 装载并派发 load，赋回当前文档不重新装载', async () => {

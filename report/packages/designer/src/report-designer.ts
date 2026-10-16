@@ -7,7 +7,7 @@
 // 画布内容复用查看器的计算与渲染；整体版式用 @xihan-ui/designer-shell 的外框，panels 决定显示哪些区，面板用 designer-shell 的零件。
 
 import type { DashboardCard, DashboardView, ExpressionEngine, ParameterValues, ReportCardType, ReportDocument, ReportOperation, ValidationIssue } from '@xihan-report/core'
-import type { ReportDataProvider, ReportDesignerTranslations, ReportFormatter, ReportViewerTranslations } from '@xihan-report/runtime'
+import type { ReportDataProvider, ReportDesignerTranslations, ReportFormatter, ReportViewerTranslations, XhReportViewer } from '@xihan-report/runtime'
 import type { ExecuteOptions, GridRect, HistoryChangeKind, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
 import type { DesignerFrameRegion, DesignerPaletteEventMap, DesignerPropertyEditor, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
@@ -15,11 +15,11 @@ import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { LayoutGesture, ReportAddCardInit, ReportClipboard, ReportEditor, ReportItemRef, ReportSelection } from './editor'
 import type { GridMetrics } from './grid-geometry'
 import { cardTemplate, planAddCard, planAddFieldItem, resolveParameters } from '@xihan-report/core'
-import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS, DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter } from '@xihan-report/runtime'
-import { createRenderContext, defineViewerElements } from '@xihan-report/runtime/design'
+import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS, DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter, defineReportViewer } from '@xihan-report/runtime'
+import { createRenderContext } from '@xihan-report/runtime/design'
 import { getLocalTimeZone } from '@xihan-ui/core/date'
 import { createIdAllocator, selectInMarquee } from '@xihan-ui/designer-kit'
-import { defineDesignerShellElement, registerDropTarget, XhDesignerFrameElement, XhDesignerIssuesElement, XhDesignerPaletteElement, XhDesignerPropertiesElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
+import { defineDesignerShellElement, parseDesignerPanels, registerDropTarget, XhDesignerFrameElement, XhDesignerIssuesElement, XhDesignerPaletteElement, XhDesignerPropertiesElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
 import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { defineXhElement, XhSortableElement, XhTagElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import { CanvasContent } from './canvas'
@@ -85,6 +85,8 @@ interface Layers {
   readonly overlay: XhDesignerTransformElement
   readonly empty: HTMLElement
   readonly dropPreview: HTMLElement
+  /** mode = preview 时显示的查看器容器。 */
+  readonly preview: HTMLElement
   readonly palette: XhDesignerPaletteElement
   readonly data: DataPanel
   readonly wells: Wells
@@ -173,6 +175,8 @@ export class XhReportDesigner extends XhReactiveElement {
   #gesture: CardGesture | undefined
   #hoverId: string | undefined
   #viewport: Viewport | undefined
+  #lastMode: ReportDesignerMode = 'design'
+  #viewer: XhReportViewer | undefined
   #drop: CardDrop | undefined
   #fieldDrop: FieldDrop | undefined
   #paletteKey = ''
@@ -324,6 +328,12 @@ export class XhReportDesigner extends XhReactiveElement {
     layers.canvas.setAttribute('aria-label', t.canvas)
     if (changed.has('schema'))
       this.#load()
+    const mode = this.#mode()
+    this.dataset.mode = mode
+    if (mode !== this.#lastMode) {
+      this.#lastMode = mode
+      emitEvent(this, 'mode-change', { mode })
+    }
     this.#syncFrame(layers.frame, t)
     layers.overlay.readonly = this.readonly
     this.#syncPalette(layers.palette, t)
@@ -455,7 +465,8 @@ export class XhReportDesigner extends XhReactiveElement {
       drop: () => this.#fieldDrop ? this.#dropField() : this.#dropCard(),
       leave: () => this.#clearDrop(),
     })
-    const workspace = createAuthoredElement(doc, 'div', { 'data-part': 'workspace' }, [canvas])
+    const preview = createAuthoredElement(doc, 'div', { 'data-part': 'preview', 'hidden': true })
+    const workspace = createAuthoredElement(doc, 'div', { 'data-part': 'workspace' }, [canvas, preview])
     const palette = createGeneratedElement(doc, 'xh-designer-palette', { 'data-part': 'palette', 'slot': 'palette' }) as XhDesignerPaletteElement
     palette.addEventListener('item-activate', this.#onPaletteActivate)
     const data = new DataPanel({
@@ -509,13 +520,26 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#viewport = undefined
     this.#drop = undefined
     this.#paletteKey = ''
-    this.#layers = { frame, canvas, scroller, surface, content, overlay, empty, dropPreview, palette, data, wells, properties, issues }
+    this.#viewer = undefined
+    this.#layers = { frame, canvas, scroller, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues }
     return this.#layers
   }
 
   /** panels 原样交给外框；区名换成文案，供分隔条的无障碍名称使用，文案没变时不重设。 */
+  #mode(): ReportDesignerMode {
+    return this.mode === 'preview' ? 'preview' : 'design'
+  }
+
+  /** 交给外框的 panels：设计态原样转交，预览态只留工具栏。 */
+  #framePanels(): string | undefined {
+    if (this.#mode() === 'design')
+      return this.panels
+    const shown = parseDesignerPanels(this.panels)
+    return shown === undefined || shown.has('toolbar') ? 'toolbar' : ''
+  }
+
   #syncFrame(frame: XhDesignerFrameElement, t: ReportDesignerTranslations): void {
-    frame.panels = this.panels
+    frame.panels = this.#framePanels()
     const labels: Readonly<Record<string, string>> = { data: t.data, palette: t.palette, canvas: t.canvas, wells: t.wells, properties: t.properties, issues: t.issues }
     const regions = FRAME_REGIONS.map(region => ({ ...region, label: labels[region.name] ?? region.name }))
     const current = frame.regions
@@ -524,11 +548,19 @@ export class XhReportDesigner extends XhReactiveElement {
     frame.regions = regions
   }
 
+  /** 设计态画画布；预览态把当前报表交给查看器，画布不取数。 */
   #renderCanvas(): void {
     const layers = this.#layers
     const document = this.#editor?.document
     if (!layers || !document || !this.#content)
       return
+    const preview = this.#mode() === 'preview'
+    layers.canvas.hidden = preview
+    layers.preview.hidden = !preview
+    if (preview) {
+      this.#syncPreview(layers, document)
+      return
+    }
     const t = this.#translations()
     const values = resolveParameters(document.parameters, this.parameters ?? {}).values
     const context = createRenderContext(this.#viewerTranslations(), this.formatter ?? defaultFormatter, this.#locale(), this.#timeZone())
@@ -549,6 +581,24 @@ export class XhReportDesigner extends XhReactiveElement {
     layers.empty.hidden = !dashboard || dashboard.cards.length > 0
     layers.empty.textContent = t.emptyDashboard
     this.#renderSelection()
+  }
+
+  /** 预览区的 <xh-report-viewer>：取数、格式、参数、语言与时区都与设计器相同。 */
+  #syncPreview(layers: Layers, document: ReportDocument): void {
+    let viewer = this.#viewer
+    if (!viewer) {
+      viewer = layers.preview.ownerDocument.createElement('xh-report-viewer')
+      layers.preview.replaceChildren(viewer)
+      this.#viewer = viewer
+    }
+    if (viewer.schema !== document)
+      viewer.schema = document
+    viewer.dataProvider = this.dataProvider
+    viewer.expressionEngine = this.expressionEngine
+    viewer.formatter = this.formatter
+    viewer.parameters = this.parameters
+    viewer.locale = this.locale
+    viewer.timeZone = this.timeZone
   }
 
   /** 卡片在 surface 里的位置与大小（画布像素，即世界坐标）。 */
@@ -969,9 +1019,9 @@ export class XhReportDesigner extends XhReactiveElement {
   }
 }
 
-/** 注册 <xh-report-designer> 与它用到的 UI 元素、designer-shell 零件；import 时不注册。 */
+/** 注册 <xh-report-designer> 与它用到的查看器、UI 元素与 designer-shell 零件；import 时不注册。 */
 export function defineReportDesigner(): void {
-  defineViewerElements()
+  defineReportViewer()
   defineXhElement('xh-sortable', XhSortableElement)
   defineXhElement('xh-tag', XhTagElement)
   defineXhElement('xh-tree', XhTreeElement)
