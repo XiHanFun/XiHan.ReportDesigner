@@ -466,6 +466,17 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.canUndo).toBe(true)
   })
 
+  it('问题列表放在画布下方，列出校验问题与所在卡片；点问题选中卡片', async () => {
+    const designer = await mount()
+    const issues = designer.querySelector('xh-designer-issues')!
+    expect(issues.closest('[data-region="issues"]')).not.toBeNull()
+    designer.execute([{ type: 'updateCard', id: 'pie', changes: [{ path: ['chart', 'nameField'], value: 'ghost' }] }])
+    await designer.updateComplete
+    expect(issues.items).toEqual([expect.objectContaining({ subject: '各区域', message: 'Unknown dimension "ghost"' })])
+    issues.dispatchEvent(new CustomEvent('issue-activate', { detail: { issue: issues.items![0]!.issue, index: 0 } }))
+    expect(designer.getSelection()).toEqual({ cards: ['pie'] })
+  })
+
   it('赋新的 schema 装载并派发 load，赋回当前文档不重新装载', async () => {
     const designer = await mount()
     const schemaChanges = events(designer, 'schema-change') as { kind: string }[]
