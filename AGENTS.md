@@ -26,10 +26,11 @@ XiHan.ReportDesigner 是框架无关的报表设计器，以原生 Web Component
 ├─ CLAUDE.md -> AGENTS.md         # Claude Code 仓库指令入口
 ├─ .github/ .gitee/ .gitcode/     # 三平台 Issue / PR 模板，GitHub 另有 CI
 └─ report/                           # pnpm monorepo 根
-   └─ packages/
-      ├─ core/                    # @xihan-report/core：模型层，纯 TS，不碰 DOM
-      ├─ runtime/                 # @xihan-report/runtime：业务页面用的运行时元素；./xlsx 子入口把报表排成 @xihan-ui/xlsx 的工作表
-      └─ designer/                # @xihan-report/designer：设计器元素
+   ├─ packages/
+   │  ├─ core/                    # @xihan-report/core：模型层，纯 TS，不碰 DOM
+   │  ├─ runtime/                 # @xihan-report/runtime：业务页面用的运行时元素；./xlsx 子入口把报表排成 @xihan-ui/xlsx 的工作表
+   │  └─ designer/                # @xihan-report/designer：设计器元素
+   └─ playground/                 # @xihan-report/playground：开发预览页（private，不发布）
 ```
 
 仓库根没有 package.json，库命令在 `report/` 执行。
@@ -39,12 +40,25 @@ XiHan.ReportDesigner 是框架无关的报表设计器，以原生 Web Component
 | 任务 | 命令 |
 | --- | --- |
 | 安装 | `pnpm install --frozen-lockfile` |
+| 开发预览 | `pnpm dev`（http://localhost:5193） |
 | 构建 | `pnpm build` |
 | 类型检查 | `pnpm typecheck` |
 | 单测 | `pnpm test` |
 | Lint | `pnpm lint` |
 
 `pnpm build` 按依赖拓扑依次构建 core、runtime、designer。runtime 与 designer 经包的 `exports` 读取上游 dist，改了上游先重建再验证下游。
+
+开发预览页在 `report/playground`，用 Vite 起在 5193 端口（strictPort）：「明细表」「分组报表」「交叉表」「看板」四个页签各放一份示例报表，数据是按固定种子生成的一年销售订单；工具栏可刷新、导出 xlsx，开关切换中文语言包，以及让取数回调返回明细行或模拟后端按请求聚合；下方滚动显示查看器派发的事件。
+它直接引用各包的源码，改了源码即时生效，不必先 `pnpm build`；`@xihan-ui/*` 经 overrides 读同级 XiHan.UI 的产物，启动前先在 `XiHan.UI/ui` 构建依赖的包：
+
+```bash
+# XiHan.UI/ui
+pnpm --filter "@xihan-ui/web-components..." --filter "@xihan-ui/viz..." --filter "@xihan-ui/designer-kit..." --filter "@xihan-ui/expression..." --filter "@xihan-ui/xlsx..." --filter "@xihan-ui/styles..." build
+# XiHan.ReportDesigner/report
+pnpm dev
+```
+
+这是开发预览，不是产品：页面只用 UI 的令牌、皮肤与元素，不另写一套样式，也不进任何发布物。
 
 ## 分层与依赖
 
