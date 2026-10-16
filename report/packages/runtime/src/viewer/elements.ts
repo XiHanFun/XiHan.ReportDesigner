@@ -22,13 +22,12 @@ import {
   XhStatisticElement,
   XhSwitchElement,
   XhTableElement,
-  XhTagElement,
   XhTagsInputElement,
   XhTextFieldElement,
   XhVirtualizerElement,
 } from '@xihan-ui/web-components/define'
 
-/** 注册查看器用到的 UI 元素：表格、虚拟列表、各类图表、指标卡、参数栏的表单元素与其中多选、标签输入用的标签；同一版本重复注册不报错。 */
+/** 注册查看器用到的 UI 元素：表格、虚拟列表、各类图表、指标卡与参数栏的表单元素；同一版本重复注册不报错。 */
 export function defineViewerElements(): void {
   defineXhElement('xh-table', XhTableElement)
   defineXhElement('xh-virtualizer', XhVirtualizerElement)
@@ -45,7 +44,6 @@ export function defineViewerElements(): void {
   defineXhElement('xh-switch', XhSwitchElement)
   defineXhElement('xh-date-field', XhDateFieldElement)
   defineXhElement('xh-tags-input', XhTagsInputElement)
-  defineXhElement('xh-tag', XhTagElement)
   defineXhElement('xh-number-field', XhNumberFieldElement)
   defineXhElement('xh-text-field', XhTextFieldElement)
   defineXhElement('xh-button', XhButtonElement)

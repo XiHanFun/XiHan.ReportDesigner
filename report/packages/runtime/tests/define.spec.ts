@@ -23,7 +23,6 @@ const USED = [
   'xh-switch',
   'xh-date-field',
   'xh-tags-input',
-  'xh-tag',
   'xh-number-field',
   'xh-text-field',
   'xh-button',
@@ -37,6 +36,7 @@ describe('defineReportViewer', () => {
     expect(USED.filter(tag => customElements.get(tag) === undefined)).toEqual([])
     expect(customElements.get('xh-dialog')).toBeUndefined()
     expect(customElements.get('xh-tabs')).toBeUndefined()
+    expect(customElements.get('xh-tag')).toBeUndefined()
     expect(() => defineReportViewer()).not.toThrow()
   })
 })
