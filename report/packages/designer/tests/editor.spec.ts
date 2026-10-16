@@ -4,10 +4,10 @@
  */
 
 import type { DashboardView, ReportDocument } from '@xihan-report/core'
-import type { ReportEditorChange } from '../src'
+import type { ReportEditorChange } from '../src/editor'
 import { validateDocument } from '@xihan-report/core'
 import { describe, expect, it } from 'vitest'
-import { createReportEditor, propertyMergeKey, readReportClipboard, writeReportClipboard } from '../src'
+import { createReportEditor, propertyMergeKey, readReportClipboard, writeReportClipboard } from '../src/editor'
 
 function metric(id: string, x: number, y: number): DashboardView['cards'][number] {
   return {
@@ -148,9 +148,11 @@ describe('createReportEditor', () => {
   it('复制与粘贴：撞上的 id 换新、联动随之改写，粘贴的卡片放到空位并被选中', () => {
     const editor = createReportEditor({ document: board })
     editor.select({ cards: ['pie', 'a'] })
-    const text = editor.copy()!
-    expect(readReportClipboard(text)).toMatchObject({ cards: [{ id: 'pie' }, { id: 'a' }], links: [{ id: 'byRegion', targets: [{ card: 'a' }] }] })
-    const pasted = editor.paste(text)!
+    const copied = editor.copy()!
+    expect(copied).toMatchObject({ cards: [{ id: 'pie' }, { id: 'a' }], links: [{ id: 'byRegion', targets: [{ card: 'a' }] }] })
+    expect(readReportClipboard(writeReportClipboard(copied))).toEqual(copied)
+    expect(editor.hasClipboard).toBe(true)
+    const pasted = editor.paste()
     expect(pasted.cards).toEqual(['card1', 'card2'])
     expect(editor.selection).toEqual(pasted)
     const links = (editor.document.body as DashboardView).links!
@@ -161,15 +163,17 @@ describe('createReportEditor', () => {
     expect(editor.document).toEqual(board)
   })
 
-  it('粘贴到别的报表时 id 不冲突就保留；剪贴板内容不合格时不改文档', () => {
+  it('粘贴到别的报表时 id 不冲突就保留；剪贴板文本不合格时读不出内容，没有内容时贴出空选择', () => {
     const source = createReportEditor({ document: board })
     source.select({ cards: ['a'] })
-    const text = source.copy()!
+    const copied = source.copy()!
     const target = createReportEditor({ document: { ...board, body: { type: 'dashboard', grid: { columns: 12, rowHeight: 40 }, cards: [] } } })
-    expect(target.paste(text)).toEqual({ cards: ['a'] })
-    expect(target.paste('not json')).toBeUndefined()
-    expect(target.paste(writeReportClipboard({ cards: [], links: [] }))).toBeUndefined()
-    expect(target.paste(JSON.stringify({ format: 'xihan-designer-clipboard', product: 'xihan-print', version: 1, payload: {} }))).toBeUndefined()
+    expect(target.hasClipboard).toBe(false)
+    expect(target.paste()).toEqual({ cards: [] })
+    expect(target.paste(copied)).toEqual({ cards: ['a'] })
+    expect(readReportClipboard('not json')).toBeUndefined()
+    expect(readReportClipboard(writeReportClipboard({ cards: [], links: [] }))).toBeUndefined()
+    expect(readReportClipboard(JSON.stringify({ format: 'xihan-designer-clipboard', product: 'xihan-print', version: 1, payload: {} }))).toBeUndefined()
   })
 
   it('剪切与再制', () => {
@@ -198,5 +202,6 @@ describe('createReportEditor', () => {
     expect(() => editor.startLayout()).toThrow(RangeError)
     expect(() => editor.addCard({ kind: 'metric', layout: { w: 1, h: 1 }, dataset: 'sales', query: { dimensions: [], measures: [] }, metric: { value: 'x' } })).toThrow(RangeError)
     expect(editor.copy()).toBeUndefined()
+    expect(editor.duplicate()).toEqual({ cards: [] })
   })
 })
