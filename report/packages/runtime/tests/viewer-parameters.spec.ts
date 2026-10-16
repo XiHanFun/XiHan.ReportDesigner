@@ -4,10 +4,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { DatasetRequest, DatasetSchema, ReportDocument, TableView } from '@xihan-report/core'
+import type { DatasetRequest, DatasetSchema, ReportDocument, ReportParameter, TableView } from '@xihan-report/core'
 import type { XhReportViewer } from '../src'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { defineReportViewer } from '../src'
+import { DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter, defineReportViewer } from '../src'
+import { createRenderContext, renderParameterControl } from '../src/design'
 
 const dataset: DatasetSchema = {
   id: 'sales',
@@ -125,5 +126,23 @@ describe('<xh-report-viewer>：参数栏', () => {
   it('hide-parameters 时不排参数栏', async () => {
     const viewer = await mount([], { hidden: true })
     expect(viewer.querySelector('[data-part="parameters"]')).toBeNull()
+  })
+})
+
+describe('renderParameterControl', () => {
+  it('按参数的候选项、类型与多值选控件：下拉、开关（连同标签）、日期、标签输入、数字框与文本框', () => {
+    const ctx = createRenderContext(DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter, 'zh-CN', 'UTC')
+    const tag = (parameter: ReportParameter): string => {
+      const control = renderParameterControl(parameter, undefined, ctx, { change: () => {} })
+      return (control.dataset.part === 'parameter-switch' ? control.firstElementChild! : control).tagName.toLowerCase()
+    }
+    expect([
+      tag({ name: 'a', type: 'string', options: [{ value: 'x' }] }),
+      tag({ name: 'b', type: 'boolean' }),
+      tag({ name: 'c', type: 'date' }),
+      tag({ name: 'd', type: 'string', multiple: true }),
+      tag({ name: 'e', type: 'number' }),
+      tag({ name: 'f', type: 'string' }),
+    ]).toEqual(['xh-select', 'xh-switch', 'xh-date-field', 'xh-tags-input', 'xh-number-field', 'xh-text-field'])
   })
 })

@@ -164,6 +164,19 @@ function inputControl(parameter: ReportParameter, value: ParameterValue | undefi
   return element
 }
 
+/** 一个参数的控件：有候选项用下拉，布尔用开关，日期用日期选择，多值用标签输入，其余用输入框。 */
+export function renderParameterControl(parameter: ReportParameter, value: ParameterValue | undefined, ctx: RenderContext, handlers: ParameterBarHandlers): HTMLElement {
+  return parameter.options && parameter.options.length > 0
+    ? selectControl(parameter, value, ctx, handlers)
+    : parameter.type === 'boolean'
+      ? switchControl(parameter, value, handlers)
+      : parameter.type === 'date' || parameter.type === 'datetime'
+        ? dateControl(parameter, value, handlers)
+        : parameter.multiple
+          ? tagsControl(parameter, value, handlers)
+          : inputControl(parameter, value, handlers)
+}
+
 /** 排出参数栏；没有参数时返回 undefined。 */
 export function renderParameterBar(parameters: readonly ReportParameter[] | undefined, values: ParameterValues, ctx: RenderContext, handlers: ParameterBarHandlers): HTMLElement | undefined {
   if (!parameters || parameters.length === 0)
@@ -177,16 +190,7 @@ export function renderParameterBar(parameters: readonly ReportParameter[] | unde
     const field = document.createElement('div')
     field.dataset.part = 'parameter'
     field.dataset.name = parameter.name
-    const control = parameter.options && parameter.options.length > 0
-      ? selectControl(parameter, value, ctx, handlers)
-      : parameter.type === 'boolean'
-        ? switchControl(parameter, value, handlers)
-        : parameter.type === 'date' || parameter.type === 'datetime'
-          ? dateControl(parameter, value, handlers)
-          : parameter.multiple
-            ? tagsControl(parameter, value, handlers)
-            : inputControl(parameter, value, handlers)
-    field.append(control)
+    field.append(renderParameterControl(parameter, value, ctx, handlers))
     bar.append(field)
   }
   return bar
