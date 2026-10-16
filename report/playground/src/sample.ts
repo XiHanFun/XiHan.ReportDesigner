@@ -117,7 +117,11 @@ export const crosstabReport: ReportDocument = {
 const byChannel: FilterGroup = { logic: 'and', conditions: [{ id: 'channel', field: 'channel', operator: 'eq', value: { parameter: 'channel' } }] }
 const amount = { id: 'amount', field: 'amount', aggregate: 'sum', title: '销售额', format: money } as const
 const month = { id: 'month', field: 'date', bucket: 'month', title: '月份' } as const
-const metricTargets = ['sales', 'orders', 'quantity', 'average'].map(card => ({ card, field: 'region' }))
+const METRICS = ['sales', 'orders', 'quantity', 'average']
+
+function targets(field: string, cards: readonly string[]): { card: string, field: string }[] {
+  return cards.map(card => ({ card, field }))
+}
 
 export const dashboardReport: ReportDocument = {
   schemaVersion: 1,
@@ -195,7 +199,7 @@ export const dashboardReport: ReportDocument = {
       {
         id: 'products',
         kind: 'table',
-        title: '商品与渠道',
+        title: '商品与渠道（点行联动）',
         layout: { x: 5, y: 11, w: 7, h: 8 },
         view: {
           type: 'crosstab',
@@ -206,20 +210,21 @@ export const dashboardReport: ReportDocument = {
           filter: byChannel,
         },
       },
+      {
+        id: 'calendar',
+        kind: 'chart',
+        title: '每日销售额（点选联动）',
+        layout: { x: 0, y: 19, w: 12, h: 5 },
+        dataset: 'sales',
+        query: { dimensions: [{ id: 'day', field: 'date', title: '日期' }], measures: [amount], filter: byChannel },
+        chart: { type: 'heatmap', variant: 'calendar', dateField: 'day', valueField: 'amount' },
+      },
     ],
     links: [
-      {
-        id: 'region',
-        card: 'byRegion',
-        dimension: 'region',
-        targets: [...metricTargets, { card: 'trend', field: 'region' }, { card: 'byCategory', field: 'region' }, { card: 'products', field: 'region' }],
-      },
-      {
-        id: 'category',
-        card: 'byCategory',
-        dimension: 'category',
-        targets: [...metricTargets.map(target => ({ ...target, field: 'category' })), { card: 'trend', field: 'category' }, { card: 'products', field: 'category' }],
-      },
+      { id: 'region', card: 'byRegion', dimension: 'region', targets: targets('region', [...METRICS, 'trend', 'byCategory', 'products', 'calendar']) },
+      { id: 'category', card: 'byCategory', dimension: 'category', targets: targets('category', [...METRICS, 'trend', 'products', 'calendar']) },
+      { id: 'product', card: 'products', dimension: 'product', targets: targets('product', [...METRICS, 'byRegion', 'trend', 'byCategory', 'calendar']) },
+      { id: 'day', card: 'calendar', dimension: 'day', targets: targets('date', [...METRICS, 'byRegion', 'trend', 'byCategory', 'products']) },
     ],
   },
 }

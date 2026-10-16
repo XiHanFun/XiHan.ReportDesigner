@@ -10,14 +10,17 @@ import type { ReportViewerEventMap, XhReportViewer } from '@xihan-report/runtime
 import { defineReportViewer } from '@xihan-report/runtime'
 import { reportZhCN } from '@xihan-report/runtime/locale'
 import { mergeXhConfig, setXhConfig } from '@xihan-ui/web-components'
-import { defineXhElements } from '@xihan-ui/web-components/define'
+import { defineXhElement, XhAlertElement, XhSwitchElement, XhTabsElement, XhToolbarElement } from '@xihan-ui/web-components/define'
 import { zhCN } from '@xihan-ui/web-components/locale'
 import { createDataProvider } from './data'
 import { crosstabReport, dashboardReport, detailReport, groupReport } from './sample'
 import '@xihan-ui/styles/index.css'
 import '@xihan-report/runtime/style.css'
 
-defineXhElements()
+defineXhElement('xh-alert', XhAlertElement)
+defineXhElement('xh-toolbar', XhToolbarElement)
+defineXhElement('xh-switch', XhSwitchElement)
+defineXhElement('xh-tabs', XhTabsElement)
 defineReportViewer()
 
 const REPORTS: Readonly<Record<string, ReportDocument>> = {
@@ -27,7 +30,7 @@ const REPORTS: Readonly<Record<string, ReportDocument>> = {
   dashboard: dashboardReport,
 }
 
-const LOGGED_EVENTS: readonly (keyof ReportViewerEventMap)[] = ['loading-change', 'load-error', 'issues-change', 'parameters-change', 'selections-change', 'datum-press']
+const LOGGED_EVENTS: readonly (keyof ReportViewerEventMap)[] = ['loading-change', 'load-error', 'issues-change', 'parameters-change', 'selections-change', 'datum-press', 'action']
 
 let aggregate = false
 const timeZone = new Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -50,6 +53,10 @@ function summary(name: keyof ReportViewerEventMap, detail: unknown): string {
   if (name === 'datum-press') {
     const { card, link, value } = detail as ReportViewerEventMap['datum-press']['detail']
     return JSON.stringify({ card, link, value })
+  }
+  if (name === 'action') {
+    const { card, link, value, kind, column, values } = detail as ReportViewerEventMap['action']['detail']
+    return `${card ?? '主体'} ${kind} 列 ${column ?? '（Enter）'} ${JSON.stringify(values)}${link === null ? '' : ` 联动 ${link} = ${JSON.stringify(value)}`}`
   }
   return JSON.stringify(detail)
 }
