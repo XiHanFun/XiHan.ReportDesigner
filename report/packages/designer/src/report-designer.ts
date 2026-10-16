@@ -13,7 +13,7 @@ import type { DesignerFrameRegion, DesignerPaletteEventMap, DesignerTransformEve
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { LayoutGesture, ReportAddCardInit, ReportClipboard, ReportEditor, ReportItemRef, ReportSelection } from './editor'
 import type { GridMetrics } from './grid-geometry'
-import { cardTemplate, planAddCard, resolveParameters } from '@xihan-report/core'
+import { cardTemplate, planAddCard, planAddFieldItem, resolveParameters } from '@xihan-report/core'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS, DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter } from '@xihan-report/runtime'
 import { createRenderContext, defineViewerElements } from '@xihan-report/runtime/design'
 import { getLocalTimeZone } from '@xihan-ui/core/date'
@@ -23,11 +23,11 @@ import { createAuthoredElement, createGeneratedElement, emitEvent, registerEleme
 import { defineXhElement, XhSortableElement, XhTagElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import { CanvasContent } from './canvas'
 import { readReportClipboardData, writeReportClipboardData } from './clipboard'
-import { DataPanel } from './data-panel'
+import { dataFieldPayload, DataPanel } from './data-panel'
 import { createReportEditor, writeReportClipboard } from './editor'
 import { cellSize, cellToRect, centeredCell, clipCell, measureGrid, rectToCell } from './grid-geometry'
 import { paletteCardType, paletteGroups } from './palette'
-import { Wells } from './wells'
+import { fieldList, Wells, wellsOwner, withFilledBindings } from './wells'
 
 export const REPORT_DESIGNER_TAG = 'xh-report-designer'
 
@@ -80,6 +80,13 @@ interface Layers {
   readonly palette: XhDesignerPaletteElement
   readonly data: DataPanel
   readonly wells: Wells
+}
+
+/** 数据面板的字段拖到画布上的落点：卡片（缺省为报表主体的视图）与字段。 */
+interface FieldDrop {
+  readonly card?: string
+  readonly dataset: string
+  readonly field: string
 }
 
 /** 物料拖到看板上的落点：卡片种类与请求的左上角格。 */
@@ -157,6 +164,7 @@ export class XhReportDesigner extends XhReactiveElement {
   #hoverId: string | undefined
   #viewport: Viewport | undefined
   #drop: CardDrop | undefined
+  #fieldDrop: FieldDrop | undefined
   #paletteKey = ''
 
   constructor() {
@@ -434,7 +442,7 @@ export class XhReportDesigner extends XhReactiveElement {
     canvas.addEventListener('pan-request', this.#onPanRequest)
     registerDropTarget(scroller, {
       over: (point, payload) => this.#dropOver(point, payload),
-      drop: () => this.#dropCard(),
+      drop: () => this.#fieldDrop ? this.#dropField() : this.#dropCard(),
       leave: () => this.#clearDrop(),
     })
     const workspace = createAuthoredElement(doc, 'div', { 'data-part': 'workspace' }, [canvas])
@@ -731,6 +739,9 @@ export class XhReportDesigner extends XhReactiveElement {
    * 只读、不是看板或载荷不是卡片种类时不接受。
    */
   #dropOver(point: Point, payload: unknown): DropOver {
+    const field = dataFieldPayload(payload)
+    if (field)
+      return this.#fieldOver(point, field)
     const type = paletteCardType(payload)
     const dashboard = this.#dashboard()
     const metrics = this.#gridMetrics()
@@ -769,11 +780,58 @@ export class XhReportDesigner extends XhReactiveElement {
 
   #clearDrop(): void {
     this.#drop = undefined
+    this.#fieldDrop = undefined
     const layers = this.#layers
     if (!layers)
       return
     layers.dropPreview.hidden = true
     delete layers.canvas.dataset.gesture
+    for (const marked of layers.content.querySelectorAll('[data-drop]'))
+      marked.removeAttribute('data-drop')
+    layers.content.removeAttribute('data-drop')
+  }
+
+  /**
+   * 字段拖到画布上：看板上落在指针下的卡片，不是看板时落在主体的视图；数据集要与字段的一致，只读时不接受。
+   * 接受时目标带 data-drop。
+   */
+  #fieldOver(point: Point, field: { readonly dataset: string, readonly field: string }): DropOver {
+    const editor = this.#editor
+    const layers = this.#layers
+    const dashboard = this.#dashboard()
+    let card: string | undefined
+    if (dashboard) {
+      card = dashboard.cards.find((item) => {
+        const box = this.#content?.cardElement(item.id)?.getBoundingClientRect()
+        return box !== undefined && point.x >= box.left && point.x <= box.right && point.y >= box.top && point.y <= box.bottom
+      })?.id
+    }
+    const owner = editor && (!dashboard || card !== undefined) ? wellsOwner(editor.document, { cards: card === undefined ? [] : [card] }) : undefined
+    this.#clearDrop()
+    if (this.readonly || !layers || !owner || owner.dataset !== field.dataset)
+      return { accept: false }
+    this.#fieldDrop = card === undefined ? field : { ...field, card }
+    const marked = card === undefined ? layers.content : this.#content?.cardElement(card)
+    marked?.setAttribute('data-drop', '')
+    return { accept: true }
+  }
+
+  /** 把字段加进落点卡片或主体视图的对应列表，补全卡片的必填绑定，合为一步撤销；落在卡片上时选中它。 */
+  #dropField(): void {
+    const drop = this.#fieldDrop
+    this.#clearDrop()
+    const editor = this.#editor
+    if (!drop || !editor || this.readonly)
+      return
+    const document = editor.document
+    const owner = wellsOwner(document, { cards: drop.card === undefined ? [] : [drop.card] })
+    const type = document.datasets.find(dataset => dataset.id === drop.dataset)?.fields.find(item => item.name === drop.field)?.type
+    if (!owner || type === undefined)
+      return
+    const target = drop.card === undefined ? {} : { card: drop.card }
+    editor.execute(withFilledBindings(document, target, planAddFieldItem(document, target, fieldList(owner.source, type), drop.field)))
+    if (drop.card !== undefined)
+      editor.select({ cards: [drop.card] })
   }
 
   readonly #onDoubleClick = (event: MouseEvent): void => {
