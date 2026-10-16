@@ -7,6 +7,7 @@
 
 xh-report-viewer {
   display: block;
+  min-inline-size: 0;
   color: var(--xh-fg-default);
   font-size: var(--xh-text-body-size);
   line-height: var(--xh-text-body-leading);
@@ -30,15 +31,20 @@ xh-report-viewer [data-part='unsupported'] {
   font-size: var(--xh-text-secondary-size);
 }
 
+/* 主体的宽度只取容器给的宽度，不按表格内容撑开宿主：比容器宽的表格在表格自己的滚动区里横向滚动 */
+xh-report-viewer > [data-part='body'] {
+  contain: inline-size;
+}
+
 xh-report-viewer xh-table {
   display: block;
   inline-size: 100%;
 }
 
-/* 虚拟滚动：表格根不再限高，滚动交给表体里虚拟列表的视口 */
+/* 虚拟滚动：表格根不再限高，竖向滚动交给表体里虚拟列表的视口，横向仍由表格根滚动 */
 xh-report-viewer xh-table [data-xh-part='root'][data-virtual] {
   max-block-size: none;
-  overflow: visible;
+  overflow: auto hidden;
 }
 
 xh-report-viewer xh-table [data-virtual] xh-virtualizer [data-xh-part='viewport'] {
