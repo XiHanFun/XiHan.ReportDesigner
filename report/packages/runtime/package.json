@@ -32,6 +32,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./design": {
+      "types": "./dist/design.d.ts",
+      "import": "./dist/design.js"
+    },
     "./locale": {
       "types": "./dist/locale.d.ts",
       "import": "./dist/locale.js"
@@ -65,6 +69,7 @@
     "@xihan-report/core": "workspace:^",
     "@xihan-ui/core": "catalog:",
     "@xihan-ui/designer-kit": "catalog:",
+    "@xihan-ui/designer-shell": "catalog:",
     "@xihan-ui/expression": "catalog:",
     "@xihan-ui/viz": "catalog:",
     "@xihan-ui/web-components": "catalog:",
