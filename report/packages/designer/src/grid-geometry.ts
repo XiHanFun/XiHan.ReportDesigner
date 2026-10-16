@@ -3,9 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 看板网格在画布上的几何：量出网格的原点与格距，把画布像素的矩形换成格坐标。
+// 看板网格在画布上的几何：量出网格的原点与格距，画布像素的矩形、点与格坐标互换。
 
-import type { GridRect, Rect, Size } from '@xihan-ui/designer-kit'
+import type { GridRect, Point, Rect, Size } from '@xihan-ui/designer-kit'
 
 /** 网格在画布里的位置与格距，单位是画布像素。 */
 export interface GridMetrics {
@@ -64,6 +64,24 @@ export function clipCell(cell: GridRect, columns: number): GridRect {
   const right = Math.min(cell.x + cell.w, columns)
   const bottom = cell.y + cell.h
   return { x, y, w: Math.max(1, right - x), h: Math.max(1, bottom - y) }
+}
+
+/** 以画布上的点为中心放 w × h 格的卡片时左上角所在的格，夹在网格内。 */
+export function centeredCell(point: Point, size: { readonly w: number, readonly h: number }, metrics: GridMetrics, columns: number): { readonly x: number, readonly y: number } {
+  const w = Math.min(size.w, columns)
+  const x = Math.round((point.x - metrics.x) / metrics.column - w / 2)
+  const y = Math.round((point.y - metrics.y) / metrics.row - size.h / 2)
+  return { x: Math.min(Math.max(0, x), columns - w), y: Math.max(0, y) }
+}
+
+/** 格坐标换回画布像素的矩形。 */
+export function cellToRect(cell: GridRect, metrics: GridMetrics): Rect {
+  return {
+    x: metrics.x + cell.x * metrics.column,
+    y: metrics.y + cell.y * metrics.row,
+    width: cell.w * metrics.column - metrics.columnGap,
+    height: cell.h * metrics.row - metrics.rowGap,
+  }
 }
 
 /** 一格大小的卡片在画布上的尺寸。 */

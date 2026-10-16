@@ -10,7 +10,7 @@
 import type { ComputeOptions, DashboardCard, DashboardView, DatasetData, DatasetRequest, DatasetSchema, DataView, ParameterValues, ReportDocument } from '@xihan-report/core'
 import type { ReportDataProvider } from '@xihan-report/runtime'
 import type { CardState, RenderContext, ViewResult } from '@xihan-report/runtime/design'
-import { createDatasetRequest, findDataset } from '@xihan-report/core'
+import { cardTypeOf, createDatasetRequest, findDataset } from '@xihan-report/core'
 import { computeCard, computeView, renderCard, renderDashboardFrame, renderView } from '@xihan-report/runtime/design'
 import { clampToGrid } from '@xihan-ui/designer-kit'
 import { createAuthoredElement } from '@xihan-ui/web-components/authoring'
@@ -40,15 +40,6 @@ interface ContentEntry {
 
 function isAbort(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { name?: unknown }).name === 'AbortError'
-}
-
-/** 卡片种类的文案键：chart.<图表类型>、metric、table.<视图类型>。 */
-export function cardTypeKey(card: DashboardCard): string {
-  if (card.kind === 'chart')
-    return `chart.${card.chart.type}`
-  if (card.kind === 'table')
-    return `table.${card.view.type}`
-  return 'metric'
 }
 
 function placeholderNode(doc: Document, text: string): HTMLElement {
@@ -280,7 +271,7 @@ export class CanvasContent {
     const state = this.#entries.get(card.id)?.state
     if (!state || state.status === 'placeholder' || state.status === 'view') {
       frame.card.setAttribute('data-state', 'placeholder')
-      frame.body.replaceChildren(placeholderNode(this.#host.ownerDocument, inputs.placeholder(cardTypeKey(card))))
+      frame.body.replaceChildren(placeholderNode(this.#host.ownerDocument, inputs.placeholder(cardTypeOf(card))))
       return
     }
     renderCard(frame.body, state, inputs.context)

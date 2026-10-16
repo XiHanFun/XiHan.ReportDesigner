@@ -6,7 +6,7 @@
 
 import type { GridMetrics } from '../src/grid-geometry'
 import { describe, expect, it } from 'vitest'
-import { cellSize, clipCell, measureGrid, rectToCell } from '../src/grid-geometry'
+import { cellSize, cellToRect, centeredCell, clipCell, measureGrid, rectToCell } from '../src/grid-geometry'
 
 function box(element: Element, x: number, y: number, width: number, height: number): void {
   element.getBoundingClientRect = () => ({ x, y, left: x, top: y, width, height, right: x + width, bottom: y + height, toJSON: () => ({}) })
@@ -40,6 +40,17 @@ describe('看板网格的几何', () => {
     expect(clipCell({ x: -1, y: -2, w: 4, h: 5 }, 12)).toEqual({ x: 0, y: 0, w: 3, h: 3 })
     expect(clipCell({ x: 10, y: 1, w: 4, h: 2 }, 12)).toEqual({ x: 10, y: 1, w: 2, h: 2 })
     expect(clipCell({ x: -3, y: 0, w: 2, h: 1 }, 12)).toEqual({ x: 0, y: 0, w: 1, h: 1 })
+  })
+
+  it('以点为中心放卡片时左上角所在的格，夹在网格内', () => {
+    expect(centeredCell({ x: 16 + 500, y: 16 + 260 }, { w: 4, h: 2 }, metrics, 12)).toEqual({ x: 3, y: 4 })
+    expect(centeredCell({ x: 0, y: 0 }, { w: 4, h: 2 }, metrics, 12)).toEqual({ x: 0, y: 0 })
+    expect(centeredCell({ x: 2000, y: 0 }, { w: 4, h: 2 }, metrics, 12)).toEqual({ x: 8, y: 0 })
+    expect(centeredCell({ x: 400, y: 0 }, { w: 20, h: 2 }, metrics, 12)).toEqual({ x: 0, y: 0 })
+  })
+
+  it('格坐标换回画布像素的矩形', () => {
+    expect(cellToRect({ x: 2, y: 1, w: 3, h: 2 }, metrics)).toEqual({ x: 216, y: 68, width: 288, height: 92 })
   })
 
   it('一格大小的卡片尺寸', () => {

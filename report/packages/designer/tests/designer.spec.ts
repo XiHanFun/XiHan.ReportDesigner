@@ -243,6 +243,36 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.getSelection()).toEqual({ cards: ['pie'] })
   })
 
+  it('物料面板放在外框的物料区，按图表、指标、表格分组列出卡片种类；panels 不含它时收起', async () => {
+    const designer = await mount()
+    const palette = designer.querySelector('xh-designer-palette')!
+    expect(palette.closest('[data-region="palette"]')).not.toBeNull()
+    expect(palette.groups!.map(group => [group.label, group.items.length])).toEqual([['Charts', 7], ['Metrics', 1], ['Tables', 3]])
+    expect(palette.groups![0]!.items[1]).toMatchObject({ id: 'chart.pie', label: 'Pie chart', payload: 'chart.pie' })
+    designer.panels = 'properties'
+    await designer.updateComplete
+    expect(palette.isConnected).toBe(false)
+    expect(designer.querySelector('[data-region="canvas"] [data-part="canvas"]')).not.toBeNull()
+  })
+
+  it('点物料把新卡片放到第一个空位并选中它，记一步撤销；只读时物料只能浏览', async () => {
+    const designer = await mount()
+    const palette = designer.querySelector('xh-designer-palette')!
+    const schemaChanges = events(designer, 'schema-change') as { operations: { type: string }[] }[]
+    palette.dispatchEvent(new CustomEvent('item-activate', { detail: { id: 'chart.pie', payload: 'chart.pie' } }))
+    const added = cards(designer).at(-1)!
+    expect(added).toMatchObject({ id: 'chart1', kind: 'chart', dataset: 'sales', chart: { type: 'pie' }, layout: { x: 4, y: 2, w: 6, h: 8 } })
+    expect(designer.getSelection()).toEqual({ cards: ['chart1'] })
+    expect(schemaChanges.map(change => change.operations[0]!.type)).toEqual(['addCard'])
+    designer.undo()
+    expect(designer.schema).toEqual(board)
+    designer.readonly = true
+    await designer.updateComplete
+    expect(palette.readonly).toBe(true)
+    palette.dispatchEvent(new CustomEvent('item-activate', { detail: { id: 'metric', payload: 'metric' } }))
+    expect(designer.schema).toEqual(board)
+  })
+
   it('赋新的 schema 装载并派发 load，赋回当前文档不重新装载', async () => {
     const designer = await mount()
     const schemaChanges = events(designer, 'schema-change') as { kind: string }[]

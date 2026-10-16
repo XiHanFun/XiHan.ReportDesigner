@@ -6,24 +6,25 @@
 // <xh-report-designer>：报表设计器元素。编辑模型（历史、选择、剪贴板、布局手势）在 createReportEditor 里，
 // 画布内容复用查看器的计算与渲染；整体版式用 @xihan-ui/designer-shell 的外框，panels 决定显示哪些区，面板用 designer-shell 的零件。
 
-import type { DashboardCard, DashboardView, ExpressionEngine, ParameterValues, ReportDocument, ReportOperation, ValidationIssue } from '@xihan-report/core'
+import type { DashboardCard, DashboardView, ExpressionEngine, ParameterValues, ReportCardType, ReportDocument, ReportOperation, ValidationIssue } from '@xihan-report/core'
 import type { ReportDataProvider, ReportDesignerTranslations, ReportFormatter, ReportViewerTranslations } from '@xihan-report/runtime'
-import type { ExecuteOptions, GridRect, HistoryChangeKind, Rect, Viewport } from '@xihan-ui/designer-kit'
-import type { DesignerFrameRegion, DesignerTransformEventMap, DesignerTransformItem, PanRequestDetail } from '@xihan-ui/designer-shell'
+import type { ExecuteOptions, GridRect, HistoryChangeKind, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
+import type { DesignerFrameRegion, DesignerPaletteEventMap, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { LayoutGesture, ReportAddCardInit, ReportClipboard, ReportEditor, ReportItemRef, ReportSelection } from './editor'
 import type { GridMetrics } from './grid-geometry'
-import { resolveParameters } from '@xihan-report/core'
+import { cardTemplate, planAddCard, resolveParameters } from '@xihan-report/core'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS, DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter } from '@xihan-report/runtime'
 import { createRenderContext, defineViewerElements } from '@xihan-report/runtime/design'
 import { getLocalTimeZone } from '@xihan-ui/core/date'
-import { selectInMarquee } from '@xihan-ui/designer-kit'
-import { defineDesignerShellElement, XhDesignerFrameElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
+import { createIdAllocator, selectInMarquee } from '@xihan-ui/designer-kit'
+import { defineDesignerShellElement, registerDropTarget, XhDesignerFrameElement, XhDesignerPaletteElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
 import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { CanvasContent } from './canvas'
 import { readReportClipboardData, writeReportClipboardData } from './clipboard'
 import { createReportEditor, writeReportClipboard } from './editor'
-import { cellSize, clipCell, measureGrid, rectToCell } from './grid-geometry'
+import { cellSize, cellToRect, centeredCell, clipCell, measureGrid, rectToCell } from './grid-geometry'
+import { paletteCardType, paletteGroups } from './palette'
 
 export const REPORT_DESIGNER_TAG = 'xh-report-designer'
 
@@ -56,8 +57,9 @@ export interface ReportDesignerEventMap {
   'blank-contextmenu': CustomEvent<{ x: number, y: number }>
 }
 
-/** 外框的命名区：中间是画布。 */
+/** 外框的命名区：左侧是物料，中间是画布。 */
 const FRAME_REGIONS: readonly DesignerFrameRegion[] = [
+  { name: 'palette', position: 'start', size: 18 },
   { name: 'canvas', position: 'center' },
 ]
 
@@ -69,6 +71,15 @@ interface Layers {
   readonly content: HTMLElement
   readonly overlay: XhDesignerTransformElement
   readonly empty: HTMLElement
+  readonly dropPreview: HTMLElement
+  readonly palette: XhDesignerPaletteElement
+}
+
+/** 物料拖到看板上的落点：卡片种类与请求的左上角格。 */
+interface CardDrop {
+  readonly type: ReportCardType
+  readonly x: number
+  readonly y: number
 }
 
 /** 进行中的卡片拖动或改大小：编辑模型的布局手势与最近一次写进去的格坐标。 */
@@ -138,6 +149,8 @@ export class XhReportDesigner extends XhReactiveElement {
   #gesture: CardGesture | undefined
   #hoverId: string | undefined
   #viewport: Viewport | undefined
+  #drop: CardDrop | undefined
+  #paletteKey = ''
 
   constructor() {
     super()
@@ -288,6 +301,7 @@ export class XhReportDesigner extends XhReactiveElement {
       this.#load()
     this.#syncFrame(layers.frame, t)
     layers.overlay.readonly = this.readonly
+    this.#syncPalette(layers.palette, t)
     this.#renderCanvas()
   }
 
@@ -401,15 +415,23 @@ export class XhReportDesigner extends XhReactiveElement {
     const doc = this.ownerDocument
     const content = createAuthoredElement(doc, 'div', { 'data-part': 'content' })
     const empty = createAuthoredElement(doc, 'div', { 'data-part': 'empty', 'hidden': true })
-    const surface = createAuthoredElement(doc, 'div', { 'data-part': 'surface' }, [content, empty])
+    const dropPreview = createAuthoredElement(doc, 'div', { 'data-part': 'drop-preview', 'hidden': true })
+    const surface = createAuthoredElement(doc, 'div', { 'data-part': 'surface' }, [content, empty, dropPreview])
     const scroller = createAuthoredElement(doc, 'div', { 'data-part': 'scroller' }, [surface])
     const overlay = createAuthoredElement(doc, 'xh-designer-transform', { 'data-part': 'overlay' }) as XhDesignerTransformElement
     overlay.addEventListener('transform', this.#onTransform)
     overlay.addEventListener('marquee', this.#onMarquee)
-    overlay.addEventListener('pan-request', this.#onPanRequest)
     const canvas = createAuthoredElement(doc, 'div', { 'data-part': 'canvas', 'role': 'group', 'tabindex': 0 }, [scroller, overlay])
+    canvas.addEventListener('pan-request', this.#onPanRequest)
+    registerDropTarget(scroller, {
+      over: (point, payload) => this.#dropOver(point, payload),
+      drop: () => this.#dropCard(),
+      leave: () => this.#clearDrop(),
+    })
     const workspace = createAuthoredElement(doc, 'div', { 'data-part': 'workspace' }, [canvas])
-    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [workspace]) as XhDesignerFrameElement
+    const palette = createGeneratedElement(doc, 'xh-designer-palette', { 'data-part': 'palette', 'slot': 'palette' }) as XhDesignerPaletteElement
+    palette.addEventListener('item-activate', this.#onPaletteActivate)
+    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [palette, workspace]) as XhDesignerFrameElement
     this.replaceChildren(frame)
     canvas.addEventListener('pointerdown', this.#onPointerDown)
     canvas.addEventListener('pointermove', this.#onHover)
@@ -427,14 +449,16 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#content?.dispose()
     this.#content = new CanvasContent(content)
     this.#viewport = undefined
-    this.#layers = { frame, canvas, scroller, surface, content, overlay, empty }
+    this.#drop = undefined
+    this.#paletteKey = ''
+    this.#layers = { frame, canvas, scroller, surface, content, overlay, empty, dropPreview, palette }
     return this.#layers
   }
 
   /** panels 原样交给外框；区名换成文案，供分隔条的无障碍名称使用，文案没变时不重设。 */
   #syncFrame(frame: XhDesignerFrameElement, t: ReportDesignerTranslations): void {
     frame.panels = this.panels
-    const labels: Readonly<Record<string, string>> = { canvas: t.canvas }
+    const labels: Readonly<Record<string, string>> = { palette: t.palette, canvas: t.canvas }
     const regions = FRAME_REGIONS.map(region => ({ ...region, label: labels[region.name] ?? region.name }))
     const current = frame.regions
     if (current?.length === regions.length && current.every((region, index) => region.label === regions[index]!.label))
@@ -642,6 +666,85 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#renderSelection()
   }
 
+  /** 物料面板：只读或报表主体不是看板时只能浏览；文案变了才重排分组。 */
+  #syncPalette(palette: XhDesignerPaletteElement, t: ReportDesignerTranslations): void {
+    palette.readonly = this.readonly || !this.#dashboard()
+    const key = JSON.stringify([t.palette, t.paletteGroups, t.cardTypes])
+    if (key === this.#paletteKey)
+      return
+    this.#paletteKey = key
+    palette.translations = { title: t.palette }
+    palette.groups = paletteGroups(t)
+  }
+
+  /** 新卡片的模板，取数用第一个数据集。 */
+  #template(type: ReportCardType): ReturnType<typeof cardTemplate> {
+    return cardTemplate(type, this.#editor?.document.datasets[0]?.id ?? '')
+  }
+
+  /** 新卡片画出来之后，不在可见区时滚动到它。 */
+  #revealAdded(card: DashboardCard): void {
+    void this.updateComplete.then(() => this.revealCard(card.id))
+  }
+
+  /** 点物料：新卡片放到第一个空位并选中。 */
+  readonly #onPaletteActivate = (event: Event): void => {
+    const type = (event as DesignerPaletteEventMap['item-activate']).detail.payload as ReportCardType
+    if (this.readonly || !this.#dashboard())
+      return
+    this.#revealAdded(this.addCard(this.#template(type)))
+  }
+
+  /**
+   * 物料拖到看板上：以指针为中心放新卡片，落点画出压实之后它实际所在的格；隐藏跟随指针的预览。
+   * 只读、不是看板或载荷不是卡片种类时不接受。
+   */
+  #dropOver(point: Point, payload: unknown): DropOver {
+    const type = paletteCardType(payload)
+    const dashboard = this.#dashboard()
+    const metrics = this.#gridMetrics()
+    const layers = this.#layers
+    if (type === undefined || this.readonly || !dashboard || !metrics || !layers) {
+      this.#clearDrop()
+      return { accept: false }
+    }
+    const template = this.#template(type)
+    const origin = layers.surface.getBoundingClientRect()
+    const cell = centeredCell({ x: point.x - origin.left, y: point.y - origin.top }, template.layout, metrics, dashboard.grid.columns)
+    this.#drop = { type, ...cell }
+    const id = createIdAllocator(template.kind, dashboard.cards.map(card => card.id)).next()
+    const added = planAddCard(dashboard, { ...template, id, layout: { ...template.layout, ...cell } }).find(operation => operation.type === 'addCard')
+    const landing = added?.type === 'addCard' ? added.card.layout : { ...template.layout, ...cell }
+    const rect = cellToRect(landing, metrics)
+    const preview = layers.dropPreview
+    preview.hidden = false
+    preview.style.insetInlineStart = `${rect.x}px`
+    preview.style.insetBlockStart = `${rect.y}px`
+    preview.style.inlineSize = `${rect.width}px`
+    preview.style.blockSize = `${rect.height}px`
+    layers.canvas.dataset.gesture = 'drop'
+    return { accept: true, ghost: 'hide' }
+  }
+
+  /** 在落点新建拖进来的卡片并选中它。 */
+  #dropCard(): void {
+    const drop = this.#drop
+    this.#clearDrop()
+    if (!drop || this.readonly || !this.#dashboard())
+      return
+    const template = this.#template(drop.type)
+    this.#revealAdded(this.addCard({ ...template, layout: { ...template.layout, x: drop.x, y: drop.y } }))
+  }
+
+  #clearDrop(): void {
+    this.#drop = undefined
+    const layers = this.#layers
+    if (!layers)
+      return
+    layers.dropPreview.hidden = true
+    delete layers.canvas.dataset.gesture
+  }
+
   readonly #onDoubleClick = (event: MouseEvent): void => {
     const id = this.#cardAt(event.target)
     if (id !== undefined)
@@ -750,6 +853,7 @@ export class XhReportDesigner extends XhReactiveElement {
 export function defineReportDesigner(): void {
   defineViewerElements()
   defineDesignerShellElement('xh-designer-frame', XhDesignerFrameElement)
+  defineDesignerShellElement('xh-designer-palette', XhDesignerPaletteElement)
   defineDesignerShellElement('xh-designer-transform', XhDesignerTransformElement)
   registerElement(REPORT_DESIGNER_TAG, XhReportDesigner)
 }
