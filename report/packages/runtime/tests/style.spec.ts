@@ -36,7 +36,7 @@ describe('style.css：查看器不按内容撑宽宿主', () => {
 
   it('主体的宽度只取容器给的宽度，比容器宽的内容在表格自己的滚动区里滚动', () => {
     expect(rule('xh-report-viewer > [data-part=\'body\']').getPropertyValue('contain')).toBe('inline-size')
-    expect(rule('xh-report-viewer xh-table [data-xh-part=\'root\'][data-virtual]').getPropertyValue('overflow')).toBe('auto hidden')
+    expect(rule(':is(xh-report-viewer, xh-report-designer) xh-table [data-xh-part=\'root\'][data-virtual]').getPropertyValue('overflow')).toBe('auto hidden')
   })
 
   it('查看器自己的层只选直接子元素，不波及 UI 元素同名的部件', () => {
