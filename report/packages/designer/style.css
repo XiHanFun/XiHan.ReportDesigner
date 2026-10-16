@@ -98,3 +98,21 @@ xh-report-designer [data-part='empty'] {
 xh-report-designer [data-part='empty'][hidden] {
   display: none;
 }
+
+/* 物料拖到看板上时，新卡片压实之后所在的格 */
+xh-report-designer [data-part='drop-preview'] {
+  position: absolute;
+  box-sizing: border-box;
+  border: var(--xh-stroke-thin) dashed var(--xh-border-control-focus);
+  border-radius: var(--xh-radius-md);
+  background: var(--xh-bg-brand-subtle);
+  pointer-events: none;
+}
+
+xh-report-designer [data-part='drop-preview'][hidden] {
+  display: none;
+}
+
+xh-report-designer [data-part='canvas'][data-gesture='drop'] {
+  cursor: copy;
+}
