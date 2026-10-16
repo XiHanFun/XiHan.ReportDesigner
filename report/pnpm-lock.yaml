@@ -146,9 +146,15 @@ importers:
       '@xihan-report/core':
         specifier: workspace:^
         version: link:../packages/core
+      '@xihan-report/designer':
+        specifier: workspace:^
+        version: link:../packages/designer
       '@xihan-report/runtime':
         specifier: workspace:^
         version: link:../packages/runtime
+      '@xihan-ui/designer-shell':
+        specifier: link:../../../XiHan.UI/ui/packages/features/designer-shell
+        version: link:../../../XiHan.UI/ui/packages/features/designer-shell
       '@xihan-ui/styles':
         specifier: link:../../../XiHan.UI/ui/packages/design/styles
         version: link:../../../XiHan.UI/ui/packages/design/styles

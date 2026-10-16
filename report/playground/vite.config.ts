@@ -17,9 +17,12 @@ export default defineConfig({
     alias: [
       { find: /^@xihan-report\/core$/, replacement: local('core/src/index.ts') },
       { find: /^@xihan-report\/runtime$/, replacement: local('runtime/src/index.ts') },
+      { find: /^@xihan-report\/runtime\/design$/, replacement: local('runtime/src/design.ts') },
       { find: /^@xihan-report\/runtime\/locale$/, replacement: local('runtime/src/locale.ts') },
       { find: /^@xihan-report\/runtime\/xlsx$/, replacement: local('runtime/src/xlsx/index.ts') },
       { find: /^@xihan-report\/runtime\/style\.css$/, replacement: local('runtime/style.css') },
+      { find: /^@xihan-report\/designer$/, replacement: local('designer/src/index.ts') },
+      { find: /^@xihan-report\/designer\/style\.css$/, replacement: local('designer/style.css') },
     ],
   },
   server: {

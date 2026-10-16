@@ -48,7 +48,7 @@ XiHan.ReportDesigner 是框架无关的报表设计器，以原生 Web Component
 
 `pnpm build` 按依赖拓扑依次构建 core、runtime、designer。runtime 与 designer 经包的 `exports` 读取上游 dist，改了上游先重建再验证下游。
 
-开发预览页在 `report/playground`，用 Vite 起在 5193 端口（strictPort）：「明细表」「分组报表」「交叉表」「看板」四个页签各放一份示例报表，数据是按固定种子生成的一年销售订单；看板里环形图、条形图、日历热力图与「商品与渠道」表格卡片都能点选联动；工具栏可刷新、导出 xlsx，开关切换中文语言包，以及让取数回调返回明细行或模拟后端按请求聚合；下方滚动显示查看器派发的事件，点表格的一格可以看到下钻用的 action。
+开发预览页在 `report/playground`，用 Vite 起在 5193 端口（strictPort）：「明细表」「分组报表」「交叉表」「看板」四个页签各放一份示例报表，数据是按固定种子生成的一年销售订单；看板里环形图、条形图、日历热力图与「商品与渠道」表格卡片都能点选联动；工具栏可刷新、导出 xlsx，开关切换中文语言包，以及让取数回调返回明细行或模拟后端按请求聚合；下方滚动显示查看器派发的事件，点表格的一格可以看到下钻用的 action。「设计器」页签用 `<xh-report-designer>` 打开同一组示例报表（缺省看板，页签内可切换），事件记录同时显示设计器派发的 schema-change、selection-change 等事件，Ctrl+S 记为已保存。
 它直接引用各包的源码，改了源码即时生效，不必先 `pnpm build`；`@xihan-ui/*` 经 overrides 读同级 XiHan.UI 的产物，启动前先在 `XiHan.UI/ui` 构建依赖的包：
 
 ```bash
