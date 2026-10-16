@@ -18,8 +18,10 @@ import { emitEvent, registerElement, XhConfigController, XhReactiveElement } fro
 import { DEFAULT_REPORT_VIEWER_TRANSLATIONS } from '../translations'
 import { computeView } from './compute'
 import { createRenderContext } from './context'
+import { renderCrosstab } from './crosstab'
 import { ownPart } from './dom'
 import { defaultFormatter } from './format'
+import { renderGroupReport } from './group'
 import { renderDetailTable } from './table'
 
 /** 查看器的标签名。 */
@@ -262,8 +264,10 @@ export class XhReportViewer extends XhReactiveElement {
     const view = this.#view
     if (view.type === 'table')
       renderDetailTable(layers.body, view.view, view.dataset, view.result, ctx)
+    else if (view.type === 'group')
+      renderGroupReport(layers.body, view.view, view.dataset, view.result, ctx)
     else
-      layers.body.replaceChildren(ownPart('div', 'unsupported', t.unsupported))
+      renderCrosstab(layers.body, view.view, view.dataset, view.result, ctx)
   }
 }
 

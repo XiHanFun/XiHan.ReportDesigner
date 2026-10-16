@@ -49,3 +49,10 @@ xh-report-viewer xh-table [data-virtual] xh-virtualizer [data-xh-part='viewport'
 xh-report-viewer xh-table [data-virtual] xh-virtualizer [data-xh-part='row'] {
   border-block-end: var(--xh-stroke-thin) solid var(--xh-border-subtle);
 }
+
+/* 分组报表的组头、小计与交叉表的小计、总计行加重 */
+xh-report-viewer xh-table [data-kind='group'] [data-xh-part='cell'],
+xh-report-viewer xh-table [data-kind='subtotal'] [data-xh-part='cell'],
+xh-report-viewer xh-table [data-kind='total'] [data-xh-part='cell'] {
+  font-weight: var(--xh-text-label-weight);
+}

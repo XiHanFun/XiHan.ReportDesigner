@@ -28,6 +28,7 @@ import { createDateTools, crosstabAxes, isAggregateMeasure } from '@xihan-report
 import { formatValue } from '@xihan-ui/expression'
 import { isMissing } from '@xihan-ui/viz'
 import { formatCode, headerRows, sheetName } from '@xihan-ui/xlsx'
+import { fieldLabel, measureLabel } from '../labels'
 
 /** 工作表里的内建文字。 */
 export interface XlsxTranslations {
@@ -76,7 +77,7 @@ function fieldOf(ctx: Context, name: string): { readonly type: FieldType, readon
 }
 
 function fieldTitle(ctx: Context, name: string, title: string | undefined): string {
-  return title ?? fieldOf(ctx, name)?.title ?? name
+  return fieldLabel(ctx.dataset, name, title)
 }
 
 function text(value: string, bold: boolean): XlsxCell {
@@ -209,11 +210,7 @@ function measureCell(measure: Measure, value: unknown, ctx: Context, bold: boole
 }
 
 function measureTitle(measure: Measure, ctx: Context): string {
-  if (measure.title !== undefined)
-    return measure.title
-  if (isAggregateMeasure(measure) && measure.field !== undefined)
-    return fieldTitle(ctx, measure.field, undefined)
-  return measure.id
+  return measureLabel(measure, ctx.dataset)
 }
 
 function columnWidth(column: TableColumn): number | undefined {
