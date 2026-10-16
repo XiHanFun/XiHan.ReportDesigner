@@ -52,6 +52,19 @@ function bodyRows(table: XhTableElement): string[][] {
   return [...table.querySelectorAll('[data-xh-part="body"] > [data-xh-part="row"]')].map(row => [...row.querySelectorAll('[data-xh-part="cell"]')].map(cell => cell.textContent ?? ''))
 }
 
+/** 点表格里的一格，收集冒泡到页面上的 action。 */
+function click(table: XhTableElement, row: string, column: string): unknown[] {
+  const seen: unknown[] = []
+  const listener = (event: Event): void => {
+    seen.push({ from: (event.target as Element).tagName.toLowerCase(), ...(event as CustomEvent).detail })
+  }
+  document.addEventListener('action', listener)
+  const cell = table.querySelector(`[data-xh-part="row"][value="${row}"] [data-xh-part="cell"][value="${column}"]`) as HTMLElement
+  cell.click()
+  document.removeEventListener('action', listener)
+  return seen
+}
+
 describe('<xh-report-viewer>：分组报表', () => {
   const view: GroupView = {
     type: 'group',
@@ -149,5 +162,32 @@ describe('<xh-report-viewer>：交叉表', () => {
     ])
     expect(table.cellSpanOf('r0', 'row0')).toMatchObject({ rowSpan: 3 })
     expect(table.cellSpanOf('r7', 'row0')).toMatchObject({ colSpan: 2 })
+  })
+})
+
+describe('<xh-report-viewer>：行主操作', () => {
+  it('明细表：查看器转发 action，带上点中的列与这一行各列的取值；里层表格的 action 不外传', async () => {
+    const table = await show({ type: 'table', dataset: 'sales', columns: [{ id: 'region', field: 'region' }, { id: 'product', field: 'product' }, { id: 'amount', field: 'amount' }] })
+    expect(click(table, 'r1', 'product')).toEqual([
+      { from: 'xh-report-viewer', card: null, link: null, value: null, kind: 'detail', column: 'product', values: { region: 'East', product: 'B', amount: 50 } },
+    ])
+  })
+
+  it('分组报表：组头报分组的键，点分组列报分组 id；明细行另带各列的取值', async () => {
+    const table = await show({ type: 'group', dataset: 'sales', groups: [{ id: 'region', field: 'region' }], columns: [{ id: 'product', field: 'product' }, { id: 'amount', field: 'amount' }] })
+    expect(click(table, 'r0', 'g0')).toEqual([expect.objectContaining({ kind: 'group', column: 'region', values: { region: 'East' } })])
+    expect(click(table, 'r1', 'amount')).toEqual([expect.objectContaining({ kind: 'detail', column: 'amount', values: { region: 'East', product: 'A', amount: 100 } })])
+  })
+
+  it('交叉表：值格报度量 id 与行、列成员，行表头格报行维度 id，总计行不带成员', async () => {
+    const table = await show({
+      type: 'crosstab',
+      dataset: 'sales',
+      rows: [{ id: 'region', field: 'region' }],
+      columns: [{ id: 'product', field: 'product' }],
+      measures: [{ id: 'amount', aggregate: 'sum', field: 'amount' }, { id: 'n', aggregate: 'count' }],
+    })
+    expect(click(table, 'r0', 'c2')).toEqual([expect.objectContaining({ kind: 'detail', column: 'amount', values: { region: 'East', product: 'B' } })])
+    expect(click(table, 'r3', 'row0')).toEqual([expect.objectContaining({ kind: 'total', column: 'region', values: {} })])
   })
 })
