@@ -237,6 +237,23 @@ describe('<xh-report-viewer>：看板', () => {
     expect(calendar.activeKey).toBe('2026-01-05')
   })
 
+  it('指标卡片不另写卡片标题：标签取卡片的 title，没写时取度量标题；迷你图的可及名与标签一致', async () => {
+    const viewer = await mount()
+    const untitled = card(viewer, 'total')
+    expect(untitled.querySelector('[data-part="card-title"]')).toBeNull()
+    expect(untitled.querySelector('xh-statistic [data-xh-part="label"]')!.textContent).toBe('金额')
+
+    const titled = { id: 'titled', kind: 'metric', title: '本月销售额', layout: { x: 0, y: 9, w: 4, h: 3 }, dataset: 'sales', query: { dimensions: [{ id: 'product', field: 'product' }], measures: [amount] }, metric: { value: 'amount', sparkline: { x: 'product', y: 'amount' } } }
+    viewer.schema = { schemaVersion: 1, id: 'demo', datasets: [dataset], body: { ...dashboard, cards: [...dashboard.cards, titled] } } as ReportDocument
+    await viewer.updateComplete
+    await viewer.refresh()
+    const section = card(viewer, 'titled')
+    expect(section.querySelector('[data-part="card-title"]')).toBeNull()
+    expect(section.querySelector('xh-statistic [data-xh-part="label"]')!.textContent).toBe('本月销售额')
+    expect(section.querySelector('xh-sparkline [data-xh-part="root"]')!.getAttribute('aria-label')).toBe('本月销售额')
+    expect(card(viewer, 'byRegion').querySelector('[data-part="card-title"]')!.textContent).toBe('各区域')
+  })
+
   it('同一次刷新里请求相同的卡片只取一次数', async () => {
     const requests: DatasetRequest[] = []
     const viewer = await mount(requests)

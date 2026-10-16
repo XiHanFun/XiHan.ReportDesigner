@@ -54,7 +54,7 @@ export function computeCard(card: DashboardCard, dataset: DatasetSchema, data: D
   }
 }
 
-/** 看板的骨架：网格与各卡片的外壳，返回卡片 id 到内容区的对照。 */
+/** 看板的骨架：网格与各卡片的外壳（指标卡片的标题由指标的标签承担，外壳不写标题），返回卡片 id 到内容区的对照。 */
 export function renderDashboardFrame(container: HTMLElement, dashboard: DashboardView): Map<string, { readonly card: HTMLElement, readonly body: HTMLElement }> {
   const grid = ownPart('div', 'dashboard')
   grid.style.setProperty('--xh-report-columns', String(dashboard.grid.columns))
@@ -70,7 +70,7 @@ export function renderDashboardFrame(container: HTMLElement, dashboard: Dashboar
     section.style.setProperty('--xh-report-y', String(layout.y + 1))
     section.style.setProperty('--xh-report-w', String(layout.w))
     section.style.setProperty('--xh-report-h', String(layout.h))
-    if (card.title !== undefined) {
+    if (card.title !== undefined && card.kind !== 'metric') {
       const title = ownPart('div', 'card-title', card.title)
       title.setAttribute('role', 'heading')
       title.setAttribute('aria-level', '3')

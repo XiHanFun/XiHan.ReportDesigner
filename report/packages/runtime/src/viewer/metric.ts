@@ -3,7 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 指标卡片：xh-statistic 写汇总值与涨跌（数值由 formatter 写成文字后放进槽里），有走势时再放一条 xh-sparkline。
+// 指标卡片：xh-statistic 写标签、汇总值与涨跌（数值由 formatter 写成文字后放进槽里），有走势时再放一条 xh-sparkline。
+// 指标卡片不另写卡片标题，标签就是标题：卡片写了 title 时取它，否则取度量标题。
 
 import type { DatasetSchema, MetricCard, MetricResult, QueryResult } from '@xihan-report/core'
 import type { RenderContext } from './context'
@@ -17,6 +18,7 @@ const CHANGE_FORMAT = { kind: 'percent', decimals: 1 } as const
 export function renderMetric(card: MetricCard, result: QueryResult, metric: MetricResult, dataset: DatasetSchema, ctx: RenderContext): HTMLElement {
   const spec = card.metric
   const measure = card.query.measures.find(item => item.id === spec.value)
+  const label = card.title ?? (measure ? measureLabel(measure, dataset) : spec.value)
   const content = document.createElement('div')
   content.dataset.part = 'metric'
 
@@ -28,7 +30,7 @@ export function renderMetric(card: MetricCard, result: QueryResult, metric: Metr
   if (metric.trend)
     statistic.setAttribute('trend', metric.trend)
   const root = uiPart('div', 'root')
-  root.append(uiPart('span', 'label', {}, measure ? measureLabel(measure, dataset) : spec.value))
+  root.append(uiPart('span', 'label', {}, label))
   if (spec.prefix !== undefined)
     root.append(uiPart('span', 'prefix', {}, spec.prefix))
   root.append(uiPart('span', 'value', {}, ctx.text(metric.value, spec.format, measure ? measureType(measure, dataset) : undefined, '—')))
@@ -43,7 +45,7 @@ export function renderMetric(card: MetricCard, result: QueryResult, metric: Metr
     const { x, y, ...style } = spec.sparkline
     const sparkline = document.createElement('xh-sparkline')
     const svg = svgPart('root')
-    svg.setAttribute('aria-label', measure ? measureLabel(measure, dataset) : spec.value)
+    svg.setAttribute('aria-label', label)
     sparkline.append(svg)
     Object.assign(sparkline, style, { data: result.rows, x, y })
     content.append(sparkline)
