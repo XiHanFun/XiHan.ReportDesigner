@@ -7,7 +7,8 @@
 
 export * from './engine'
 export type { CompiledExpression, EngineCompileOptions, EngineCompileResult, EngineEvaluation, ExpressionEngine, ExpressionIssue } from './expression'
-export { gridItems, layoutOperations } from './grid'
+export { gridItems, layoutOperations, planAddCard, planCardLayout, planCompactLayout, planRemoveCard } from './grid'
+export type { CardPlacement, NewCard } from './grid'
 export * from './operations'
 export * from './schema'
 export * from './validate'
