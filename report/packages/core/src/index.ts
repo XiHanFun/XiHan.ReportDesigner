@@ -10,5 +10,6 @@ export type { CompiledExpression, EngineCompileOptions, EngineCompileResult, Eng
 export { gridItems, layoutOperations, planAddCard, planCardLayout, planCompactLayout, planRemoveCard } from './grid'
 export type { CardPlacement, NewCard } from './grid'
 export * from './operations'
+export * from './properties'
 export * from './schema'
 export * from './validate'
