@@ -66,7 +66,7 @@ pnpm build
 
 ```bash
 # XiHan.UI/ui
-pnpm --filter "@xihan-ui/web-components..." --filter "@xihan-ui/viz..." --filter "@xihan-ui/designer-kit..." --filter "@xihan-ui/expression..." --filter "@xihan-ui/xlsx..." --filter "@xihan-ui/styles..." build
+pnpm --filter "@xihan-ui/web-components..." --filter "@xihan-ui/viz..." --filter "@xihan-ui/designer-shell..." --filter "@xihan-ui/expression..." --filter "@xihan-ui/xlsx..." --filter "@xihan-ui/styles..." build
 # XiHan.ReportDesigner/report
 pnpm dev
 ```
