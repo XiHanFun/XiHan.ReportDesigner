@@ -71,7 +71,8 @@ describe('<xh-report-viewer>：明细表', () => {
     await viewer.refresh()
     expect(requests.at(-1)).toMatchObject({ dataset: 'sales', query: null, sort: [] })
     expect(viewer.dataset.state).toBe('ready')
-    const element = viewer.querySelector('xh-table') as HTMLElement & { columns: unknown[], rows: unknown[] }
+    const element = viewer.querySelector('xh-table') as HTMLElement & { columns: unknown[], rows: unknown[], updateComplete: Promise<unknown> }
+    await element.updateComplete
     expect(element.columns).toEqual([
       { id: 'region', label: '区域', width: 120 },
       { id: 'date', label: '日期', width: '8rem' },
@@ -88,7 +89,7 @@ describe('<xh-report-viewer>：明细表', () => {
     ])
     const footer = element.querySelector('[data-xh-part="footer"] [data-xh-part="row"]')!
     expect(cellTexts(footer)).toEqual(['Total', '', '1,230.50'])
-    expect(element.hasAttribute('footer')).toBe(true)
+    expect([element.getAttribute('footer-rows'), element.hasAttribute('sticky-footer'), footer.getAttribute('level'), footer.getAttribute('aria-rowindex')]).toEqual(['1', true, '1', '5'])
   })
 
   it('行数超过阈值时表体交给 xh-virtualizer', async () => {
