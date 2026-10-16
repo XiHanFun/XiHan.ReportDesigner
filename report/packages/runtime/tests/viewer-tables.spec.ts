@@ -189,3 +189,42 @@ describe('<xh-report-viewer>：行主操作', () => {
     expect(click(table, 'r3', 'row0')).toEqual([expect.objectContaining({ kind: 'total', column: 'region', values: {} })])
   })
 })
+
+describe('<xh-report-viewer>：表格的可及名', () => {
+  const columns = [{ id: 'region', field: 'region' }, { id: 'amount', field: 'amount' }]
+
+  async function tables(schema: Omit<ReportDocument, 'schemaVersion' | 'id' | 'datasets'>): Promise<HTMLElement[]> {
+    const viewer = document.createElement('xh-report-viewer') as XhReportViewer
+    viewer.timeZone = 'UTC'
+    viewer.dataProvider = async () => ({ kind: 'rows', rows })
+    viewer.schema = { schemaVersion: 1, id: 'demo', datasets: [dataset], ...schema } as ReportDocument
+    document.body.append(viewer)
+    await viewer.refresh()
+    const found = [...viewer.querySelectorAll<XhTableElement>('xh-table')]
+    await Promise.all(found.map(table => table.updateComplete))
+    return found.map(table => table.querySelector<HTMLElement>('[data-xh-part="root"]')!)
+  }
+
+  it('报表主体的表格以报表标题命名，没有标题时取数据集的标题或 id；不放标题，根上不留空引用', async () => {
+    const [titled] = await tables({ title: '销售明细', body: { type: 'table', dataset: 'sales', columns } })
+    expect([titled!.getAttribute('aria-label'), titled!.getAttribute('aria-labelledby')]).toEqual(['销售明细', null])
+    document.body.replaceChildren()
+    const [untitled] = await tables({ body: { type: 'table', dataset: 'sales', columns } })
+    expect(untitled!.getAttribute('aria-label')).toBe('sales')
+  })
+
+  it('表格卡片以卡片标题命名，没有标题时取数据集的标题或 id', async () => {
+    const roots = await tables({
+      title: '看板',
+      body: {
+        type: 'dashboard',
+        grid: { columns: 12, rowHeight: 40 },
+        cards: [
+          { id: 'a', kind: 'table', title: '区域金额', layout: { x: 0, y: 0, w: 6, h: 4 }, view: { type: 'table', dataset: 'sales', columns } },
+          { id: 'b', kind: 'table', layout: { x: 6, y: 0, w: 6, h: 4 }, view: { type: 'crosstab', dataset: 'sales', rows: [{ id: 'region', field: 'region' }], columns: [], measures: [{ id: 'amount', aggregate: 'sum', field: 'amount' }] } },
+        ],
+      },
+    })
+    expect(roots.map(root => root.getAttribute('aria-label'))).toEqual(['区域金额', 'sales'])
+  })
+})

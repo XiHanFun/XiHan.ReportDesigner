@@ -11,7 +11,7 @@ import type { ComputeOptions, DashboardCard, DashboardView, DatasetData, Dataset
 import type { ReportDataProvider } from '@xihan-report/runtime'
 import type { CardState, RenderContext, ViewResult } from '@xihan-report/runtime/design'
 import { cardTypeOf, createDatasetRequest, findDataset } from '@xihan-report/core'
-import { computeCard, computeView, renderCard, renderDashboardFrame, renderView } from '@xihan-report/runtime/design'
+import { computeCard, computeView, renderCard, renderDashboardFrame, renderView, tableLabel } from '@xihan-report/runtime/design'
 import { clampToGrid } from '@xihan-ui/designer-kit'
 import { createAuthoredElement } from '@xihan-ui/web-components/authoring'
 
@@ -293,6 +293,6 @@ export class CanvasContent {
       container.replaceChildren(createAuthoredElement(this.#host.ownerDocument, 'div', { 'data-part': 'card-status' }, [state.status === 'loading' ? inputs.context.translations.loading : inputs.context.translations.error]))
       return
     }
-    renderView(container, state.view, inputs.context)
+    renderView(container, state.view, inputs.context, tableLabel(inputs.document.title, state.view))
   }
 }

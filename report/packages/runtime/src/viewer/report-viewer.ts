@@ -25,7 +25,7 @@ import { emitEvent, registerElement, XhConfigController, XhReactiveElement } fro
 import { DEFAULT_REPORT_VIEWER_TRANSLATIONS } from '../translations'
 import { computeView } from './compute'
 import { createRenderContext } from './context'
-import { cardDataset, computeCard, renderCard, renderDashboardFrame, renderView } from './dashboard'
+import { cardDataset, computeCard, renderCard, renderDashboardFrame, renderView, tableLabel } from './dashboard'
 import { ownPart } from './dom'
 import { defineViewerElements } from './elements'
 import { defaultFormatter } from './format'
@@ -592,7 +592,7 @@ export class XhReportViewer extends XhReactiveElement {
     const view = this.#view
     if (!view)
       return
-    this.#bindTable(null, renderView(layers.body, view, ctx))
+    this.#bindTable(null, renderView(layers.body, view, ctx, tableLabel(this.schema?.title, view)))
   }
 }
 

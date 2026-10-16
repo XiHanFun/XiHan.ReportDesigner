@@ -85,11 +85,11 @@ function groupRows(view: GroupView, dataset: DatasetSchema, result: GroupReportR
 }
 
 /** 把分组报表排进 container。 */
-export function renderGroupReport(container: HTMLElement, view: GroupView, dataset: DatasetSchema, result: GroupReportResult, ctx: RenderContext): RenderedTable {
+export function renderGroupReport(container: HTMLElement, view: GroupView, dataset: DatasetSchema, result: GroupReportResult, ctx: RenderContext, label: string): RenderedTable {
   const { groups, columns } = view
   const groupColumns: TableColumnDef[] = groups.map((group, index) => ({ id: groupColumnId(index), label: fieldLabel(dataset, group.field, group.title), width: COLUMN_WIDTH, sticky: 'start' }))
   const definitions = [...groupColumns, ...columns.map(column => columnDef(column, dataset))]
-  const shell = tableShell(ctx, result.total !== null)
+  const shell = tableShell(ctx, result.total !== null, label)
   shell.header.append(headerRow(definitions.map(column => ({ id: column.id, label: column.label ?? '' }))))
 
   const rows = groupRows(view, dataset, result, ctx)
