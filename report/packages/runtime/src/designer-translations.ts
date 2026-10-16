@@ -38,6 +38,8 @@ export interface ReportDesignerTranslations {
   readonly palette: string
   /** 属性面板的标题，也是外框里这个区的名字。 */
   readonly properties: string
+  /** 问题列表的标题，也是外框里这个区的名字。 */
+  readonly issues: string
   /** 物料分组：charts、metrics、tables。 */
   readonly paletteGroups: Readonly<Record<string, string>>
   /** 物料与卡片种类：chart.<图表类型>、metric、table.<视图类型>。 */
@@ -138,6 +140,7 @@ export const DEFAULT_REPORT_DESIGNER_TRANSLATIONS: ReportDesignerTranslations = 
   lists: { dimensions: 'Dimensions', measures: 'Measures', series: 'Series', rows: 'Rows', columns: 'Columns', groups: 'Groups', tableColumns: 'Columns' },
   palette: 'Elements',
   properties: 'Properties',
+  issues: 'Problems',
   paletteGroups: { charts: 'Charts', metrics: 'Metrics', tables: 'Tables' },
   cardTypes: CHART_TYPES,
   objectKinds: {
