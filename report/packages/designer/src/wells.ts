@@ -5,6 +5,7 @@
 
 // 字段栏：编辑对象（报表主体的视图，或选中的那张卡片）的各个列表，一个列表一个 <xh-sortable>，项是可移除的 <xh-tag>。
 // 列表内拖动排序；交叉表的行与列同组，在两者之间拖动即透视。从数据面板拖来的字段按落点插进列表。
+// 看板卡片下另有一段联动：以它为源的联动各是一枚可移除的标签，点选后在属性面板里编辑，也可以新增。
 
 import type { DashboardCard, DataView, FieldType, ItemList, ItemOwner, ReportDocument, ReportOperation } from '@xihan-report/core'
 import type { ReportDesignerTranslations } from '@xihan-report/runtime'
@@ -12,9 +13,11 @@ import type { DropOver } from '@xihan-ui/designer-shell'
 import type { XhSortableElement, XhTagElement } from '@xihan-ui/web-components/define'
 import type { ReportItemRef, ReportSelection } from './editor'
 import { applyOperations, planAddFieldItem, planFillBindings, planRemoveItem } from '@xihan-report/core'
+import { createIdAllocator } from '@xihan-ui/designer-kit'
 import { registerDropTarget } from '@xihan-ui/designer-shell'
 import { createAuthoredElement, createGeneratedElement, setText } from '@xihan-ui/web-components/authoring'
 import { dataFieldPayload } from './data-panel'
+import { linkableDimensions } from './link-sources'
 
 /** 字段栏的编辑对象：视图属于报表主体（card 缺省）或表格卡片，查询属于图表或指标卡片。 */
 interface WellsOwner {
@@ -44,6 +47,8 @@ export interface WellsHost {
   readonly document: () => ReportDocument | undefined
   readonly execute: (operations: readonly ReportOperation[]) => void
   readonly selectItem: (ref: ReportItemRef) => void
+  /** 选中以 card 为源的联动。 */
+  readonly selectLink: (card: string, id: string) => void
   readonly isReadonly: () => boolean
 }
 
@@ -62,6 +67,11 @@ export function withFilledBindings(document: ReportDocument, owner: ItemOwner, o
   if (owner.card === undefined || operations.length === 0)
     return [...operations]
   return [...operations, ...planFillBindings(applyOperations(document, operations).document, owner.card)]
+}
+
+/** 卡片上能作联动源的维度与标题。 */
+function linkSources(card: DashboardCard | undefined): readonly WellItem[] {
+  return linkableDimensions(card).map(item => ({ id: item.id, label: item.title ?? item.field ?? item.id }))
 }
 
 /** 字段栏的编辑对象：主体不是看板时是主体的视图；是看板时是唯一选中的那张卡片，否则没有。 */
@@ -118,6 +128,11 @@ export class Wells {
   readonly #host: WellsHost
   readonly #hint: HTMLElement
   readonly #lists: HTMLElement
+  readonly #links: HTMLElement
+  readonly #linksLabel: HTMLElement
+  readonly #linkTags: HTMLElement
+  readonly #addLink: HTMLElement
+  #linksKey = ''
   #owner: WellsOwner | undefined
   #wells = new Map<ItemList, RenderedWell>()
   #ownerKey = ''
@@ -128,7 +143,13 @@ export class Wells {
     const doc = host.ownerDocument
     this.#hint = createAuthoredElement(doc, 'p', { 'data-part': 'wells-hint' })
     this.#lists = createAuthoredElement(doc, 'div', { 'data-part': 'well-lists' })
-    this.element = createGeneratedElement(doc, 'div', { 'data-part': 'wells', 'slot': 'wells' }, [this.#hint, this.#lists])
+    this.#linksLabel = createAuthoredElement(doc, 'span', { 'data-part': 'well-label' })
+    this.#linkTags = createAuthoredElement(doc, 'div', { 'data-part': 'well-link-tags' })
+    const addButton = createAuthoredElement(doc, 'button', { 'data-xh-part': 'root', 'type': 'button' })
+    this.#addLink = createAuthoredElement(doc, 'xh-button', { 'variant': 'ghost', 'size': 'sm', 'data-part': 'well-add-link' }, [addButton])
+    addButton.addEventListener('click', () => this.#createLink())
+    this.#links = createAuthoredElement(doc, 'div', { 'data-part': 'well-links', 'hidden': true }, [this.#linksLabel, this.#linkTags, this.#addLink])
+    this.element = createGeneratedElement(doc, 'div', { 'data-part': 'wells', 'slot': 'wells' }, [this.#hint, this.#lists, this.#links])
   }
 
   /** 按文档与选择重排：编辑对象或列表的结构变了才重建该列表的标记；选中的项带 data-selected。 */
@@ -153,6 +174,61 @@ export class Wells {
       for (const [id, item] of well.items)
         item.toggleAttribute('data-selected', chosen?.list === list && chosen.id === id)
     }
+    this.#renderLinks(document, owner, selection, t, readonly)
+  }
+
+  /** 联动一段：只在编辑对象是看板卡片时显示；结构或文案变了才重建标签，选中的那条带 data-selected。 */
+  #renderLinks(document: ReportDocument, owner: WellsOwner | undefined, selection: ReportSelection, t: ReportDesignerTranslations, readonly: boolean): void {
+    const body = document.body
+    const card = owner?.card
+    this.#links.hidden = card === undefined || body.type !== 'dashboard'
+    if (card === undefined || body.type !== 'dashboard')
+      return
+    const source = body.cards.find(item => item.id === card)
+    const dimensions = new Map(linkSources(source).map(item => [item.id, item.label]))
+    const links = (body.links ?? []).filter(link => link.card === card).map(link => ({ id: link.id, label: t.linkLabel(dimensions.get(link.dimension) ?? link.dimension, link.targets.length) }))
+    const key = JSON.stringify([card, links, readonly, t.links, t.addLink, t.delete])
+    if (key !== this.#linksKey) {
+      this.#linksKey = key
+      const doc = this.#host.ownerDocument
+      setText(this.#linksLabel, t.links)
+      setText(this.#addLink.querySelector<HTMLElement>('[data-xh-part="root"]')!, t.addLink)
+      this.#addLink.hidden = readonly
+      this.#linkTags.replaceChildren(...links.map((link) => {
+        const tag = createAuthoredElement(doc, 'xh-tag', { 'variant': 'subtle', 'size': 'sm', 'closable': !readonly, 'data-link': link.id }, [
+          createAuthoredElement(doc, 'span', { 'data-xh-part': 'root' }, [
+            createAuthoredElement(doc, 'span', { 'data-xh-part': 'label' }, [link.label]),
+            createAuthoredElement(doc, 'button', { 'data-xh-part': 'close-trigger', 'type': 'button' }),
+          ]),
+        ]) as XhTagElement
+        tag.setAttribute('open', '')
+        tag.translations = { close: `${t.delete} ${link.label}` }
+        tag.addEventListener('open-change', (event) => {
+          if ((event as CustomEvent<{ open: boolean }>).detail.open === false && !this.#host.isReadonly())
+            this.#host.execute([{ type: 'removeLink', id: link.id }])
+        })
+        tag.addEventListener('click', (event) => {
+          if (!(event.target as Element).closest('[data-xh-part="close-trigger"]'))
+            this.#host.selectLink(card, link.id)
+        })
+        return tag
+      }))
+    }
+    for (const tag of this.#linkTags.querySelectorAll<HTMLElement>('[data-link]'))
+      tag.toggleAttribute('data-selected', tag.dataset.link === selection.link)
+  }
+
+  /** 新增一条以编辑对象为源的联动：源维度取它的第一个能发出取值的维度，目标留空；选中它。 */
+  #createLink(): void {
+    const document = this.#host.document()
+    const card = this.#owner?.card
+    const body = document?.body
+    if (card === undefined || body?.type !== 'dashboard' || this.#host.isReadonly())
+      return
+    const id = createIdAllocator('link', (body.links ?? []).map(link => link.id)).next()
+    const dimension = linkSources(body.cards.find(item => item.id === card))[0]?.id ?? ''
+    this.#host.execute([{ type: 'addLink', link: { id, card, dimension, targets: [] } }])
+    this.#host.selectLink(card, id)
   }
 
   #createWell(list: ItemList, pivot: boolean): RenderedWell {

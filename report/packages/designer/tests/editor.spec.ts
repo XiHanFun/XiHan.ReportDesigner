@@ -137,6 +137,15 @@ describe('createReportEditor', () => {
     expect(editor.selection).toEqual({ cards: [] })
   })
 
+  it('选中联动：删除选择即删掉这条联动；联动没了选择随之去掉', () => {
+    const editor = createReportEditor({ document: board })
+    editor.select({ cards: ['pie'], link: 'byRegion' })
+    expect(editor.selection).toEqual({ cards: ['pie'], link: 'byRegion' })
+    expect(editor.deleteSelection()).toBe(true)
+    expect((editor.document.body as DashboardView).links).toBeUndefined()
+    expect(editor.selection).toEqual({ cards: ['pie'] })
+  })
+
   it('选择：替换、追加、切换与全选', () => {
     const editor = createReportEditor({ document: board })
     editor.select({ cards: ['a'] })

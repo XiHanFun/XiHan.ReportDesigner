@@ -7,7 +7,7 @@
 // nestProperties 加上前缀；报表自己的取值方式里，引用数据集、字段、维度、度量与卡片的换成带候选项的 select。
 // 面板派发的写入换成对应的编辑操作，连续输入按合并键并成一步撤销，一次编辑结束时封口。
 
-import type { DashboardView, DataView, ItemList, PropertyChange, ReportDocument, ReportOperation, ReportPropertyControl, ReportPropertyDescriptor, ReportQuery, ValidationIssue } from '@xihan-report/core'
+import type { DashboardCard, DashboardView, DataView, ItemList, PropertyChange, ReportDocument, ReportOperation, ReportPropertyControl, ReportPropertyDescriptor, ReportQuery, ValidationIssue } from '@xihan-report/core'
 import type { ReportDesignerTranslations } from '@xihan-report/runtime'
 import type { RenderContext } from '@xihan-report/runtime/design'
 import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
@@ -22,6 +22,7 @@ import {
   dimensionProperties,
   documentProperties,
   groupLevelProperties,
+  linkProperties,
   measureProperties,
   metricProperties,
   parameterProperties,
@@ -33,6 +34,7 @@ import {
 import { formatJsonPath } from '@xihan-ui/core/json'
 import { nestProperties } from '@xihan-ui/designer-kit/properties'
 import { createGeneratedElement } from '@xihan-ui/web-components/authoring'
+import { linkableDimensions } from './link-sources'
 import { parameterValueEditor } from './property-editors'
 
 /** 数据集能改到什么程度。 */
@@ -99,6 +101,8 @@ function itemDescriptors(kind: string): ReportPropertyDescriptor[] {
 interface Scope {
   readonly dataset: string | undefined
   readonly query: ReportQuery | undefined
+  /** 联动的源卡片：列出它能发出取值的维度。 */
+  readonly card?: DashboardCard
 }
 
 export class PropertiesPanel {
@@ -143,6 +147,8 @@ export class PropertiesPanel {
     if (selection.data)
       return this.#bindData(document, selection.data)
     const body = document.body
+    if (selection.link !== undefined)
+      return this.#bindLink(document, selection.link)
     if (selection.item)
       return this.#bindItem(document, selection.item)
     if (body.type === 'dashboard' && selection.cards.length > 0) {
@@ -152,6 +158,24 @@ export class PropertiesPanel {
       })
     }
     return [this.#bindDocument(document)]
+  }
+
+  /** 一条联动：源卡片、源维度与目标；源维度的候选项随源卡片变化。 */
+  #bindLink(document: ReportDocument, id: string): Binding[] {
+    const body = document.body
+    if (body.type !== 'dashboard')
+      return []
+    const index = body.links?.findIndex(link => link.id === id) ?? -1
+    const link = body.links?.[index]
+    if (!link)
+      return []
+    const card = body.cards.find(item => item.id === link.card)
+    const scope: Scope = { dataset: card?.kind === 'table' ? card.view.dataset : card?.dataset, query: undefined, ...(card ? { card } : {}) }
+    return [{
+      target: { kind: 'link', id, value: link as unknown as JsonValue, descriptors: this.#nest([], 'link', linkProperties(), document, scope) },
+      base: ['body', 'links', index],
+      write: changes => [{ type: 'updateLink', id, changes }],
+    }]
   }
 
   /** 没有选中时：报表文档，连同看板网格或主体视图的属性。 */
@@ -313,6 +337,12 @@ export class PropertiesPanel {
       case 'card': {
         const body = document.body
         return select(body.type === 'dashboard' ? body.cards.map(card => ({ value: card.id, label: card.title ?? card.id })) : [])
+      }
+      case 'cardDimension': {
+        const source = scope.card
+        const fields = source?.kind === 'table' ? source.view.dataset : source?.dataset
+        const fieldTitle = (name: string): string => document.datasets.find(item => item.id === fields)?.fields.find(field => field.name === name)?.title ?? name
+        return select(linkableDimensions(source).map(item => ({ value: item.id, label: item.title ?? (item.field === undefined ? item.id : fieldTitle(item.field)) })))
       }
       default:
         return control

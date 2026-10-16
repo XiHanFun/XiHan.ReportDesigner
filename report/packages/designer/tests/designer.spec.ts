@@ -539,6 +539,26 @@ describe('<xh-report-designer>：编辑', () => {
     expect(entries()).toEqual([['paste', true], ['select-all', false]])
   })
 
+  it('字段栏的联动一段：新增以选中卡片为源的联动并选中它，属性面板编辑源维度与目标，点叉删除', async () => {
+    const designer = await mount()
+    designer.select({ cards: ['pie'] })
+    await designer.updateComplete
+    const links = designer.querySelector<HTMLElement>('[data-part="well-links"]')!
+    expect(links.hidden).toBe(false)
+    links.querySelector<HTMLButtonElement>('[data-part="well-add-link"] button')!.click()
+    await designer.updateComplete
+    expect((designer.schema!.body as DashboardView).links).toEqual([{ id: 'link1', card: 'pie', dimension: 'region', targets: [] }])
+    expect(designer.getSelection()).toEqual({ cards: ['pie'], link: 'link1' })
+    const panel = designer.querySelector('xh-designer-properties')!
+    expect(panel.targets!.map(target => target.kind)).toEqual(['link'])
+    expect(panel.targets![0]!.descriptors.find(descriptor => descriptor.path[0] === 'dimension')!.control).toEqual({ kind: 'select', options: [{ value: 'region', label: 'region' }] })
+    panel.dispatchEvent(new CustomEvent('property-change', { detail: { path: ['targets'], value: [{ card: 'a', field: 'region' }], targets: [{ kind: 'link', id: 'link1' }], merge: 'x' } }))
+    await designer.updateComplete
+    expect(links.querySelector('xh-tag[data-link="link1"]')!.textContent).toBe('region → 1 card')
+    links.querySelector('xh-tag[data-link="link1"]')!.dispatchEvent(new CustomEvent('open-change', { detail: { open: false } }))
+    expect((designer.schema!.body as DashboardView).links).toBeUndefined()
+  })
+
   it('赋新的 schema 装载并派发 load，赋回当前文档不重新装载', async () => {
     const designer = await mount()
     const schemaChanges = events(designer, 'schema-change') as { kind: string }[]

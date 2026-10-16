@@ -57,6 +57,10 @@ export interface ReportDesignerTranslations {
   readonly selected: (count: number) => string
   /** 看板上还没有卡片时的提示。 */
   readonly emptyDashboard: string
+  /** 字段栏里以选中卡片为源的联动：段名、新增按钮与一条联动的名字（源维度与目标卡片数）。 */
+  readonly links: string
+  readonly addLink: string
+  readonly linkLabel: (dimension: string, targets: number) => string
   /** 字段栏没有编辑对象（看板上没有选中、或选中了多张卡片）时的提示。 */
   readonly wellsEmpty: string
   /** 字段栏的空列表提示。 */
@@ -166,6 +170,9 @@ export const DEFAULT_REPORT_DESIGNER_TRANSLATIONS: ReportDesignerTranslations = 
   optionLabels: {},
   selected: count => `${count} selected`,
   emptyDashboard: 'Drag a chart, metric or table here',
+  links: 'Links',
+  addLink: 'Add link',
+  linkLabel: (dimension, targets) => `${dimension} → ${targets} ${targets === 1 ? 'card' : 'cards'}`,
   wellsEmpty: 'Select a card to edit its fields',
   emptyList: 'Drop fields here',
   placeholder: 'Sample data appears when a data provider is set',

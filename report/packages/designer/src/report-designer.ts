@@ -22,7 +22,7 @@ import { getLocalTimeZone } from '@xihan-ui/core/date'
 import { createIdAllocator, selectInMarquee } from '@xihan-ui/designer-kit'
 import { defineDesignerShellElement, parseDesignerPanels, registerDropTarget, XhDesignerFrameElement, XhDesignerIssuesElement, XhDesignerPaletteElement, XhDesignerPropertiesElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
 import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, setText, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
-import { defineXhElement, XhContextMenuElement, XhSortableElement, XhTagElement, XhToolbarElement, XhTreeElement } from '@xihan-ui/web-components/define'
+import { defineXhElement, XhButtonElement, XhContextMenuElement, XhSortableElement, XhTagElement, XhToolbarElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import { CanvasContent } from './canvas'
 import { readReportClipboardData, writeReportClipboardData } from './clipboard'
 import { COMMAND_LABELS, isReportCommand, MENU_ENTRIES, TOOLBAR_GROUPS } from './commands'
@@ -516,6 +516,7 @@ export class XhReportDesigner extends XhReactiveElement {
       document: () => this.#editor?.document,
       execute: operations => this.#editor?.execute(operations),
       selectItem: ref => this.#editor?.select({ cards: ref.card === undefined ? [] : [ref.card], item: ref }),
+      selectLink: (card, id) => this.#editor?.select({ cards: [card], link: id }),
       isReadonly: () => this.readonly,
     })
     const properties = new PropertiesPanel({
@@ -1175,6 +1176,7 @@ export class XhReportDesigner extends XhReactiveElement {
 /** 注册 <xh-report-designer> 与它用到的查看器、UI 元素与 designer-shell 零件；import 时不注册。 */
 export function defineReportDesigner(): void {
   defineReportViewer()
+  defineXhElement('xh-button', XhButtonElement)
   defineXhElement('xh-context-menu', XhContextMenuElement)
   defineXhElement('xh-sortable', XhSortableElement)
   defineXhElement('xh-tag', XhTagElement)

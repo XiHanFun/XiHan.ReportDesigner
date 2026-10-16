@@ -39,10 +39,15 @@ export type ReportDataRef
     | { readonly kind: 'field', readonly dataset: string, readonly name: string }
     | { readonly kind: 'parameter', readonly name: string }
 
-/** 选择：看板上的卡片，以及可选的一个列表项；或者数据面板里的一个对象，这时不选卡片与列表项。 */
+/**
+ * 选择：看板上的卡片，以及可选的一个列表项或一条以选中卡片为源的联动；或者数据面板里的一个对象，这时不选卡片、
+ * 列表项与联动。
+ */
 export interface ReportSelection {
   readonly cards: readonly string[]
   readonly item?: ReportItemRef
+  /** 选中的联动 id；它的源卡片也在 cards 里。 */
+  readonly link?: string
   readonly data?: ReportDataRef
 }
 
@@ -188,7 +193,7 @@ export function createReportEditor(options: ReportEditorOptions): ReportEditor {
   }
 
   const setSelection = (next: ReportSelection): void => {
-    if (next.cards.length === selection.cards.length && next.cards.every((id, i) => id === selection.cards[i]) && JSON.stringify(next.item) === JSON.stringify(selection.item) && JSON.stringify(next.data) === JSON.stringify(selection.data))
+    if (next.cards.length === selection.cards.length && next.cards.every((id, i) => id === selection.cards[i]) && JSON.stringify(next.item) === JSON.stringify(selection.item) && next.link === selection.link && JSON.stringify(next.data) === JSON.stringify(selection.data))
       return
     selection = next
     emit({ kind: 'selection', selection })
@@ -205,7 +210,8 @@ export function createReportEditor(options: ReportEditorOptions): ReportEditor {
     const ids = new Set(dashboard?.cards.map(card => card.id) ?? [])
     const cards = selection.cards.filter(id => ids.has(id))
     const item = selection.item && itemExists(document, selection.item) ? selection.item : undefined
-    setSelection(item ? { cards, item } : { cards })
+    const link = selection.link !== undefined && dashboard?.links?.some(entry => entry.id === selection.link) ? selection.link : undefined
+    setSelection(item ? { cards, item } : link !== undefined ? { cards, link } : { cards })
   }
 
   history.subscribe((change) => {
@@ -295,7 +301,7 @@ export function createReportEditor(options: ReportEditorOptions): ReportEditor {
       }
       const cards = next.cards ?? []
       if (mode === 'replace') {
-        setSelection(next.item ? { cards: [...cards], item: next.item } : { cards: [...cards] })
+        setSelection(next.item ? { cards: [...cards], item: next.item } : next.link !== undefined ? { cards: [...cards], link: next.link } : { cards: [...cards] })
         return
       }
       const current = new Set(selection.cards)
@@ -321,6 +327,10 @@ export function createReportEditor(options: ReportEditorOptions): ReportEditor {
       return requireDashboard(history.document).cards.find(card => card.id === id)!
     },
     deleteSelection(executeOptions) {
+      if (selection.link !== undefined) {
+        execute([{ type: 'removeLink', id: selection.link }], executeOptions)
+        return true
+      }
       if (selection.item) {
         const { card, list, id } = selection.item
         execute(planRemoveItem(history.document, card === undefined ? {} : { card }, list, id), executeOptions)

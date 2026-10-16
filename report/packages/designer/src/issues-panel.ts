@@ -47,6 +47,10 @@ export function issueSelection(document: ReportDocument, issue: ValidationIssue)
     const id = isItemList(rest[0]) ? idAt((body as unknown as Record<string, unknown>)[rest[0]], rest[1]) : undefined
     return id !== undefined && isItemList(rest[0]) ? { cards: [], item: { list: rest[0], id } } : { cards: [] }
   }
+  if (rest[0] === 'links') {
+    const link = body.links?.[rest[1] as number]
+    return link ? { cards: [link.card], link: link.id } : { cards: [] }
+  }
   if (rest[0] !== 'cards')
     return { cards: [] }
   const card = body.cards[rest[1] as number]
