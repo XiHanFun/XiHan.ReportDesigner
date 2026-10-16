@@ -9,7 +9,8 @@
 import type { DashboardCard, DashboardView, ExpressionEngine, ParameterValues, ReportCardType, ReportDocument, ReportOperation, ValidationIssue } from '@xihan-report/core'
 import type { ReportDataProvider, ReportDesignerTranslations, ReportFormatter, ReportViewerTranslations } from '@xihan-report/runtime'
 import type { ExecuteOptions, GridRect, HistoryChangeKind, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
-import type { DesignerFrameRegion, DesignerPaletteEventMap, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
+import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
+import type { DesignerFrameRegion, DesignerPaletteEventMap, DesignerPropertyEditor, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { LayoutGesture, ReportAddCardInit, ReportClipboard, ReportEditor, ReportItemRef, ReportSelection } from './editor'
 import type { GridMetrics } from './grid-geometry'
@@ -18,7 +19,7 @@ import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS, DEFAULT_REPORT_VIEWER_TRANSLATION
 import { createRenderContext, defineViewerElements } from '@xihan-report/runtime/design'
 import { getLocalTimeZone } from '@xihan-ui/core/date'
 import { createIdAllocator, selectInMarquee } from '@xihan-ui/designer-kit'
-import { defineDesignerShellElement, registerDropTarget, XhDesignerFrameElement, XhDesignerPaletteElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
+import { defineDesignerShellElement, registerDropTarget, XhDesignerFrameElement, XhDesignerPaletteElement, XhDesignerPropertiesElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
 import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { defineXhElement, XhSortableElement, XhTagElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import { CanvasContent } from './canvas'
@@ -27,6 +28,7 @@ import { dataFieldPayload, DataPanel } from './data-panel'
 import { createReportEditor, writeReportClipboard } from './editor'
 import { cellSize, cellToRect, centeredCell, clipCell, measureGrid, rectToCell } from './grid-geometry'
 import { paletteCardType, paletteGroups } from './palette'
+import { PropertiesPanel } from './properties-panel'
 import { fieldList, Wells, wellsOwner, withFilledBindings } from './wells'
 
 export const REPORT_DESIGNER_TAG = 'xh-report-designer'
@@ -38,6 +40,9 @@ export type ReportDesignerPanel = (typeof REPORT_DESIGNER_PANELS)[number]
 
 /** 设计或预览。 */
 export type ReportDesignerMode = 'design' | 'preview'
+
+/** 宿主的属性编辑器：按 designer-kit 的 resolvePropertyEditor 查找，压在内建之上。 */
+export type ReportPropertyEditor = DesignerPropertyEditor
 
 /** 数据集能改到什么程度：none 只读；fields 能改字段的标题、类型与计算字段公式，增删报表参数；full 另能增删数据集与字段。 */
 export type ReportDatasetEditing = 'none' | 'fields' | 'full'
@@ -60,12 +65,13 @@ export interface ReportDesignerEventMap {
   'blank-contextmenu': CustomEvent<{ x: number, y: number }>
 }
 
-/** 外框的命名区：左侧上下是数据与物料，中间是画布，右侧是字段栏。 */
+/** 外框的命名区：左侧上下是数据与物料，中间是画布，右侧上下是字段栏与属性。 */
 const FRAME_REGIONS: readonly DesignerFrameRegion[] = [
   { name: 'data', position: 'start', size: 18 },
   { name: 'palette', position: 'start' },
   { name: 'canvas', position: 'center' },
-  { name: 'wells', position: 'end', size: 20 },
+  { name: 'wells', position: 'end', size: 24 },
+  { name: 'properties', position: 'end' },
 ]
 
 interface Layers {
@@ -80,6 +86,7 @@ interface Layers {
   readonly palette: XhDesignerPaletteElement
   readonly data: DataPanel
   readonly wells: Wells
+  readonly properties: PropertiesPanel
 }
 
 /** 数据面板的字段拖到画布上的落点：卡片（缺省为报表主体的视图）与字段。 */
@@ -138,7 +145,7 @@ export class XhReportDesigner extends XhReactiveElement {
   /** 预览与画布取数用的报表参数取值。 */
   declare parameters: ParameterValues | undefined
   /** 自定义属性编辑器，压在内建之上。 */
-  declare editors: unknown
+  declare editors: PropertyEditorTable<ReportPropertyEditor> | undefined
   declare translations: Partial<ReportDesignerTranslations> | undefined
   declare locale: string | undefined
   declare timeZone: string | undefined
@@ -460,7 +467,15 @@ export class XhReportDesigner extends XhReactiveElement {
       selectItem: ref => this.#editor?.select({ cards: ref.card === undefined ? [] : [ref.card], item: ref }),
       isReadonly: () => this.readonly,
     })
-    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [data.element, palette, workspace, wells.element]) as XhDesignerFrameElement
+    const properties = new PropertiesPanel({
+      ownerDocument: doc,
+      editor: () => this.#editor,
+      isReadonly: () => this.readonly,
+      datasetEditing: () => this.datasetEditing ?? 'fields',
+      issues: () => this.#issues,
+      editors: () => this.editors,
+    })
+    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [data.element, palette, workspace, wells.element, properties.element]) as XhDesignerFrameElement
     this.replaceChildren(frame)
     canvas.addEventListener('pointerdown', this.#onPointerDown)
     canvas.addEventListener('pointermove', this.#onHover)
@@ -480,14 +495,14 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#viewport = undefined
     this.#drop = undefined
     this.#paletteKey = ''
-    this.#layers = { frame, canvas, scroller, surface, content, overlay, empty, dropPreview, palette, data, wells }
+    this.#layers = { frame, canvas, scroller, surface, content, overlay, empty, dropPreview, palette, data, wells, properties }
     return this.#layers
   }
 
   /** panels 原样交给外框；区名换成文案，供分隔条的无障碍名称使用，文案没变时不重设。 */
   #syncFrame(frame: XhDesignerFrameElement, t: ReportDesignerTranslations): void {
     frame.panels = this.panels
-    const labels: Readonly<Record<string, string>> = { data: t.data, palette: t.palette, canvas: t.canvas, wells: t.wells }
+    const labels: Readonly<Record<string, string>> = { data: t.data, palette: t.palette, canvas: t.canvas, wells: t.wells, properties: t.properties }
     const regions = FRAME_REGIONS.map(region => ({ ...region, label: labels[region.name] ?? region.name }))
     const current = frame.regions
     if (current?.length === regions.length && current.every((region, index) => region.label === regions[index]!.label))
@@ -714,6 +729,7 @@ export class XhReportDesigner extends XhReactiveElement {
     const t = this.#translations()
     this.#layers.data.update(editor.document, editor.selection.data, t)
     this.#layers.wells.update(editor.document, editor.selection, t)
+    this.#layers.properties.update(t)
   }
 
   /** 新卡片的模板，取数用第一个数据集。 */
@@ -946,6 +962,7 @@ export function defineReportDesigner(): void {
   defineXhElement('xh-tree', XhTreeElement)
   defineDesignerShellElement('xh-designer-frame', XhDesignerFrameElement)
   defineDesignerShellElement('xh-designer-palette', XhDesignerPaletteElement)
+  defineDesignerShellElement('xh-designer-properties', XhDesignerPropertiesElement)
   defineDesignerShellElement('xh-designer-transform', XhDesignerTransformElement)
   registerElement(REPORT_DESIGNER_TAG, XhReportDesigner)
 }

@@ -318,6 +318,7 @@ export const reportZhCN: XhConfig = mergeXhConfig(designerShellZhCN, {
       wells: '字段',
       lists: LIST_LABELS,
       palette: '物料',
+      properties: '属性',
       paletteGroups: { charts: '图表', metrics: '指标', tables: '表格' },
       cardTypes: {
         'chart.cartesian': '柱线图',
