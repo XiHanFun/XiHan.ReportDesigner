@@ -24,19 +24,16 @@ import type {
   TableView,
 } from '@xihan-report/core'
 import type { XlsxCell, XlsxHeaderNode, XlsxMerge, XlsxRow, XlsxSheet } from '@xihan-ui/xlsx'
+import type { ReportViewerTranslations } from '../translations'
 import { createDateTools, crosstabAxes, isAggregateMeasure } from '@xihan-report/core'
 import { formatValue } from '@xihan-ui/expression'
 import { isMissing } from '@xihan-ui/viz'
 import { formatCode, headerRows, sheetName } from '@xihan-ui/xlsx'
 import { fieldLabel, measureLabel } from '../labels'
+import { DEFAULT_REPORT_VIEWER_TRANSLATIONS } from '../translations'
 
-/** 工作表里的内建文字。 */
-export interface XlsxTranslations {
-  /** 总计行、总计列的标签。 */
-  readonly total: string
-  /** 小计行、小计列的标签。 */
-  readonly subtotal: string
-}
+/** 工作表里的内建文字：查看器语言包里的总计与小计，两边共用一份。 */
+export type XlsxTranslations = Pick<ReportViewerTranslations, 'total' | 'subtotal'>
 
 /** 生成工作表的选项。 */
 export interface SheetOptions {
@@ -49,7 +46,7 @@ export interface SheetOptions {
   readonly translations?: Partial<XlsxTranslations>
 }
 
-const DEFAULT_TRANSLATIONS: XlsxTranslations = { total: 'Total', subtotal: 'Subtotal' }
+const DEFAULT_TRANSLATIONS: XlsxTranslations = { total: DEFAULT_REPORT_VIEWER_TRANSLATIONS.total, subtotal: DEFAULT_REPORT_VIEWER_TRANSLATIONS.subtotal }
 const COUNT_FORMAT = '#,##0'
 const HEADER_WIDTH = 16
 const PX_PER_CHAR = 7

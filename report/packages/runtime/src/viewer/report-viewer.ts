@@ -9,6 +9,7 @@
 import type { ComputeOptions, DashboardView, DatasetData, DatasetRequest, ExpressionEngine, LinkSelections, ParameterIssueCode, ParameterValue, ParameterValues, ReportDocument, ScalarValue, ValidationIssueCode } from '@xihan-report/core'
 import type { SchemaIssue } from '@xihan-ui/designer-kit/schema'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
+import type { XlsxSheet } from '@xihan-ui/xlsx'
 import type { ReportViewerTranslations } from '../translations'
 import type { ChartPress, RenderedChart } from './charts'
 import type { ViewResult } from './compute'
@@ -153,6 +154,45 @@ export class XhReportViewer extends XhReactiveElement {
   /** 清除看板联动的选中值。 */
   clearSelections(): void {
     this.#setSelections({})
+  }
+
+  /**
+   * 把当前的计算结果导出成 xlsx：表格主体导出一张表，看板按已算好的表格卡片各导一张（表名取卡片标题）。
+   * 写出部分按需加载。还没有可导出的结果时抛 RangeError。
+   */
+  async exportXlsx(options: { readonly name?: string } = {}): Promise<Blob> {
+    const [sheets, xlsx] = await Promise.all([import('../xlsx/index'), import('@xihan-ui/xlsx')])
+    const t = this.#translations()
+    const base = { timeZone: this.#timeZone(), translations: { total: t.total, subtotal: t.subtotal } }
+    const sheet = (view: ViewResult, name: string): XlsxSheet => {
+      const sheetOptions = { ...base, dataset: view.dataset, name }
+      if (view.type === 'table')
+        return sheets.tableSheet(view.view, view.result, sheetOptions)
+      if (view.type === 'group')
+        return sheets.groupSheet(view.view, view.result, sheetOptions)
+      return sheets.crosstabSheet(view.view, view.result, sheetOptions)
+    }
+    const result: XlsxSheet[] = []
+    const dashboard = this.#dashboard()
+    if (dashboard) {
+      const used = new Set<string>()
+      for (const card of dashboard.cards) {
+        const state = this.#cards.get(card.id)
+        if (state?.status !== 'ready' || state.result.kind !== 'table')
+          continue
+        let name = xlsx.sheetName(card.title ?? card.id)
+        for (let index = 2; used.has(name.toLowerCase()); index++)
+          name = xlsx.sheetName(`${(card.title ?? card.id).slice(0, 26)} (${index})`)
+        used.add(name.toLowerCase())
+        result.push(sheet(state.result.view, name))
+      }
+    }
+    else if (this.#view) {
+      result.push(sheet(this.#view, options.name ?? this.schema?.title ?? this.schema?.id ?? ''))
+    }
+    if (result.length === 0)
+      throw new RangeError('[xh-report-viewer] there is no computed table to export')
+    return xlsx.xlsxBlob(await xlsx.writeXlsx({ sheets: result }))
   }
 
   override disconnectedCallback(): void {
