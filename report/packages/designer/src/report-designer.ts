@@ -8,19 +8,22 @@
 
 import type { DashboardCard, DashboardView, ExpressionEngine, ParameterValues, ReportDocument, ReportOperation, ValidationIssue } from '@xihan-report/core'
 import type { ReportDataProvider, ReportDesignerTranslations, ReportFormatter, ReportViewerTranslations } from '@xihan-report/runtime'
-import type { ExecuteOptions, HistoryChangeKind, Rect } from '@xihan-ui/designer-kit'
-import type { DesignerFrameRegion, DesignerTransformItem } from '@xihan-ui/designer-shell'
+import type { ExecuteOptions, GridRect, HistoryChangeKind, Rect, Viewport } from '@xihan-ui/designer-kit'
+import type { DesignerFrameRegion, DesignerTransformEventMap, DesignerTransformItem, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
-import type { ReportAddCardInit, ReportClipboard, ReportEditor, ReportItemRef, ReportSelection } from './editor'
+import type { LayoutGesture, ReportAddCardInit, ReportClipboard, ReportEditor, ReportItemRef, ReportSelection } from './editor'
+import type { GridMetrics } from './grid-geometry'
 import { resolveParameters } from '@xihan-report/core'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS, DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter } from '@xihan-report/runtime'
 import { createRenderContext, defineViewerElements } from '@xihan-report/runtime/design'
 import { getLocalTimeZone } from '@xihan-ui/core/date'
+import { selectInMarquee } from '@xihan-ui/designer-kit'
 import { defineDesignerShellElement, XhDesignerFrameElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
 import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { CanvasContent } from './canvas'
 import { readReportClipboardData, writeReportClipboardData } from './clipboard'
 import { createReportEditor, writeReportClipboard } from './editor'
+import { cellSize, clipCell, measureGrid, rectToCell } from './grid-geometry'
 
 export const REPORT_DESIGNER_TAG = 'xh-report-designer'
 
@@ -61,13 +64,24 @@ const FRAME_REGIONS: readonly DesignerFrameRegion[] = [
 interface Layers {
   readonly frame: XhDesignerFrameElement
   readonly canvas: HTMLElement
+  readonly scroller: HTMLElement
   readonly surface: HTMLElement
   readonly content: HTMLElement
   readonly overlay: XhDesignerTransformElement
   readonly empty: HTMLElement
 }
 
+/** 进行中的卡片拖动或改大小：编辑模型的布局手势与最近一次写进去的格坐标。 */
+interface CardGesture {
+  readonly layout: LayoutGesture
+  readonly cells: Map<string, GridRect>
+}
+
 const EMPTY_SELECTION: ReportSelection = { cards: [] }
+
+function sameCell(a: GridRect | undefined, b: GridRect): boolean {
+  return a !== undefined && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h
+}
 
 function sameIssues(a: readonly ValidationIssue[], b: readonly ValidationIssue[]): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
@@ -121,6 +135,9 @@ export class XhReportDesigner extends XhReactiveElement {
   /** 事务里执行过的操作，提交时一起报出。 */
   #pending: ReportOperation[] = []
   #resize: ResizeObserver | undefined
+  #gesture: CardGesture | undefined
+  #hoverId: string | undefined
+  #viewport: Viewport | undefined
 
   constructor() {
     super()
@@ -226,11 +243,11 @@ export class XhReportDesigner extends XhReactiveElement {
   /** 卡片不在画布的可见区时才滚动到它。 */
   revealCard(id: string): void {
     const card = this.#content?.cardElement(id)
-    const canvas = this.#layers?.canvas
-    if (!card || !canvas)
+    const scroller = this.#layers?.scroller
+    if (!card || !scroller)
       return
     const box = card.getBoundingClientRect()
-    const view = canvas.getBoundingClientRect()
+    const view = scroller.getBoundingClientRect()
     if (box.top < view.top || box.bottom > view.bottom || box.left < view.left || box.right > view.right)
       card.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }
@@ -383,27 +400,34 @@ export class XhReportDesigner extends XhReactiveElement {
       return this.#layers
     const doc = this.ownerDocument
     const content = createAuthoredElement(doc, 'div', { 'data-part': 'content' })
-    const overlay = doc.createElement('xh-designer-transform') as XhDesignerTransformElement
-    overlay.dataset.part = 'overlay'
     const empty = createAuthoredElement(doc, 'div', { 'data-part': 'empty', 'hidden': true })
-    const surface = createAuthoredElement(doc, 'div', { 'data-part': 'surface' }, [content, overlay, empty])
-    const canvas = createAuthoredElement(doc, 'div', { 'data-part': 'canvas', 'role': 'group', 'tabindex': 0 }, [surface])
+    const surface = createAuthoredElement(doc, 'div', { 'data-part': 'surface' }, [content, empty])
+    const scroller = createAuthoredElement(doc, 'div', { 'data-part': 'scroller' }, [surface])
+    const overlay = createAuthoredElement(doc, 'xh-designer-transform', { 'data-part': 'overlay' }) as XhDesignerTransformElement
+    overlay.addEventListener('transform', this.#onTransform)
+    overlay.addEventListener('marquee', this.#onMarquee)
+    overlay.addEventListener('pan-request', this.#onPanRequest)
+    const canvas = createAuthoredElement(doc, 'div', { 'data-part': 'canvas', 'role': 'group', 'tabindex': 0 }, [scroller, overlay])
     const workspace = createAuthoredElement(doc, 'div', { 'data-part': 'workspace' }, [canvas])
     const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [workspace]) as XhDesignerFrameElement
     this.replaceChildren(frame)
     canvas.addEventListener('pointerdown', this.#onPointerDown)
+    canvas.addEventListener('pointermove', this.#onHover)
+    canvas.addEventListener('pointerleave', this.#onHoverEnd)
     canvas.addEventListener('dblclick', this.#onDoubleClick)
     canvas.addEventListener('contextmenu', this.#onContextMenu)
     canvas.addEventListener('keydown', this.#onKeyDown)
-    canvas.addEventListener('scroll', () => this.#renderSelection(), { passive: true })
+    scroller.addEventListener('scroll', () => this.#renderSelection(), { passive: true })
     this.#resize?.disconnect()
     if (typeof ResizeObserver === 'function') {
       this.#resize = new ResizeObserver(() => this.#renderSelection())
       this.#resize.observe(surface)
+      this.#resize.observe(scroller)
     }
     this.#content?.dispose()
     this.#content = new CanvasContent(content)
-    this.#layers = { frame, canvas, surface, content, overlay, empty }
+    this.#viewport = undefined
+    this.#layers = { frame, canvas, scroller, surface, content, overlay, empty }
     return this.#layers
   }
 
@@ -456,20 +480,44 @@ export class XhReportDesigner extends XhReactiveElement {
     return { x: box.left - origin.left, y: box.top - origin.top, width: box.width, height: box.height }
   }
 
-  /** 把选中的卡片交给覆盖层画选中框与控制柄。 */
+  /** 看板网格的几何；不是看板或网格还没有布局时为 undefined。 */
+  #gridMetrics(): GridMetrics | undefined {
+    const dashboard = this.#dashboard()
+    const grid = this.#content?.grid
+    const surface = this.#layers?.surface
+    if (!dashboard || !grid || !surface)
+      return undefined
+    return measureGrid(grid, surface, dashboard.grid.columns, dashboard.grid.rowHeight)
+  }
+
+  /**
+   * 覆盖层叠在画布的可见区上，世界坐标是 surface 里的画布像素：视口的位移就是 surface 相对覆盖层的偏移，随滚动变化。
+   * 选中的卡片交给覆盖层画选中框与控制柄，最小尺寸为一格；指针下没选中的卡片画悬停框。
+   */
   #renderSelection(): void {
     const layers = this.#layers
     if (!layers)
       return
+    const origin = layers.surface.getBoundingClientRect()
+    const screen = layers.overlay.getBoundingClientRect()
+    const viewport: Viewport = { x: origin.left - screen.left, y: origin.top - screen.top, zoom: 1 }
+    if (this.#viewport?.x !== viewport.x || this.#viewport.y !== viewport.y) {
+      this.#viewport = viewport
+      layers.overlay.viewport = viewport
+    }
     const selected = this.#editor?.selection.cards ?? []
+    const metrics = this.#gridMetrics()
+    const minSize = metrics ? cellSize(metrics) : undefined
     const items: DesignerTransformItem[] = []
     for (const id of selected) {
       const rect = this.#cardRect(id)
       if (rect)
-        items.push({ id, rect })
+        items.push(minSize ? { id, rect, minSize } : { id, rect })
     }
-    layers.overlay.viewport = { x: 0, y: 0, zoom: 1 }
     layers.overlay.items = items
+    const hover = this.#hoverId === undefined || selected.includes(this.#hoverId) ? undefined : this.#cardRect(this.#hoverId)
+    if (hover !== layers.overlay.hover)
+      layers.overlay.hover = hover
     for (const section of layers.content.querySelectorAll<HTMLElement>('[data-part="card"]'))
       section.toggleAttribute('data-selected', selected.includes(section.dataset.card ?? ''))
   }
@@ -485,22 +533,113 @@ export class XhReportDesigner extends XhReactiveElement {
     return section && this.#layers?.content.contains(section) ? section.dataset.card : undefined
   }
 
+  /**
+   * 按下卡片：Shift / Ctrl 切换它的选中；否则只选中它并交给覆盖层跑移动手势。按下空白：不带修饰键先清空选择，再开始框选。
+   * 按在滚动条上不处理。
+   */
   readonly #onPointerDown = (event: PointerEvent): void => {
-    if (event.button !== 0 || !this.#editor)
+    const editor = this.#editor
+    const layers = this.#layers
+    if (event.button !== 0 || !editor || !layers || this.#gesture)
       return
-    this.#layers?.canvas.focus({ preventScroll: true })
+    const scroller = layers.scroller
+    if (event.target === scroller && (event.offsetX >= scroller.clientWidth || event.offsetY >= scroller.clientHeight))
+      return
+    layers.canvas.focus({ preventScroll: true })
     const id = this.#cardAt(event.target)
+    const additive = event.shiftKey || event.ctrlKey || event.metaKey
     if (id === undefined) {
-      if (!event.shiftKey && !event.ctrlKey && !event.metaKey)
-        this.#editor.clearSelection()
+      if (!additive)
+        editor.clearSelection()
+      layers.overlay.startMarquee(event, { additive })
       return
     }
-    const additive = event.shiftKey || event.ctrlKey || event.metaKey
-    const selected = this.#editor.selection.cards.includes(id)
-    if (additive)
-      this.#editor.select({ cards: [id] }, 'toggle')
-    else if (!selected)
-      this.#editor.select({ cards: [id] })
+    if (additive) {
+      editor.select({ cards: [id] }, 'toggle')
+      return
+    }
+    const cards = editor.selection.cards
+    if (cards.length !== 1 || cards[0] !== id)
+      editor.select({ cards: [id] })
+    layers.overlay.startMove(event)
+  }
+
+  /**
+   * 覆盖层的移动、改大小手势：开始时开布局手势，每一帧把矩形换成格坐标，格坐标变了才写进编辑模型，
+   * 结束时提交为一步撤销，取消时回滚。移动只改位置，改大小连同位置一起改。
+   */
+  readonly #onTransform = (event: Event): void => {
+    const { phase, kind, rects } = (event as DesignerTransformEventMap['transform']).detail
+    const editor = this.#editor
+    if (!editor || kind === 'rotate')
+      return
+    if (phase === 'start') {
+      this.#gesture?.layout.cancel()
+      this.#gesture = { layout: editor.startLayout(), cells: new Map() }
+      return
+    }
+    const gesture = this.#gesture
+    if (!gesture)
+      return
+    if (phase === 'cancel') {
+      this.#gesture = undefined
+      gesture.layout.cancel()
+      return
+    }
+    const metrics = this.#gridMetrics()
+    const columns = this.#dashboard()?.grid.columns
+    if (metrics && columns !== undefined) {
+      for (const [id, rect] of rects) {
+        const cell = rectToCell(rect, metrics)
+        if (sameCell(gesture.cells.get(id), cell))
+          continue
+        gesture.cells.set(id, cell)
+        gesture.layout.move(id, kind === 'move' ? { x: Math.max(0, cell.x), y: Math.max(0, cell.y) } : clipCell(cell, columns))
+      }
+    }
+    if (phase === 'end') {
+      this.#gesture = undefined
+      gesture.layout.end()
+    }
+  }
+
+  /** 框选结束：选中落在选框里的卡片，带修饰键时追加。 */
+  readonly #onMarquee = (event: Event): void => {
+    const { phase, rect, mode, additive } = (event as DesignerTransformEventMap['marquee']).detail
+    const editor = this.#editor
+    const dashboard = this.#dashboard()
+    if (phase !== 'end' || !editor || !dashboard)
+      return
+    const placed = dashboard.cards.flatMap((card) => {
+      const box = this.#cardRect(card.id)
+      return box ? [{ id: card.id, box }] : []
+    })
+    const ids = selectInMarquee(rect, placed.map(item => item.box), mode).map(index => placed[index]!.id)
+    editor.select({ cards: ids }, additive ? 'add' : 'replace')
+  }
+
+  /** 手势贴到可见区边缘时滚动画布，并立即换上新的视口，同一帧接着算的位置随之对上。 */
+  readonly #onPanRequest = (event: Event): void => {
+    const { dx, dy } = (event as CustomEvent<PanRequestDetail>).detail
+    this.#layers?.scroller.scrollBy({ left: dx, top: dy })
+    this.#renderSelection()
+  }
+
+  readonly #onHover = (event: PointerEvent): void => {
+    if (event.buttons !== 0)
+      return
+    const id = this.#cardAt(event.target)
+    if (id === this.#hoverId)
+      return
+    this.#hoverId = id
+    this.#renderSelection()
+  }
+
+  readonly #onHoverEnd = (): void => {
+    if (this.#hoverId === undefined)
+      return
+    this.#hoverId = undefined
+    this.#renderSelection()
   }
 
   readonly #onDoubleClick = (event: MouseEvent): void => {
@@ -523,7 +662,7 @@ export class XhReportDesigner extends XhReactiveElement {
 
   readonly #onKeyDown = (event: KeyboardEvent): void => {
     const editor = this.#editor
-    if (!editor || event.target !== this.#layers?.canvas)
+    if (!editor || event.target !== this.#layers?.canvas || this.#gesture)
       return
     const command = event.ctrlKey || event.metaKey
     let handled = true
@@ -562,22 +701,21 @@ export class XhReportDesigner extends XhReactiveElement {
       event.preventDefault()
   }
 
-  /** 方向键挪一格，Shift 加方向键改大小一格；连续按并成一步撤销。 */
+  /** 只选中一张卡片时，方向键挪一格，Shift 加方向键改大小一格；每次按键一步撤销。 */
   #nudge(key: string, resize: boolean): boolean {
     const editor = this.#editor
     const dashboard = this.#dashboard()
-    if (!editor || !dashboard || this.readonly || editor.selection.cards.length === 0)
+    if (!editor || !dashboard || this.readonly || this.#gesture || editor.selection.cards.length !== 1)
+      return false
+    const id = editor.selection.cards[0]!
+    const card = dashboard.cards.find(item => item.id === id)
+    if (!card)
       return false
     const dx = key === 'ArrowLeft' ? -1 : key === 'ArrowRight' ? 1 : 0
     const dy = key === 'ArrowUp' ? -1 : key === 'ArrowDown' ? 1 : 0
+    const { x, y, w, h } = card.layout
     const gesture = editor.startLayout()
-    for (const id of editor.selection.cards) {
-      const card = dashboard.cards.find(item => item.id === id)
-      if (!card)
-        continue
-      const { x, y, w, h } = card.layout
-      gesture.move(id, resize ? { w: Math.max(1, w + dx), h: Math.max(1, h + dy) } : { x: Math.max(0, x + dx), y: Math.max(0, y + dy) })
-    }
+    gesture.move(id, resize ? { w: Math.max(1, w + dx), h: Math.max(1, h + dy) } : { x: Math.max(0, x + dx), y: Math.max(0, y + dy) })
     gesture.end()
     return true
   }

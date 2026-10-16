@@ -33,18 +33,25 @@ xh-report-designer [data-part='workspace'] {
   min-block-size: 0;
 }
 
-/* 画布：滚动区；内容区 surface 是覆盖层与网格共同的坐标原点 */
+/* 画布：可聚焦的外壳里是滚动区 scroller 与叠在可见区上的覆盖层；滚动区里的 surface 是世界坐标的原点 */
 xh-report-designer [data-part='canvas'] {
+  position: relative;
+  display: flex;
   flex: 1 1 auto;
   min-block-size: 0;
-  overflow: auto;
-  padding: var(--xh-space-4);
   background: var(--xh-bg-canvas);
   outline: none;
 }
 
 xh-report-designer [data-part='canvas']:focus-visible {
   box-shadow: inset 0 0 0 var(--xh-ring-width) var(--xh-ring-focus);
+}
+
+xh-report-designer [data-part='scroller'] {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow: auto;
+  padding: var(--xh-space-4);
 }
 
 xh-report-designer [data-part='surface'] {

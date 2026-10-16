@@ -86,6 +86,30 @@ function key(designer: XhReportDesigner, keyName: string, init: KeyboardEventIni
   designer.querySelector('[data-part="canvas"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: keyName, bubbles: true, cancelable: true, ...init }))
 }
 
+interface Box { x: number, y: number, width: number, height: number }
+
+function stub(element: Element, { x, y, width, height }: Box): void {
+  element.getBoundingClientRect = () => ({ x, y, left: x, top: y, width, height, right: x + width, bottom: y + height, toJSON: () => ({}) })
+}
+
+/** 画布原点在 (0, 0)，网格宽 1200、无间隙：一列 100、一行 40；卡片按定义的格坐标摆好。 */
+function placeGrid(designer: XhReportDesigner): void {
+  stub(designer.querySelector('[data-part="surface"]')!, { x: 0, y: 0, width: 1200, height: 800 })
+  stub(designer.querySelector('[data-part="dashboard"]')!, { x: 0, y: 0, width: 1200, height: 800 })
+  for (const item of cards(designer)) {
+    const { x, y, w, h } = item.layout
+    stub(card(designer, item.id), { x: x * 100, y: y * 40, width: w * 100, height: h * 40 })
+  }
+}
+
+function cards(designer: XhReportDesigner): DashboardView['cards'] {
+  return (designer.schema!.body as DashboardView).cards
+}
+
+function transform(designer: XhReportDesigner, phase: string, kind: string, id: string, rect: Box): void {
+  designer.querySelector('xh-designer-transform')!.dispatchEvent(new CustomEvent('transform', { detail: { phase, kind, rects: new Map([[id, rect]]), guides: [] } }))
+}
+
 async function settle(): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, 300))
   await new Promise(resolve => setTimeout(resolve, 0))
@@ -164,6 +188,59 @@ describe('<xh-report-designer>：编辑', () => {
     designer.undo()
     designer.undo()
     expect(designer.schema).toEqual(board)
+  })
+
+  it('同时选中多张卡片时方向键不挪动', async () => {
+    const designer = await mount()
+    designer.select({ cards: ['a', 'b'] })
+    const event = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })
+    designer.querySelector('[data-part="canvas"]')!.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(false)
+    expect(designer.schema).toEqual(board)
+  })
+
+  it('覆盖层的移动手势换成格坐标写进文档，松手记一步撤销、报一次 schema-change', async () => {
+    const designer = await mount()
+    placeGrid(designer)
+    const schemaChanges = events(designer, 'schema-change') as { kind: string, operations: { type: string }[] }[]
+    transform(designer, 'start', 'move', 'a', { x: 400, y: 0, width: 400, height: 80 })
+    transform(designer, 'move', 'move', 'a', { x: 30, y: 150, width: 400, height: 80 })
+    transform(designer, 'move', 'move', 'a', { x: 10, y: 170, width: 400, height: 80 })
+    expect(cards(designer).find(item => item.id === 'a')!.layout).toEqual({ x: 0, y: 4, w: 4, h: 2 })
+    expect(schemaChanges).toEqual([])
+    transform(designer, 'end', 'move', 'a', { x: 10, y: 170, width: 400, height: 80 })
+    expect(schemaChanges).toHaveLength(1)
+    expect(schemaChanges[0]!.operations.map(operation => operation.type)).toEqual(['layoutCards'])
+    designer.undo()
+    expect(designer.schema).toEqual(board)
+  })
+
+  it('改大小连同位置一起改，越出网格的部分剪掉；取消时回滚、不报 schema-change', async () => {
+    const designer = await mount()
+    placeGrid(designer)
+    const schemaChanges = events(designer, 'schema-change')
+    transform(designer, 'start', 'resize', 'b', { x: 800, y: 0, width: 400, height: 80 })
+    transform(designer, 'move', 'resize', 'b', { x: 700, y: 0, width: 650, height: 160 })
+    expect(cards(designer).find(item => item.id === 'b')!.layout).toEqual({ x: 7, y: 0, w: 5, h: 4 })
+    transform(designer, 'cancel', 'resize', 'b', { x: 800, y: 0, width: 400, height: 80 })
+    expect(designer.schema).toEqual(board)
+    expect(schemaChanges).toEqual([])
+    expect(designer.canUndo).toBe(false)
+  })
+
+  it('框选选中整个落在选框里的卡片，带修饰键时追加', async () => {
+    const designer = await mount()
+    placeGrid(designer)
+    const overlay = designer.querySelector('xh-designer-transform')!
+    const marquee = (rect: { x: number, y: number, width: number, height: number }, additive: boolean): void => {
+      overlay.dispatchEvent(new CustomEvent('marquee', { detail: { phase: 'end', rect, mode: 'contain', additive } }))
+    }
+    marquee({ x: 350, y: -10, width: 900, height: 120 }, false)
+    expect(designer.getSelection()).toEqual({ cards: ['a', 'b'] })
+    marquee({ x: -10, y: -10, width: 420, height: 200 }, true)
+    expect(designer.getSelection()).toEqual({ cards: ['a', 'b', 'pie'] })
+    marquee({ x: -10, y: -10, width: 420, height: 200 }, false)
+    expect(designer.getSelection()).toEqual({ cards: ['pie'] })
   })
 
   it('赋新的 schema 装载并派发 load，赋回当前文档不重新装载', async () => {
