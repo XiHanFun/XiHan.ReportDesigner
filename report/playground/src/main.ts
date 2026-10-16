@@ -3,10 +3,13 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 开发预览页：注册 UI 元素与报表查看器，四个页签各放一份示例报表，接好工具栏、开关与事件记录。
+// 开发预览页：注册 UI 元素、报表查看器与设计器，四个页签各放一份示例报表，第五个页签用设计器打开示例报表，
+// 接好工具栏、开关与事件记录。
 
 import type { ReportDocument } from '@xihan-report/core'
+import type { ReportDesignerEventMap } from '@xihan-report/designer'
 import type { ReportViewerEventMap, XhReportViewer } from '@xihan-report/runtime'
+import { defineReportDesigner } from '@xihan-report/designer'
 import { defineReportViewer } from '@xihan-report/runtime'
 import { reportZhCN } from '@xihan-report/runtime/locale'
 import { mergeXhConfig, setXhConfig } from '@xihan-ui/web-components'
@@ -15,13 +18,16 @@ import { zhCN } from '@xihan-ui/web-components/locale'
 import { createDataProvider } from './data'
 import { crosstabReport, dashboardReport, detailReport, groupReport } from './sample'
 import '@xihan-ui/styles/index.css'
+import '@xihan-ui/designer-shell/style.css'
 import '@xihan-report/runtime/style.css'
+import '@xihan-report/designer/style.css'
 
 defineXhElement('xh-alert', XhAlertElement)
 defineXhElement('xh-toolbar', XhToolbarElement)
 defineXhElement('xh-switch', XhSwitchElement)
 defineXhElement('xh-tabs', XhTabsElement)
 defineReportViewer()
+defineReportDesigner()
 
 const REPORTS: Readonly<Record<string, ReportDocument>> = {
   detail: detailReport,
@@ -89,8 +95,45 @@ async function download(viewer: XhReportViewer): Promise<void> {
   setTimeout(() => URL.revokeObjectURL(link.href), 0)
 }
 
+const DESIGNER_EVENTS: readonly (keyof ReportDesignerEventMap)[] = ['schema-change', 'selection-change', 'dirty-change', 'issues-change', 'mode-change', 'save', 'card-dblclick']
+
+function designerSummary(name: keyof ReportDesignerEventMap, detail: unknown): string {
+  if (name === 'schema-change') {
+    const { kind, operations } = detail as ReportDesignerEventMap['schema-change']['detail']
+    return `${kind} ${operations.map(operation => operation.type).join(', ')}`
+  }
+  if (name === 'issues-change')
+    return (detail as ReportDesignerEventMap['issues-change']['detail']).issues.map(issue => issue.code).join(', ') || '无问题'
+  return JSON.stringify(detail)
+}
+
+const designer = document.querySelector('xh-report-designer')!
+designer.dataProvider = dataProvider
+designer.schema = dashboardReport
+for (const name of DESIGNER_EVENTS) {
+  designer.addEventListener(name, (event) => {
+    if (event.target === designer)
+      write(`[设计器] ${name} ${designerSummary(name, (event as CustomEvent).detail)}`)
+  })
+}
+designer.addEventListener('save', () => designer.markSaved())
+document.querySelector('[aria-label="设计器打开的报表"]')!.addEventListener('click', (event) => {
+  const item = (event.target as Element).closest<HTMLButtonElement>('button[value]')
+  const schema = item ? REPORTS[item.value] : undefined
+  if (schema)
+    designer.schema = schema
+})
+
 document.querySelector('[aria-label="报表操作"]')!.addEventListener('click', (event) => {
   const item = (event.target as Element).closest<HTMLButtonElement>('button[value]')
+  if (item?.value === 'clear-log') {
+    log.textContent = ''
+    return
+  }
+  if (active === 'designer' && item?.value === 'refresh') {
+    void designer.refresh()
+    return
+  }
   const viewer = viewers.get(active)
   if (!item || item.disabled || !viewer)
     return
@@ -98,8 +141,6 @@ document.querySelector('[aria-label="报表操作"]')!.addEventListener('click',
     void viewer.refresh()
   else if (item.value === 'export')
     download(viewer).catch(error => write(`[${active}] 导出失败：${error instanceof Error ? error.message : String(error)}`))
-  else if (item.value === 'clear-log')
-    log.textContent = ''
 })
 
 function applyLocale(chinese: boolean): void {
@@ -114,5 +155,6 @@ document.querySelector('#aggregate')!.addEventListener('checked-change', (event)
   write(`取数方式：${aggregate ? '后端按请求聚合' : '返回明细行'}`)
   for (const viewer of viewers.values())
     void viewer.refresh()
+  void designer.refresh()
 })
 applyLocale(true)

@@ -3,14 +3,16 @@
   "type": "module",
   "version": "0.0.0",
   "private": true,
-  "description": "XiHan Report Designer 的开发预览页：报表查看器的演示，不发布。",
+  "description": "XiHan Report Designer 的开发预览页：报表查看器与设计器的演示，不发布。",
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@xihan-report/core": "workspace:^",
+    "@xihan-report/designer": "workspace:^",
     "@xihan-report/runtime": "workspace:^",
+    "@xihan-ui/designer-shell": "catalog:",
     "@xihan-ui/styles": "catalog:",
     "@xihan-ui/web-components": "catalog:"
   },
