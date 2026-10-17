@@ -29,6 +29,9 @@ const guideSidebar: DefaultTheme.SidebarItem[] = [
     collapsed: false,
     items: [
       { text: '报表结构', link: '/guide/structure' },
+      { text: '看板与卡片', link: '/guide/dashboard' },
+      { text: '透视与交叉表', link: '/guide/pivot' },
+      { text: '联动与下钻', link: '/guide/linking' },
     ],
   },
 ]

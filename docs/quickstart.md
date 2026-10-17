@@ -57,3 +57,4 @@ pnpm add @xihan-report/core @xihan-report/runtime @xihan-ui/styles
 ## 下一步
 
 - [报表结构](./guide/structure)：数据集、参数与几种主体视图。
+- [看板与卡片](./guide/dashboard)：图表、指标与表格卡片排成看板。

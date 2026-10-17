@@ -22,11 +22,7 @@
 
 公式是受限表达式，不执行任何代码，写法见 XiHan.UI 的[表达式文法](https://ui.docs.xihanfun.com/runtime/expression#文法)。用到公式时要给查看器（和设计器）一个表达式引擎：
 
-```ts
-import { createExpressionEngine } from '@xihan-ui/expression'
-
-viewer.expressionEngine = createExpressionEngine()
-```
+<<< @/examples/snippets/structure.ts#engine
 
 计算字段只在浏览器里算。筛选引用了计算字段时，取数请求里不带筛选，由 core 在取回的明细行上筛。
 
@@ -34,20 +30,7 @@ viewer.expressionEngine = createExpressionEngine()
 
 数据集还可以声明自己的参数 `parameters`，表示取数时要由宿主带进查询的值，例如只查某个门店。视图或卡片用 `parameters` 把它们绑定到字面值或报表参数上，取数请求的 `parameters` 里就是解析好的取值，宿主据此查数：
 
-```ts
-const dataset = {
-  id: 'sales',
-  fields: [/* … */],
-  parameters: [{ name: 'store', type: 'string', required: true }],
-}
-
-const body = {
-  type: 'table',
-  dataset: 'sales',
-  parameters: { store: { parameter: 'store' } },
-  columns: [/* … */],
-}
-```
+<<< @/examples/snippets/structure.ts#dataset-parameters
 
 ## 报表参数
 
@@ -88,22 +71,13 @@ const body = {
 
 ### 交叉表与看板
 
-交叉表 `crosstab` 按行、列两组维度透视出度量；看板 `dashboard` 把图表、指标与表格卡片排在网格上。扩展还可以登记新的主体视图种类。
+交叉表 `crosstab` 按行、列两组维度透视出度量，见[透视与交叉表](./pivot)；看板 `dashboard` 把图表、指标与表格卡片排在网格上，见[看板与卡片](./dashboard)。扩展还可以登记新的主体视图种类。
 
 ## 筛选
 
 视图、卡片的查询与看板联动都用同一种筛选树 `FilterGroup`：`logic` 取 `and`（全部满足）或 `or`（任一满足），`conditions` 里是条件，也可以嵌套带 `id` 的子组。一个条件写字段、运算符与操作数：
 
-```ts
-const filter = {
-  logic: 'and',
-  conditions: [
-    { id: 'channel', field: 'channel', operator: 'in', value: ['线上', '门店'] },
-    { id: 'big', field: 'amount', operator: 'gte', value: 1000 },
-    { id: 'month', field: 'date', bucket: 'month', operator: 'eq', value: '2026-03' },
-  ],
-}
-```
+<<< @/examples/snippets/structure.ts#filter
 
 - 运算符见 [FilterOperator](../reference/schema#filteroperator)：`between` 要两个值，`in`、`notIn` 要一组值，`isEmpty`、`isNotEmpty` 不要操作数；字符串运算符可以写 `ignoreCase`。
 - 写了 `bucket` 的条件先把字段值按日期粒度取键再比较，操作数直接写键。
@@ -113,10 +87,6 @@ const filter = {
 
 列、维度、度量与坐标轴的 `format` 用 XiHan.UI 的值格式说明，取 `number`、`percent`、`date`、`rmbUpper` 几种，十进制精确舍入，写法见[格式化](https://ui.docs.xihanfun.com/runtime/expression#格式化)：
 
-```ts
-const money = { kind: 'number', decimals: 2, grouping: true }
-const share = { kind: 'percent', decimals: 1 }
-const day = { kind: 'date', pattern: 'yyyy年M月d日' }
-```
+<<< @/examples/snippets/structure.ts#formats
 
 没写格式时，数值按界面语言加千分位，日期写成 `YYYY-MM-DD`，日期时间写到秒。要换掉全部值的显示方式，给查看器一个 `formatter`。
