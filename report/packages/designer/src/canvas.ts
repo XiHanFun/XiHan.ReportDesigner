@@ -6,12 +6,13 @@
 // 设计器的画布内容：看板用查看器的 renderDashboardFrame 搭网格与卡片外壳，卡片内容用 computeCard 与运行时模型里的渲染；
 // 明细表、分组报表与交叉表用 computeView / renderView，作主体的扩展视图按种类计算并交给它的渲染。内容按定义缓存，
 // 改过的卡片才在去抖后重新取数计算；位置大小变了只改卡片的位置变量。没给取数回调时取数的内容画占位，没登记的种类画种类名。
+// 看板上照查看器画扩展的叠加层。
 
 import type { ComputeOptions, DashboardCard, DashboardView, DatasetData, DatasetRequest, DatasetSchema, ExtensionViewResult, ParameterValues, ReportBody, ReportDocument, ViewResult } from '@xihan-report/core'
 import type { ReportDataProvider, ReportRuntimeModel } from '@xihan-report/runtime'
-import type { CardState, RenderContext } from '@xihan-report/runtime/design'
+import type { CardState, RenderContext, SceneCardState } from '@xihan-report/runtime/design'
 import { bodyQuery, cardQuery, cardTypeOf, cardView, computeCard, computeExtensionView, computeView, createDatasetRequest, findDataset, isDataView } from '@xihan-report/core'
-import { renderCard, renderDashboardFrame, renderView, tableLabel } from '@xihan-report/runtime/design'
+import { dashboardScene, renderCard, renderDashboardFrame, renderOverlays, renderView, tableLabel } from '@xihan-report/runtime/design'
 import { clampToGrid } from '@xihan-ui/designer-kit'
 import { createAuthoredElement } from '@xihan-ui/web-components/authoring'
 
@@ -76,6 +77,9 @@ export class CanvasContent {
   #runs = 0
   #provider: ReportDataProvider | undefined
   #runtime: ReportRuntimeModel | undefined
+  #overlaysQueued = false
+  #resize: ResizeObserver | undefined
+  #observed: HTMLElement | undefined
 
   constructor(host: HTMLElement) {
     this.#host = host
@@ -129,6 +133,7 @@ export class CanvasContent {
   dispose(): void {
     clearTimeout(this.#timer)
     this.#abort?.abort()
+    this.#resize?.disconnect()
   }
 
   #updateDashboard(dashboard: DashboardView, inputs: CanvasInputs): void {
@@ -169,6 +174,45 @@ export class CanvasContent {
       if (rebuild || !entry)
         this.#paintCard(card)
     }
+    this.#observeGrid()
+    this.#scheduleOverlays()
+  }
+
+  /** 看板大小变了时重画叠加层。 */
+  #observeGrid(): void {
+    const grid = this.grid
+    if (grid === this.#observed || typeof ResizeObserver !== 'function')
+      return
+    this.#resize ??= new ResizeObserver(() => this.#scheduleOverlays())
+    this.#resize.disconnect()
+    this.#observed = grid
+    if (grid)
+      this.#resize.observe(grid)
+  }
+
+  /** 同一轮里卡片一张张画完后再画一次叠加层。 */
+  #scheduleOverlays(): void {
+    if (this.#overlaysQueued)
+      return
+    this.#overlaysQueued = true
+    queueMicrotask(() => {
+      this.#overlaysQueued = false
+      this.#renderOverlays()
+    })
+  }
+
+  #renderOverlays(): void {
+    const inputs = this.#inputs
+    const grid = this.grid
+    const frame = this.#frame
+    const dashboard = inputs?.document.body
+    if (!inputs || !grid || !frame || dashboard?.type !== 'dashboard')
+      return
+    const stateOf = (id: string): SceneCardState => {
+      const state = this.#entries.get(id)?.state
+      return state?.status === 'loading' || state?.status === 'error' || state?.status === 'ready' ? state : { status: 'placeholder' }
+    }
+    renderOverlays(grid, inputs.runtime.overlays, () => dashboardScene(grid, dashboard, frame, stateOf), { mode: 'designer', schema: inputs.document, render: inputs.context })
   }
 
   #updateView(view: BodyView, inputs: CanvasInputs): void {
@@ -326,6 +370,7 @@ export class CanvasContent {
     if (!inputs || !frame)
       return
     const state = this.#entries.get(card.id)?.state
+    this.#scheduleOverlays()
     if (state?.status === 'unknown') {
       frame.card.setAttribute('data-state', 'placeholder')
       frame.body.replaceChildren(placeholderNode(this.#host.ownerDocument, card.kind))

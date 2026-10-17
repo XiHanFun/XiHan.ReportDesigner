@@ -298,3 +298,30 @@ describe('<xh-report-designer>：扩展', () => {
     expect([...viewer.querySelectorAll('[data-card="lanes"] li')].map(item => item.textContent)).toEqual(['East', 'West'])
   })
 })
+
+describe('<xh-report-designer>：叠加层', () => {
+  it('画布上照查看器画扩展的叠加层：mode 为 designer，没给取数回调时卡片是 placeholder；挪动卡片后按新位置重画', async () => {
+    const scenes: { mode: string, cards: string[] }[] = []
+    const badge: ReportDesignerExtension = {
+      id: '@acme/badge',
+      overlays: [{
+        id: '@acme/badge.corner',
+        layer: 'above',
+        render: (container, scene, context) => {
+          scenes.push({ mode: context.mode, cards: scene.cards.map(item => `${item.card.id}@${item.layout.x},${item.layout.y}:${item.status}`) })
+          container.textContent = String(scene.cards.length)
+        },
+      }],
+    }
+    const designer = await mount([lanesExtension(newProbe()), badge])
+    await settle()
+    const grid = designer.querySelector('[data-part="content"] [data-part="dashboard"]')!
+    expect(grid.lastElementChild?.getAttribute('data-overlay')).toBe('@acme/badge.corner')
+    expect(scenes.at(-1)).toEqual({ mode: 'designer', cards: ['lanes@0,0:placeholder'] })
+    const body = designer.schema!.body as DashboardView
+    designer.schema = { ...designer.schema!, body: { ...body, cards: [{ ...body.cards[0]!, layout: { x: 3, y: 1, w: 6, h: 4 } }] } }
+    await designer.updateComplete
+    await settle()
+    expect(scenes.at(-1)!.cards).toEqual(['lanes@3,1:placeholder'])
+  })
+})

@@ -24,7 +24,7 @@ import { emitEvent, registerElement, XhConfigController, XhReactiveElement } fro
 import { createReportRuntimeModel } from '../extensions'
 import { DEFAULT_REPORT_VIEWER_TRANSLATIONS } from '../translations'
 import { createRenderContext } from './context'
-import { keepTableFocus, renderCard, renderDashboardFrame, renderView, tableLabel } from './dashboard'
+import { dashboardScene, keepTableFocus, renderCard, renderDashboardFrame, renderOverlays, renderView, tableLabel } from './dashboard'
 import { ownPart } from './dom'
 import { defineViewerElements } from './elements'
 import { defaultFormatter } from './format'
@@ -169,6 +169,9 @@ export class XhReportViewer extends XhReactiveElement {
   #emittedParameters: string | undefined
   #headerFor: string | undefined
   #pendingCards = 0
+  #overlaysQueued = false
+  #resize: ResizeObserver | undefined
+  #observed: HTMLElement | undefined
 
   /** 最近一次校验报表定义与检查参数得到的问题。 */
   get issues(): readonly ReportViewerIssue[] {
@@ -219,9 +222,16 @@ export class XhReportViewer extends XhReactiveElement {
     return exporter.export(format, { schema, results: this.getResults(), translations: this.#translations(), timeZone: this.#timeZone(), options })
   }
 
+  override connectedCallback(): void {
+    super.connectedCallback()
+    this.#observeGrid()
+  }
+
   override disconnectedCallback(): void {
     super.disconnectedCallback()
     this.#abort?.abort()
+    this.#resize?.disconnect()
+    this.#observed = undefined
   }
 
   protected override update(changed: PropertyValues): void {
@@ -600,6 +610,7 @@ export class XhReportViewer extends XhReactiveElement {
       return
     }
     this.#painted.set(cardId, key)
+    this.#scheduleOverlays()
     this.#charts.delete(cardId)
     const rendered = renderCard(frame.body, state, ctx, this.#model().cardRenderers)
     if (rendered && 'cellOf' in rendered) {
@@ -614,6 +625,44 @@ export class XhReportViewer extends XhReactiveElement {
       }
     }
     this.#renderActiveKeys()
+  }
+
+  /** 看板网格；主体不是看板或还没排时为 undefined。 */
+  #grid(): HTMLElement | undefined {
+    return this.#frame ? this.#layers?.body.querySelector<HTMLElement>(':scope > [data-part="dashboard"]') ?? undefined : undefined
+  }
+
+  /** 看板大小变了时重画叠加层。 */
+  #observeGrid(): void {
+    const grid = this.#grid()
+    if (grid === this.#observed || !this.isConnected || typeof ResizeObserver !== 'function')
+      return
+    this.#resize ??= new ResizeObserver(() => this.#scheduleOverlays())
+    this.#resize.disconnect()
+    this.#observed = grid
+    if (grid)
+      this.#resize.observe(grid)
+  }
+
+  /** 同一轮里卡片一张张画完后再画一次叠加层。 */
+  #scheduleOverlays(): void {
+    if (this.#overlaysQueued)
+      return
+    this.#overlaysQueued = true
+    queueMicrotask(() => {
+      this.#overlaysQueued = false
+      this.#renderOverlays()
+    })
+  }
+
+  #renderOverlays(): void {
+    const grid = this.#grid()
+    const dashboard = this.#dashboard()
+    const frame = this.#frame
+    const schema = this.#inputs?.schema
+    if (!grid || !dashboard || !frame || !schema || this.#frameOf !== dashboard)
+      return
+    renderOverlays(grid, this.#model().overlays, () => dashboardScene(grid, dashboard, frame, id => this.#cards.get(id)), { mode: 'viewer', schema, render: this.#context() })
   }
 
   #render(layers: Layers): void {
@@ -645,6 +694,8 @@ export class XhReportViewer extends XhReactiveElement {
       }
       for (const card of dashboard.cards)
         this.#renderCard(card.id, ctx)
+      this.#observeGrid()
+      this.#scheduleOverlays()
       return
     }
     this.#frame = undefined

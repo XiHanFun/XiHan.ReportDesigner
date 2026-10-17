@@ -3,11 +3,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 报表运行时层的扩展：在 core 层之上加卡片与主体视图的渲染、导出与取数中间件。查看器只引这一层，打包里没有设计器代码。
+// 报表运行时层的扩展：在 core 层之上加卡片与主体视图的渲染、看板的叠加层、导出与取数中间件。查看器只引这一层，打包里没有设计器代码。
 // 内置三种卡片的渲染与 xlsx 导出也写成一个内置扩展，与传入的走同一条路。
 
-import type { CardResult, ExtensionViewResult, FilterCondition, LinkSelections, ParameterValues, ReportCoreExtension, ReportDocument, ReportModel, ViewResult } from '@xihan-report/core'
-import type { DesignerExporter, ExtensionKeySpaces } from '@xihan-ui/designer-kit'
+import type { CardResult, DashboardCard, DashboardView, ExtensionViewResult, FilterCondition, LinkSelections, ParameterValues, ReportCoreExtension, ReportDocument, ReportModel, ViewResult } from '@xihan-report/core'
+import type { DesignerExporter, ExtensionKeySpaces, GridRect } from '@xihan-ui/designer-kit'
 import type { ReportViewerTranslations } from './translations'
 import type { RenderedChart } from './viewer/charts'
 import type { RenderContext } from './viewer/context'
@@ -31,6 +31,49 @@ export type ReportViewRenderer = (container: HTMLElement, result: ExtensionViewR
 
 /** 取数中间件：拿到下一层的取数回调，返回包在它外面的一层。 */
 export type ReportDataMiddleware = (next: ReportDataProvider) => ReportDataProvider
+
+/** 叠加层场景里的一张卡片。 */
+export interface ReportSceneCard {
+  readonly card: DashboardCard
+  /** 网格上的位置与大小（格），已收进网格的列数。 */
+  readonly layout: GridRect
+  /** 卡片外壳相对看板左上角的像素矩形。 */
+  readonly rect: { readonly x: number, readonly y: number, readonly width: number, readonly height: number }
+  /** 卡片此刻的状态；placeholder 是设计器画布上还没绑数据、只画占位的卡片。 */
+  readonly status: 'loading' | 'error' | 'ready' | 'placeholder'
+  /** 算好的结果；status 不是 ready 时为 undefined。 */
+  readonly result: CardResult | undefined
+}
+
+/** 叠加层的场景：看板与它上面各卡片的布局和状态。 */
+export interface ReportScene {
+  readonly dashboard: DashboardView
+  /** 看板的像素宽高。 */
+  readonly width: number
+  readonly height: number
+  /** 各卡片，按卡片的先后。 */
+  readonly cards: readonly ReportSceneCard[]
+}
+
+/** 画叠加层时的上下文。 */
+export interface ReportOverlayContext {
+  /** 画在查看器上还是设计器画布上。 */
+  readonly mode: 'viewer' | 'designer'
+  readonly schema: ReportDocument
+  readonly render: RenderContext
+}
+
+/** 叠加层：铺满看板的一层，画在各卡片之下（below）或之上（above）；只在主体是看板时画。 */
+export interface ReportOverlay {
+  /** 全局唯一，写作 `<扩展 id>.<名>`。 */
+  readonly id: string
+  readonly layer: 'below' | 'above'
+  /**
+   * 看板排好、卡片状态或看板大小变了时调用。container 铺满看板、随看板滚动，不接指针（要接指针的子节点自己写
+   * pointer-events）；看板骨架没重建时上一轮画的东西还在 container 里。
+   */
+  readonly render: (container: HTMLElement, scene: ReportScene, context: ReportOverlayContext) => void
+}
 
 /** 查看器此刻的计算结果，只读快照。 */
 export interface ReportResults {
@@ -60,6 +103,8 @@ export interface ReportRuntimeExtension extends ReportCoreExtension {
   readonly cardRenderers?: Readonly<Record<string, ReportCardRenderer>>
   /** 作主体的扩展视图的渲染，键是视图种类名。 */
   readonly viewRenderers?: Readonly<Record<string, ReportViewRenderer>>
+  /** 看板的叠加层；同一层里按扩展顺序，后登记的在上。 */
+  readonly overlays?: readonly ReportOverlay[]
   /** 导出成文件；内置的 xlsx 在最前。 */
   readonly exporters?: readonly DesignerExporter<ReportExportContext>[]
   /** 取数中间件，按扩展顺序一层层包在宿主的 dataProvider 外面，后登记的在最外。 */
@@ -91,6 +136,8 @@ export const REPORT_RUNTIME_EXTENSION: ReportRuntimeExtension = {
 export interface ReportRuntimeModel extends ReportModel {
   readonly cardRenderers: ReadonlyMap<string, ReportCardRenderer>
   readonly viewRenderers: ReadonlyMap<string, ReportViewRenderer>
+  /** 按扩展顺序。 */
+  readonly overlays: readonly ReportOverlay[]
   /** 内置在前，传入的按顺序在后。 */
   readonly exporters: readonly DesignerExporter<ReportExportContext>[]
   /** 把宿主的取数回调包上各扩展的中间件。 */
@@ -100,6 +147,7 @@ export interface ReportRuntimeModel extends ReportModel {
 const RUNTIME_SPACES: ExtensionKeySpaces<ReportRuntimeExtension> = {
   'card-renderer': extension => Object.keys(extension.cardRenderers ?? {}),
   'view-renderer': extension => Object.keys(extension.viewRenderers ?? {}),
+  'overlay': extension => (extension.overlays ?? []).map(overlay => overlay.id),
 }
 
 const MODELS = new WeakMap<readonly ReportRuntimeExtension[], ReportRuntimeModel>()
@@ -140,6 +188,7 @@ export function createReportRuntimeModel(extensions: readonly ReportRuntimeExten
     ...model,
     cardRenderers,
     viewRenderers,
+    overlays: list.flatMap(extension => extension.overlays ?? []),
     exporters: list.flatMap(extension => extension.exporters ?? []),
     provider: base => middlewares.reduce((next, wrap) => wrap(next), base),
   }
