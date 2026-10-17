@@ -47,11 +47,13 @@ export interface AddDatasetOperation {
   readonly index?: number
 }
 
+/** 删除数据集；用着它的卡片、视图与联动不一并改，要连带删除时用 planRemoveDataset。 */
 export interface RemoveDatasetOperation {
   readonly type: 'removeDataset'
   readonly id: string
 }
 
+/** 把数据集移到 index。 */
 export interface MoveDatasetOperation {
   readonly type: 'moveDataset'
   readonly id: string
@@ -73,12 +75,14 @@ export interface AddFieldOperation {
   readonly index?: number
 }
 
+/** 删除数据集里的字段；引用它的地方不一并改，要连带删除时用 planRemoveField。 */
 export interface RemoveFieldOperation {
   readonly type: 'removeField'
   readonly dataset: string
   readonly name: string
 }
 
+/** 把数据集里的字段移到 index。 */
 export interface MoveFieldOperation {
   readonly type: 'moveField'
   readonly dataset: string
@@ -101,11 +105,13 @@ export interface AddParameterOperation {
   readonly index?: number
 }
 
+/** 删除报表参数；引用它的地方不一并改，要连带删除时用 planRemoveParameter。 */
 export interface RemoveParameterOperation {
   readonly type: 'removeParameter'
   readonly name: string
 }
 
+/** 把报表参数移到 index。 */
 export interface MoveParameterOperation {
   readonly type: 'moveParameter'
   readonly name: string
@@ -158,6 +164,7 @@ export interface AddLinkOperation {
   readonly index?: number
 }
 
+/** 删除看板的联动。 */
 export interface RemoveLinkOperation {
   readonly type: 'removeLink'
   readonly id: string
@@ -196,6 +203,7 @@ export interface AddItemOperation extends ItemOwner {
   readonly index?: number
 }
 
+/** 删除报表主体或卡片里某个列表的一项。 */
 export interface RemoveItemOperation extends ItemOwner {
   readonly type: 'removeItem'
   readonly list: ItemList

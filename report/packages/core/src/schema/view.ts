@@ -179,6 +179,7 @@ export interface ExtensionCard extends CardBase, Partial<DataBinding> {
   readonly [key: string]: unknown
 }
 
+/** 看板上的一张卡片：图表、指标、表格，或扩展登记的种类。 */
 export type DashboardCard = ChartCard | MetricCard | TableCard | ExtensionCard
 
 /** 联动的一个目标：在目标卡片上按字段筛选。 */
