@@ -417,6 +417,17 @@ export class PropertiesPanel {
         return select(keyed(scope.query?.measures ?? []))
       case 'queryKey':
         return select(keyed([...(scope.query?.dimensions ?? []), ...(scope.query?.measures ?? [])]))
+      case 'filter':
+        return {
+          ...control,
+          fields: (dataset?.fields ?? []).map(field => (field.title === undefined ? { name: field.name, type: field.type } : { name: field.name, label: field.title, type: field.type })),
+          parameters: (document.parameters ?? []).map(parameter => ({
+            name: parameter.name,
+            type: parameter.type,
+            ...(parameter.title === undefined ? {} : { label: parameter.title }),
+            ...(parameter.multiple === true ? { multiple: true } : {}),
+          })),
+        }
       case 'card': {
         const body = document.body
         return select(body.type === 'dashboard' ? body.cards.map(card => ({ value: card.id, label: card.title ?? card.id })) : [])

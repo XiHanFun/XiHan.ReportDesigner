@@ -494,6 +494,13 @@ describe('<xh-report-designer>：编辑', () => {
     const descriptors = panel.targets![0]!.descriptors
     expect(descriptors.find(descriptor => formatJsonPath(descriptor.path) === 'chart.nameField')!.control).toEqual({ kind: 'select', options: [{ value: 'region', label: 'region' }] })
     expect(descriptors.find(descriptor => formatJsonPath(descriptor.path) === 'dataset')!.control).toEqual({ kind: 'select', options: [{ value: 'sales', label: 'sales' }] })
+    // 筛选条件树用内建的 filter：字段取所在数据集，参数取报表参数，新节点带 id
+    expect(descriptors.find(descriptor => formatJsonPath(descriptor.path) === 'query.filter')!.control).toEqual({
+      kind: 'filter',
+      ids: true,
+      fields: [{ name: 'region', type: 'string' }, { name: 'amount', type: 'number' }],
+      parameters: [],
+    })
     expect(panel.labelOf!(descriptors.find(descriptor => formatJsonPath(descriptor.path) === 'chart.nameField')!)).toBe('nameField')
   })
 

@@ -17,7 +17,7 @@ import type { QueryResult } from './engine/query'
 import type { ReportPropertyDescriptor } from './properties'
 import type { CardBase, ChartCard, DatasetSchema, ExtensionCard, ExtensionView, FieldType, MetricCard, ReportDocument, TableCard } from './schema'
 import type { ValidationIssue } from './validate'
-import { formatJsonPath, isPlainObject } from '@xihan-ui/core/json'
+import { formatJsonPath } from '@xihan-ui/core/json'
 import { DesignerExtensionError, extensionControls, extensionIssuePrefix, mergeExtensions } from '@xihan-ui/designer-kit'
 import { chartData } from './engine/chart-data'
 import { computeMetric } from './engine/dashboard'
@@ -147,7 +147,6 @@ const METRIC_CARD: ReportCardKind<MetricCard, MetricValue> = {
 const TABLE_CARD: ReportCardKind<TableCard> = { data: 'view' }
 
 const STRING_VALUE: ControlKind = { check: value => (typeof value === 'string' ? undefined : 'invalid-type') }
-const OBJECT_VALUE: ControlKind = { check: value => (isPlainObject(value) ? undefined : 'invalid-type') }
 
 /** 报表自己的编辑方式：属性描述里用到它们时 checkProperties 按这里查取值。 */
 const REPORT_CONTROLS: Readonly<Record<string, ControlKind>> = {
@@ -158,7 +157,6 @@ const REPORT_CONTROLS: Readonly<Record<string, ControlKind>> = {
   queryKey: STRING_VALUE,
   card: STRING_VALUE,
   cardDimension: STRING_VALUE,
-  filter: OBJECT_VALUE,
   parameterValue: {},
 }
 
