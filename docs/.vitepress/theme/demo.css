@@ -1,0 +1,75 @@
+/*
+ * Copyright (c) 2021-Present XiHanFun and contributors.
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
+/* 示例舞台：边框与留白只用 @xihan-ui 设计令牌；舞台里 VitePress .vp-doc 写在这些标签上的正文排版退回浏览器默认。 */
+
+.report-demo {
+  margin-block: var(--xh-space-4);
+  padding: var(--xh-space-3);
+  border: var(--xh-stroke-thin) solid var(--xh-border-default);
+  border-radius: var(--xh-radius-md);
+  background: var(--xh-bg-page);
+  color: var(--xh-fg-default);
+}
+
+.vp-doc .report-demo__stage :where(h1, h2, h3, h4, h5, h6, p, blockquote, ul, ol, li, table, tr, th, td, hr, a, code, label, legend, fieldset, input, button) {
+  margin: revert;
+  padding: revert;
+  border: revert;
+  background: revert;
+  color: revert;
+  font: revert;
+  letter-spacing: revert;
+  line-height: revert;
+  text-align: revert;
+  list-style: revert;
+  text-decoration: revert;
+  display: revert;
+  overflow: revert;
+}
+
+.report-demo__missing {
+  margin: 0;
+  color: var(--xh-fg-danger);
+}
+
+/* 示例里的设计器给定高度 */
+.report-demo xh-report-designer {
+  display: block;
+  block-size: 36rem;
+  border: var(--xh-stroke-thin) solid var(--xh-border-subtle);
+  border-radius: var(--xh-radius-md);
+}
+
+/* 示例里直接写的原生按钮 */
+.report-demo__stage > button {
+  margin-block-end: var(--xh-space-3);
+  padding-block: var(--xh-space-1);
+  padding-inline: var(--xh-space-3);
+  border: var(--xh-stroke-thin) solid var(--xh-border-default);
+  border-radius: var(--xh-radius-md);
+  background: var(--xh-bg-surface);
+  color: var(--xh-fg-default);
+  font-size: var(--xh-font-size-sm);
+}
+
+.report-demo__stage > button + button {
+  margin-inline-start: var(--xh-space-2);
+}
+
+.report-demo__stage > button:focus-visible {
+  outline: 2px solid var(--xh-ring-focus);
+  outline-offset: 2px;
+}
+
+/* 示例里的事件与状态记录 */
+.report-demo__stage > output {
+  display: block;
+  margin-block-start: var(--xh-space-3);
+  color: var(--xh-fg-muted);
+  font-family: var(--xh-font-family-mono);
+  font-size: var(--xh-font-size-xs);
+  white-space: pre-wrap;
+}
