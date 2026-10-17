@@ -87,7 +87,8 @@ tabs.addEventListener('value-change', (event) => {
 })
 
 async function download(viewer: XhReportViewer): Promise<void> {
-  const blob = await viewer.exportXlsx()
+  // 内置的 xlsx 导出器给的是 Blob
+  const blob = await viewer.export('xlsx') as Blob
   const link = document.createElement('a')
   link.href = URL.createObjectURL(blob)
   link.download = `${viewer.schema?.title ?? viewer.schema?.id ?? 'report'}.xlsx`

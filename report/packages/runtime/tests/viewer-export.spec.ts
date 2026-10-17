@@ -56,7 +56,7 @@ async function files(blob: Blob): Promise<Map<string, { text: string }>> {
 describe('<xh-report-viewer>：导出 xlsx', () => {
   it('表格主体导出一张表，表名取报表标题，合计用查看器的文案', async () => {
     const viewer = await mount(table, '销售明细')
-    const blob = await viewer.exportXlsx()
+    const blob = await viewer.export('xlsx') as Blob
     expect(blob.type).toBe(XLSX_MIME)
     const zip = await files(blob)
     expect(zip.get('xl/workbook.xml')!.text).toContain('name="销售明细"')
@@ -72,7 +72,7 @@ describe('<xh-report-viewer>：导出 xlsx', () => {
       grid: { columns: 12, rowHeight: 40 },
       cards: [card('a', '明细', 0), card('b', '明细', 4), { id: 'm', kind: 'metric', layout: { x: 6, y: 0, w: 6, h: 4 }, dataset: 'sales', query: { dimensions: [], measures: [{ id: 'amount', aggregate: 'sum', field: 'amount' }] }, metric: { value: 'amount' } }],
     } as ReportDocument['body'])
-    const workbook = (await files(await viewer.exportXlsx())).get('xl/workbook.xml')!.text
+    const workbook = (await files(await viewer.export('xlsx') as Blob)).get('xl/workbook.xml')!.text
     expect(workbook).toContain('name="明细"')
     expect(workbook).toContain('name="明细 (2)"')
     expect(workbook.match(/<sheet /g)).toHaveLength(2)
@@ -81,6 +81,6 @@ describe('<xh-report-viewer>：导出 xlsx', () => {
   it('还没有可导出的结果时抛 RangeError', async () => {
     const viewer = document.createElement('xh-report-viewer') as XhReportViewer
     document.body.append(viewer)
-    await expect(viewer.exportXlsx()).rejects.toBeInstanceOf(RangeError)
+    await expect(viewer.export('xlsx')).rejects.toBeInstanceOf(RangeError)
   })
 })
