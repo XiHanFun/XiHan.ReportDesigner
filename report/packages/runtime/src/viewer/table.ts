@@ -86,7 +86,7 @@ export interface TableBody {
 
 /**
  * 铺表体：rowAt 给出第几行的节点。行数不超过阈值时直接铺；超过时交给 <xh-virtualizer>，只铺窗口里的行，
- * 行节点归表格（data-xh-part-owner）。是否虚拟按第一次的行数定，之后行数变了只换 count。表格须已在文档里。
+ * 行节点归表格（data-xh-part-owner）。虚拟列表跟着表格根滚（scroll-container="ancestor"），吸顶表头、冻结列与横向溢出在同一个滚动面里。是否虚拟按第一次的行数定，之后行数变了只换 count。表格须已在文档里。
  */
 export function fillTableBody(shell: TableShell, count: number, rowAt: (index: number) => HTMLElement): TableBody {
   if (count <= VIRTUAL_ROW_THRESHOLD) {
@@ -100,7 +100,7 @@ export function fillTableBody(shell: TableShell, count: number, rowAt: (index: n
   const virtualizer = document.createElement('xh-virtualizer') as XhVirtualizerElement
   virtualizer.setAttribute('count', String(count))
   virtualizer.setAttribute('estimate-size', String(ESTIMATED_ROW_SIZE))
-  virtualizer.setAttribute('viewport-tab-index', '-1')
+  virtualizer.setAttribute('scroll-container', 'ancestor')
   const virtualRoot = uiPart('div', 'root')
   const viewport = uiPart('div', 'viewport')
   const content = uiPart('div', 'content')

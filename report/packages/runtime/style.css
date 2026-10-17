@@ -35,16 +35,6 @@ xh-report-viewer > [data-part='body'] {
   inline-size: 100%;
 }
 
-/* 虚拟滚动：表格根不再限高，竖向滚动交给表体里虚拟列表的视口，横向仍由表格根滚动 */
-:is(xh-report-viewer, xh-report-designer) xh-table [data-xh-part='root'][data-virtual] {
-  max-block-size: none;
-  overflow: auto hidden;
-}
-
-:is(xh-report-viewer, xh-report-designer) xh-table [data-virtual] xh-virtualizer [data-xh-part='viewport'] {
-  block-size: var(--xh-report-table-h, var(--xh-viewport-h-lg));
-}
-
 /* 虚拟条目彼此不是兄弟节点，行之间的分隔线写在行上 */
 :is(xh-report-viewer, xh-report-designer) xh-table [data-virtual] xh-virtualizer [data-xh-part='row'] {
   border-block-end: var(--xh-stroke-thin) solid var(--xh-border-subtle);

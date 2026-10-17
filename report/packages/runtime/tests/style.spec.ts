@@ -36,7 +36,9 @@ describe('style.css：查看器不按内容撑宽宿主', () => {
 
   it('主体的宽度只取容器给的宽度，比容器宽的内容在表格自己的滚动区里滚动', () => {
     expect(rule('xh-report-viewer > [data-part=\'body\']').getPropertyValue('contain')).toBe('inline-size')
-    expect(rule(':is(xh-report-viewer, xh-report-designer) xh-table [data-xh-part=\'root\'][data-virtual]').getPropertyValue('overflow')).toBe('auto hidden')
+    // 虚拟滚动的表格同样由表格根滚动（虚拟列表写 scroll-container=ancestor），不另改根与视口的尺寸与滚动
+    expect(() => rule(':is(xh-report-viewer, xh-report-designer) xh-table [data-xh-part=\'root\'][data-virtual]')).toThrow()
+    expect(() => rule(':is(xh-report-viewer, xh-report-designer) xh-table [data-virtual] xh-virtualizer [data-xh-part=\'viewport\']')).toThrow()
   })
 
   it('查看器自己的层只选直接子元素，不波及 UI 元素同名的部件', () => {
