@@ -206,15 +206,9 @@ export class XhReportViewer extends XhReactiveElement {
   }
 
   /**
-   * 把当前的计算结果导出成 xlsx：表格主体导出一张表，看板按已算好的表格卡片各导一张（表名取卡片标题）。
-   * 写出部分按需加载。还没有可导出的结果时抛 RangeError。
-   */
-  exportXlsx(options: { readonly name?: string } = {}): Promise<Blob> {
-    return this.export('xlsx', options) as Promise<Blob>
-  }
-
-  /**
    * 导出成文件：交给登记了这种格式的第一个导出器（内置的 xlsx 在最前，扩展可以加别的格式），options 原样交给它。
+   * 内置的 xlsx 把当前的计算结果写成工作簿：表格主体导出一张表（表名取 options.name，缺省取报表标题），看板按已算好的
+   * 表格卡片各导一张（表名取卡片标题），写出部分按需加载，还没有可导出的结果时抛 RangeError。
    * 没有导出器认这种格式时抛 RangeError。
    */
   export(format: string, options: Readonly<Record<string, unknown>> = {}): Promise<Blob | string> {
