@@ -72,7 +72,6 @@ import {
  * - dataset：报表里的数据集 id；
  * - field：所在数据集的字段名，types 只列这些类型的字段；
  * - dimension / measure：所在查询的维度 id / 度量 id；queryKey 是两者之一；
- * - filter：筛选条件树；
  * - parameterValue：报表参数的取值，按参数的 type 与 multiple；
  * - card：看板上的卡片 id；cardDimension：联动源卡片上能发出取值的维度。
  */
@@ -83,7 +82,6 @@ export type ReportPropertyControl
     | { readonly kind: 'dimension' }
     | { readonly kind: 'measure' }
     | { readonly kind: 'queryKey' }
-    | { readonly kind: 'filter' }
     | { readonly kind: 'parameterValue' }
     | { readonly kind: 'card' }
     | { readonly kind: 'cardDimension' }
@@ -116,6 +114,8 @@ const JSON_VALUE: ReportPropertyControl = { kind: 'json' }
 const DIMENSION: ReportPropertyControl = { kind: 'dimension' }
 const MEASURE: ReportPropertyControl = { kind: 'measure' }
 const NUMERIC_FORMAT: ReportPropertyControl = { kind: 'format', kinds: ['number', 'percent'] }
+/** 筛选条件树：designer-kit 内建的 filter，新建的条件与组带 id（校验按 id 认条件）；字段与参数由设计器按所在数据集与报表参数填。 */
+const FILTER: ReportPropertyControl = { kind: 'filter', ids: true }
 
 function integer(min: number, max?: number): ReportPropertyControl {
   return max === undefined ? { kind: 'number', integer: true, min } : { kind: 'number', integer: true, min, max }
@@ -142,7 +142,7 @@ function queryDataProperties(): ReportPropertyDescriptor[] {
   return [
     property(['dataset'], 'data', { kind: 'dataset' }, { required: true }),
     property(['parameters'], 'data', JSON_VALUE),
-    property(['query', 'filter'], 'data', { kind: 'filter' }),
+    property(['query', 'filter'], 'data', FILTER),
     property(['query', 'limit'], 'data', integer(1)),
   ]
 }
@@ -344,7 +344,7 @@ export function viewProperties(type: DataView['type']): ReportPropertyDescriptor
   const data = [
     property(['dataset'], 'data', { kind: 'dataset' }, { required: true }),
     property(['parameters'], 'data', JSON_VALUE),
-    property(['filter'], 'data', { kind: 'filter' }),
+    property(['filter'], 'data', FILTER),
   ]
   switch (type) {
     case 'table':
