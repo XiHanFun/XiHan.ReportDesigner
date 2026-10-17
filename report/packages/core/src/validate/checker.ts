@@ -34,10 +34,13 @@ export type ValidationIssueCode
     | 'unknown-dataset-parameter'
     | 'unknown-dimension'
     | 'unknown-field'
+    | 'unknown-kind'
     | 'unknown-measure'
     | 'unknown-parameter'
     | 'unknown-series'
     | 'unsupported-schema-version'
+    /** 扩展的问题码：扩展 id 的末段、一个点、码。 */
+    | `${string}.${string}`
 
 /** 一条校验问题：path 只用对象键与数组下标，target 指出所在的带键对象。 */
 export type ValidationIssue = SchemaIssue<ValidationIssueCode>
@@ -74,6 +77,12 @@ export class Checker {
 
   report(code: ValidationIssueCode, path: JsonPath, params?: Readonly<Record<string, IssueParamValue>>): void {
     this.sink.report(code, path, params ? { params } : undefined)
+  }
+
+  /** 记下别处查出的问题：扩展种类的校验、扩展数据与追加属性的检查。 */
+  add(issues: readonly SchemaIssue[]): void {
+    for (const issue of issues)
+      this.sink.report(issue.code as ValidationIssueCode, issue.path, issue.params ? { params: issue.params } : undefined)
   }
 
   private missing(owner: JsonObject, key: string, path: JsonPath, required: boolean | undefined): boolean {

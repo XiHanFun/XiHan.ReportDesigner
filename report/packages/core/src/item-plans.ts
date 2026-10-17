@@ -9,9 +9,10 @@ import type { JsonPath } from '@xihan-ui/core/json'
 import type { ItemList, ItemOwner, PropertyChange, ReportOperation } from './operations'
 import type { ChartSpec, DashboardCard, DashboardView, DataView, FilterNode, JsonValue, MetricSpec, ReportDocument, ReportQuery } from './schema'
 import { nextFreeId } from '@xihan-ui/designer-kit'
+import { bodyQuery, cardQuery, cardView, isDataView } from './card-data'
 import { fieldFormulaSites, renameFormulas } from './formula-sites'
 
-/** 列表项所在的对象：报表主体或表格卡片的视图，或图表与指标卡片的查询。 */
+/** 列表项所在的对象：报表主体或带视图的卡片的视图，或带查询的卡片与作主体的扩展视图的查询。 */
 interface ResolvedOwner {
   readonly dashboard: DashboardView | undefined
   readonly card: DashboardCard | undefined
@@ -25,16 +26,25 @@ function resolveOwner(document: ReportDocument, owner: ItemOwner): ResolvedOwner
   if (owner.card === undefined) {
     if (body.type === 'dashboard')
       throw new RangeError('[report] the report body is a dashboard, an item owner needs a card')
-    return { dashboard: undefined, card: undefined, view: body, query: undefined, dataset: body.dataset }
+    if (isDataView(body))
+      return { dashboard: undefined, card: undefined, view: body, query: undefined, dataset: body.dataset }
+    const query = bodyQuery(body)
+    if (!query)
+      throw new RangeError('[report] the report body does not fetch data')
+    return { dashboard: undefined, card: undefined, view: undefined, query: query.query, dataset: query.dataset }
   }
   if (body.type !== 'dashboard')
     throw new RangeError('[report] the report body is not a dashboard')
   const card = body.cards.find(item => item.id === owner.card)
   if (!card)
     throw new RangeError(`[report] unknown card ${owner.card}`)
-  return card.kind === 'table'
-    ? { dashboard: body, card, view: card.view, query: undefined, dataset: card.view.dataset }
-    : { dashboard: body, card, view: undefined, query: card.query, dataset: card.dataset }
+  const view = cardView(card)
+  if (view)
+    return { dashboard: body, card, view, query: undefined, dataset: view.dataset }
+  const query = cardQuery(card)
+  if (!query)
+    throw new RangeError(`[report] card ${owner.card} does not fetch data`)
+  return { dashboard: body, card, view: undefined, query: query.query, dataset: query.dataset }
 }
 
 function ownerOf(card: string | undefined): ItemOwner {
@@ -48,6 +58,11 @@ function viewUpdate(card: string | undefined, changes: readonly PropertyChange[]
 
 function cardUpdate(id: string, changes: readonly PropertyChange[]): ReportOperation[] {
   return changes.length === 0 ? [] : [{ type: 'updateCard', id, changes }]
+}
+
+/** 查询上的修改：带查询的卡片写 updateCard，作主体的扩展视图写 updateView；路径带 query 前缀。 */
+function queryUpdate(card: string | undefined, changes: readonly PropertyChange[]): ReportOperation[] {
+  return card === undefined ? viewUpdate(undefined, changes) : cardUpdate(card, changes)
 }
 
 /** 图表配置里一处对维度或度量的引用；role 决定删除被引用项时怎么处理。 */
@@ -182,15 +197,17 @@ export function planRenameItem(document: ReportDocument, owner: ItemOwner, list:
     }
     return operations
   }
-  if (resolved.query && card && card.kind !== 'table') {
-    const refs = card.kind === 'chart' ? chartReferences(card.chart).map(ref => ({ ...ref, path: prefixed(['chart'], ref.path) })) : metricReferences(card.metric).map(ref => ({ ...ref, path: prefixed(['metric'], ref.path) }))
+  if (resolved.query) {
+    const refs = card?.kind === 'chart'
+      ? chartReferences(card.chart).map(ref => ({ ...ref, path: prefixed(['chart'], ref.path) }))
+      : card?.kind === 'metric' ? metricReferences(card.metric).map(ref => ({ ...ref, path: prefixed(['metric'], ref.path) })) : []
     const changes: PropertyChange[] = refs.filter(ref => ref.key === id).map(ref => ({ path: ref.path, value: next }))
     resolved.query.sort?.forEach((rule, i) => {
       if (rule.key === id)
         changes.push({ path: ['query', 'sort', i, 'key'], value: next })
     })
     changes.push(...sortByChanges(resolved.query.dimensions, 'dimensions', id, next).map(change => ({ ...change, path: prefixed(['query'], change.path) })))
-    operations.push(...cardUpdate(card.id, changes))
+    operations.push(...queryUpdate(card?.id, changes))
   }
   const view = resolved.view
   if (view?.type === 'group' && list === 'columns')
@@ -225,10 +242,10 @@ export function planRemoveItem(document: ReportDocument, owner: ItemOwner, list:
         operations.push(...cardUpdate(card.id, [kept.length === 0 ? { path: ['chart', 'annotations'] } : { path: ['chart', 'annotations'], value: kept as unknown as JsonValue }]))
     }
   }
-  else if (resolved.query && card && card.kind !== 'table') {
+  else if (resolved.query) {
     const changes: PropertyChange[] = []
     const removedSeries = new Set<string>()
-    if (card.kind === 'chart') {
+    if (card?.kind === 'chart') {
       const chart = card.chart
       for (const ref of chartReferences(chart).filter(item => item.key === id)) {
         if (ref.role === 'optional')
@@ -241,7 +258,7 @@ export function planRemoveItem(document: ReportDocument, owner: ItemOwner, list:
       if (chart.type === 'hierarchy' && chart.levels.includes(id))
         changes.push({ path: ['chart', 'levels'], value: chart.levels.filter(level => level !== id) })
     }
-    else {
+    else if (card?.kind === 'metric') {
       const metric = card.metric
       if (metric.baseline === id)
         changes.push({ path: ['metric', 'baseline'] })
@@ -254,15 +271,15 @@ export function planRemoveItem(document: ReportDocument, owner: ItemOwner, list:
       changes.push(kept.length === 0 ? { path: ['query', 'sort'] } : { path: ['query', 'sort'], value: kept as unknown as JsonValue })
     }
     changes.push(...sortByChanges(resolved.query.dimensions, 'dimensions', id, undefined).map(change => ({ ...change, path: prefixed(['query'], change.path) })))
-    const chart = card.kind === 'chart' ? card.chart : undefined
+    const chart = card?.kind === 'chart' ? card.chart : undefined
     if (chart?.type === 'cartesian' && removedSeries.size > 0 && chart.annotations) {
       const kept = chart.annotations.filter(annotation => !('series' in annotation && removedSeries.has(annotation.series)))
       if (kept.length !== chart.annotations.length)
         changes.push(kept.length === 0 ? { path: ['chart', 'annotations'] } : { path: ['chart', 'annotations'], value: kept as unknown as JsonValue })
     }
-    operations.push(...cardUpdate(card.id, changes))
+    operations.push(...queryUpdate(card?.id, changes))
     for (const series of removedSeries)
-      operations.push({ type: 'removeItem', card: card.id, list: 'series', id: series })
+      operations.push({ type: 'removeItem', card: card!.id, list: 'series', id: series })
   }
   const view = resolved.view
   if (view?.type === 'group' && list === 'columns')
@@ -341,21 +358,24 @@ export function planRenameField(document: ReportDocument, dataset: string, name:
   const rename = (paths: readonly JsonPath[]): PropertyChange[] => paths.map(path => ({ path, value: next }))
   const body = document.body
   if (body.type !== 'dashboard') {
-    if (body.dataset === dataset)
+    const query = bodyQuery(body)
+    if (isDataView(body) && body.dataset === dataset)
       operations.push(...viewUpdate(undefined, rename(viewFieldPaths(body, name))))
+    else if (query?.dataset === dataset)
+      operations.push(...viewUpdate(undefined, rename(queryFieldPaths(query.query, name))))
     return [...operations, ...fieldFormulas(document, dataset, name, next)]
   }
   const bound = new Set<string>()
   for (const card of body.cards) {
-    if (card.kind === 'table') {
-      if (card.view.dataset !== dataset)
-        continue
+    const view = cardView(card)
+    const query = cardQuery(card)
+    if (view?.dataset === dataset) {
       bound.add(card.id)
-      operations.push(...viewUpdate(card.id, rename(viewFieldPaths(card.view, name))))
+      operations.push(...viewUpdate(card.id, rename(viewFieldPaths(view, name))))
     }
-    else if (card.dataset === dataset) {
+    else if (query?.dataset === dataset) {
       bound.add(card.id)
-      operations.push(...cardUpdate(card.id, rename(queryFieldPaths(card.query, name))))
+      operations.push(...cardUpdate(card.id, rename(queryFieldPaths(query.query, name))))
     }
   }
   for (const link of body.links ?? []) {

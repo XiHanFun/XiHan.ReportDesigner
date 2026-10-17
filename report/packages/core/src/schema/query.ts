@@ -7,6 +7,7 @@
 
 import type { DateBucketUnit } from '@xihan-ui/core/date'
 import type { AggregateKind } from '@xihan-ui/viz'
+import type { ReportExtensible } from './extension'
 import type { FilterGroup, NullsPosition, SortDirection } from './filter'
 import type { FormatSpec } from './format'
 import { DATE_BUCKET_UNITS } from '@xihan-ui/core/date'
@@ -34,7 +35,7 @@ export interface AxisSort {
 }
 
 /** 维度：按字段分组。 */
-export interface Dimension {
+export interface Dimension extends ReportExtensible {
   /** 维度身份：查询结果里的键，与同一查询的度量 id 共用命名空间。 */
   readonly id: string
   /** 数据集字段名。 */
@@ -48,7 +49,7 @@ export interface Dimension {
 }
 
 /** 共有的度量属性。 */
-export interface MeasureBase {
+export interface MeasureBase extends ReportExtensible {
   /** 度量身份：查询结果里的键，与同一查询的维度 id 共用命名空间。 */
   readonly id: string
   readonly title?: string

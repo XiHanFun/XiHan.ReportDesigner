@@ -5,8 +5,8 @@
 
 // 由视图或卡片与参数取值算出取数请求。
 
+import type { QueryBinding } from '../card-data'
 import type {
-  ChartCard,
   DatasetQuery,
   DatasetQueryDimension,
   DatasetQueryMeasure,
@@ -16,7 +16,6 @@ import type {
   FilterCondition,
   FilterGroup,
   FilterNode,
-  MetricCard,
   ParameterValue,
   ParameterValues,
   ReportDocument,
@@ -27,7 +26,12 @@ import { isAggregateMeasure } from './cube'
 import { isEmptyOperand, resolveOperand } from './filter'
 
 /** 能取数的来源：明细表、分组报表、交叉表，或看板上的图表与指标卡片。 */
-export type RequestSource = DataView | ChartCard | MetricCard
+/** 取数的来源：明细表、分组报表、交叉表，或带查询的卡片与扩展视图。 */
+export type RequestSource = DataView | QueryBinding
+
+function isQuerySource(source: RequestSource): source is QueryBinding {
+  return 'query' in source
+}
 
 /** 生成取数请求的选项。 */
 export interface RequestOptions {
@@ -77,7 +81,7 @@ function rollupSets(ids: string[][], needed: boolean): string[][] {
 }
 
 function aggregation(source: RequestSource): { dimensions: DatasetQueryDimension[], measures: DatasetQueryMeasure[], rollups: string[][] } | null {
-  if ('kind' in source) {
+  if (isQuerySource(source)) {
     const dimensions = source.query.dimensions.map(({ id, field, bucket }) => ({ id, field, bucket }))
     const measures = source.query.measures.filter(isAggregateMeasure).map(({ id, field, aggregate }) => ({ id, field, aggregate }))
     return { dimensions, measures, rollups: rollupSets([[]], measures.some(m => !isAdditive(m.aggregate))) }
@@ -134,7 +138,7 @@ export function createDatasetRequest(source: RequestSource, dataset: DatasetSche
       parameters[name] = value as ParameterValue
   }
 
-  const base = 'kind' in source ? source.query.filter : source.filter
+  const base = isQuerySource(source) ? source.query.filter : source.filter
   const baseNodes = base ? bindFilter(base, options.parameters ?? {}) : []
   const extraNodes = bindFilter({ logic: 'and', conditions: options.filters ?? [] }, {})
   let merged: FilterGroup | null = null
@@ -159,9 +163,9 @@ export function createDatasetRequest(source: RequestSource, dataset: DatasetSche
 
   let sort: readonly RowSortRule[] | null = null
   let limit: number | null = null
-  if (!('kind' in source) && (source.type === 'table' || (source.type === 'group' && source.detail !== false)))
+  if (!isQuerySource(source) && (source.type === 'table' || (source.type === 'group' && source.detail !== false)))
     sort = source.sort ?? []
-  if (!('kind' in source) && source.type === 'table')
+  if (!isQuerySource(source) && source.type === 'table')
     limit = source.limit ?? null
   return {
     dataset: dataset.id,

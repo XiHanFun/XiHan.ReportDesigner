@@ -8,6 +8,7 @@
 export * from './chart'
 export * from './dataset'
 export * from './document'
+export * from './extension'
 export * from './filter'
 export * from './format'
 export * from './options'

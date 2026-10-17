@@ -6,12 +6,10 @@
 // @xihan-report/runtime/design —— 设计器画布复用的计算与渲染：与查看器同一份代码，所见即所得。主入口不含这些。
 
 export type { RenderedChart } from './viewer/charts'
-export type { ViewResult } from './viewer/compute'
-export { computeView } from './viewer/compute'
 export type { RenderContext } from './viewer/context'
 export { createRenderContext } from './viewer/context'
-export type { CardResult, CardState } from './viewer/dashboard'
-export { cardDataset, computeCard, renderCard, renderDashboardFrame, renderView, tableLabel } from './viewer/dashboard'
+export type { CardState } from './viewer/dashboard'
+export { renderCard, renderDashboardFrame, renderView, tableLabel } from './viewer/dashboard'
 export { defineViewerElements } from './viewer/elements'
 export type { ParameterBarHandlers } from './viewer/parameters'
 export { renderParameterControl } from './viewer/parameters'

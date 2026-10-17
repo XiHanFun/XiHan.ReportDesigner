@@ -12,7 +12,7 @@ import type { ReportDesignerTranslations } from '@xihan-report/runtime'
 import type { DropOver } from '@xihan-ui/designer-shell'
 import type { XhSortableElement, XhTagElement } from '@xihan-ui/web-components/define'
 import type { ReportItemRef, ReportSelection } from './editor'
-import { applyOperations, planAddFieldItem, planFillBindings, planRemoveItem } from '@xihan-report/core'
+import { applyOperations, isDataView, planAddFieldItem, planFillBindings, planRemoveItem } from '@xihan-report/core'
 import { createIdAllocator } from '@xihan-ui/designer-kit'
 import { registerDropTarget } from '@xihan-ui/designer-shell'
 import { createAuthoredElement, createGeneratedElement, setText } from '@xihan-ui/web-components/authoring'
@@ -78,13 +78,17 @@ function linkSources(card: DashboardCard | undefined): readonly WellItem[] {
 export function wellsOwner(document: ReportDocument, selection: ReportSelection): WellsOwner | undefined {
   const body = document.body
   if (body.type !== 'dashboard')
-    return { dataset: body.dataset, source: body }
+    return isDataView(body) ? { dataset: body.dataset, source: body } : undefined
   if (selection.cards.length !== 1)
     return undefined
   const card = body.cards.find(item => item.id === selection.cards[0])
   if (!card)
     return undefined
-  return card.kind === 'table' ? { card: card.id, dataset: card.view.dataset, source: card.view } : { card: card.id, dataset: card.dataset, source: card }
+  if (card.kind === 'table')
+    return { card: card.id, dataset: card.view.dataset, source: card.view }
+  if (card.kind === 'chart' || card.kind === 'metric')
+    return { card: card.id, dataset: card.dataset, source: card }
+  return undefined
 }
 
 function wellLists(document: ReportDocument, owner: WellsOwner, t: ReportDesignerTranslations): WellList[] {

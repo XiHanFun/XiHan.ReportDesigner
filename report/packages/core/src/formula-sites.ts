@@ -8,6 +8,7 @@
 import type { ReportOperation } from './operations'
 import type { DataView, ReportDocument, ReportQuery } from './schema'
 import { renameReferences } from '@xihan-ui/expression'
+import { bodyQuery, cardQuery, cardView, isDataView } from './card-data'
 
 /** 一处公式与改写它的操作。 */
 export interface FormulaSite {
@@ -33,15 +34,26 @@ export function fieldFormulaSites(document: ReportDocument, dataset?: string, sk
 export function viewFormulaSites(document: ReportDocument): FormulaSite[] {
   const sites: FormulaSite[] = []
   const body = document.body
-  type Owner = { readonly card: string | undefined, readonly view: DataView } | { readonly card: string, readonly query: ReportQuery }
+  type Owner = { readonly card: string | undefined, readonly view: DataView } | { readonly card: string | undefined, readonly query: ReportQuery }
+  const ownerOf = (card: string, view: DataView | undefined, query: ReportQuery | undefined): Owner[] =>
+    view ? [{ card, view }] : query ? [{ card, query }] : []
   const views: Owner[] = body.type === 'dashboard'
-    ? body.cards.map((card): Owner => card.kind === 'table' ? { card: card.id, view: card.view } : { card: card.id, query: card.query })
-    : [{ card: undefined, view: body }]
+    ? body.cards.flatMap(card => ownerOf(card.id, cardView(card), cardQuery(card)?.query))
+    : isDataView(body)
+      ? [{ card: undefined, view: body }]
+      : bodyQuery(body) ? [{ card: undefined, query: bodyQuery(body)!.query }] : []
   for (const owner of views) {
     if ('query' in owner) {
       owner.query.measures.forEach((measure, index) => {
-        if ('formula' in measure)
-          sites.push({ source: measure.formula, write: next => ({ type: 'updateCard', id: owner.card, changes: [{ path: ['query', 'measures', index, 'formula'], value: next }] }) })
+        if (!('formula' in measure))
+          return
+        const path = ['query', 'measures', index, 'formula']
+        sites.push({
+          source: measure.formula,
+          write: next => owner.card === undefined
+            ? { type: 'updateView', changes: [{ path, value: next }] }
+            : { type: 'updateCard', id: owner.card, changes: [{ path, value: next }] },
+        })
       })
       continue
     }

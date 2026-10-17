@@ -7,7 +7,7 @@
 
 import type { GridItem, GridOptions, GridRect } from '@xihan-ui/designer-kit'
 import type { ReportOperation } from './operations'
-import type { CardLayout, DashboardCard, DashboardView } from './schema'
+import type { CardBase, CardLayout, ChartCard, DashboardCard, DashboardView, DataBinding, DataView, ExtensionCard, MetricCard, ReportExtensionKind, ReportQuery, TableCard } from './schema'
 import { compactLayout, placeGridItem, removeGridItem, setGridItemRect } from '@xihan-ui/designer-kit'
 
 /** 看板上全部卡片的网格位置，次序与卡片相同。 */
@@ -55,8 +55,19 @@ export interface CardPlacement {
   readonly y?: number
 }
 
+/** 待新增的扩展卡片：同 ExtensionCard，layout 只需写大小。 */
+export interface NewExtensionCard extends Omit<CardBase, 'layout'>, Partial<DataBinding> {
+  readonly kind: ReportExtensionKind
+  readonly layout: CardPlacement
+  readonly query?: ReportQuery
+  readonly view?: DataView
+  readonly [key: string]: unknown
+}
+
+type WithPlacement<C extends Exclude<DashboardCard, ExtensionCard>> = Omit<C, 'layout'> & { readonly layout: CardPlacement }
+
 /** 待新增的卡片：layout 只需写大小，位置可以留给 planAddCard 找空位。 */
-export type NewCard = DashboardCard extends infer C ? C extends DashboardCard ? Omit<C, 'layout'> & { readonly layout: CardPlacement } : never : never
+export type NewCard = WithPlacement<ChartCard> | WithPlacement<MetricCard> | WithPlacement<TableCard> | NewExtensionCard
 
 /**
  * 新增卡片：按 placement 放进网格（推开压到的卡片，缺省整体压实），产出 addCard 与其余卡片的 layoutCards。

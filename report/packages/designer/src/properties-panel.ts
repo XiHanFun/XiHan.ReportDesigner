@@ -17,12 +17,15 @@ import type { DatasetEditing } from './data-editing'
 import type { ReportDataRef, ReportEditor, ReportItemRef, ReportSelection } from './editor'
 import {
   cardProperties,
+  cardQuery,
+  cardView,
   chartProperties,
   dashboardProperties,
   datasetFieldProperties,
   dimensionProperties,
   documentProperties,
   groupLevelProperties,
+  isDataView,
   linkProperties,
   measureProperties,
   metricProperties,
@@ -194,10 +197,10 @@ export class PropertiesPanel {
   /** 没有选中时：报表文档，连同看板网格或主体视图的属性。 */
   #bindDocument(document: ReportDocument): Binding {
     const body = document.body
-    const scope: Scope = body.type === 'dashboard' ? { dataset: undefined, query: undefined } : { dataset: body.dataset, query: undefined }
+    const scope: Scope = isDataView(body) ? { dataset: body.dataset, query: undefined } : { dataset: undefined, query: undefined }
     const inner = body.type === 'dashboard'
       ? this.#nest(['body'], 'dashboard', dashboardProperties(), document, scope)
-      : this.#nest(['body'], `view.${body.type}`, viewProperties(body.type), document, scope)
+      : isDataView(body) ? this.#nest(['body'], `view.${body.type}`, viewProperties(body.type), document, scope) : []
     return {
       target: { kind: 'document', id: document.id, value: document as unknown as JsonValue, descriptors: [...this.#nest([], 'document', documentProperties(), document, scope), ...inner] },
       base: [],
@@ -217,13 +220,15 @@ export class PropertiesPanel {
   /** 一张卡片：卡片自身的属性，连同图表、指标配置或表格卡片视图的属性。 */
   #bindCard(document: ReportDocument, dashboard: DashboardView, index: number): Binding {
     const card = dashboard.cards[index]!
-    const scope: Scope = card.kind === 'table' ? { dataset: card.view.dataset, query: undefined } : { dataset: card.dataset, query: card.query }
+    const view = cardView(card)
+    const query = cardQuery(card)
+    const scope: Scope = view ? { dataset: view.dataset, query: undefined } : { dataset: query?.dataset, query: query?.query }
     const own = this.#nest([], 'card', cardProperties(card), document, scope)
     const inner = card.kind === 'chart'
       ? this.#nest(['chart'], `chart.${card.chart.type}`, chartProperties(card.chart.type), document, scope)
       : card.kind === 'metric'
         ? this.#nest(['metric'], 'metric', metricProperties(), document, scope)
-        : this.#nest(['view'], `view.${card.view.type}`, viewProperties(card.view.type), document, scope)
+        : view ? this.#nest(['view'], `view.${view.type}`, viewProperties(view.type), document, scope) : []
     return {
       target: { kind: 'card', id: card.id, value: card as unknown as JsonValue, descriptors: [...own, ...inner] },
       base: ['body', 'cards', index],
@@ -251,7 +256,7 @@ export class PropertiesPanel {
     let base: JsonPath
     let scope: Scope
     if (ref.card === undefined) {
-      if (body.type === 'dashboard')
+      if (!isDataView(body))
         return []
       container = view = body
       base = ['body']

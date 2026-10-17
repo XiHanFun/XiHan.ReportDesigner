@@ -144,7 +144,7 @@ describe('defineReportDesigner()', () => {
       expect(scan(seen), `参数 ${parameter.name}`).toEqual([])
     }
     // 删一个被卡片用着的字段：先弹确认框
-    const used = designer.schema!.body.type === 'dashboard' ? designer.schema!.body.cards.flatMap(item => ('query' in item ? item.query.dimensions.map(dimension => dimension.field) : []))[0]! : ''
+    const used = designer.schema!.body.type === 'dashboard' ? designer.schema!.body.cards.flatMap(item => (item.kind === 'chart' || item.kind === 'metric' ? item.query.dimensions.map(dimension => dimension.field) : []))[0]! : ''
     designer.select({ data: { kind: 'field', dataset: 'sales', name: used } })
     designer.deleteSelection()
     await settle(designer)

@@ -7,6 +7,7 @@
 
 import type { StringCollator } from '@xihan-ui/viz'
 import type { ExpressionEngine } from '../expression'
+import type { ReportCoreExtension } from '../extensions'
 import type { DataRow, DatasetData, DatasetRollup, DatasetSchema, FieldType, FilterCondition, FilterGroup, ParameterValues } from '../schema'
 import type { DateTools } from './date'
 import type { FilterEnvironment } from './filter'
@@ -25,6 +26,8 @@ export interface ComputeOptions {
   readonly timeZone?: string
   /** 字符串比较，缺省按 UTF-16 码元。 */
   readonly collate?: StringCollator
+  /** 卡片与视图种类的扩展，按卡片种类计算时读；内置扩展总在最前。 */
+  readonly extensions?: readonly ReportCoreExtension[]
   /** 追加的筛选条件（如看板联动），与视图的筛选同时满足。 */
   readonly filters?: readonly FilterCondition[]
 }

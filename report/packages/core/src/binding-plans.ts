@@ -127,7 +127,7 @@ export function planFillBindings(document: ReportDocument, card: string): Report
   const target: DashboardCard | undefined = body.cards.find(item => item.id === card)
   if (!target)
     throw new RangeError(`[report] unknown card ${card}`)
-  if (target.kind === 'table')
+  if (target.kind !== 'chart' && target.kind !== 'metric')
     return []
   const dimensions = new Pool(target.query.dimensions.map(item => item.id))
   const measures = new Pool(target.query.measures.map(item => item.id))

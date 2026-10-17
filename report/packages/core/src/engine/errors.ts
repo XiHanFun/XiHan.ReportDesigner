@@ -15,8 +15,10 @@ export type ComputeErrorCode
     | 'invalid-date-value'
     | 'invalid-filter-operand'
     | 'invalid-time-zone'
+    | 'missing-data'
     | 'unknown-card'
     | 'unknown-dimension'
+    | 'unknown-kind'
     | 'unknown-sort-key'
 
 /** 计算错误：message 即错误码，定位与取值放在 params 里。 */

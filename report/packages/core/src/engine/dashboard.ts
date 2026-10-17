@@ -8,6 +8,7 @@
 import type { DashboardCard, DashboardView, DateBucket, FilterCondition, MetricSpec, ScalarValue } from '../schema'
 import type { QueryResult } from './query'
 import { isMissing } from '@xihan-ui/viz'
+import { cardQuery, cardView } from '../card-data'
 import { ReportComputeError } from './errors'
 
 /** 联动的选中值：联动 id 到源维度上选中的取值；空数组或缺项表示没有选中。 */
@@ -41,9 +42,12 @@ export function findCard(dashboard: DashboardView, id: string): DashboardCard | 
  * 分组报表的分组、交叉表的行列维度。没有该维度时为 undefined。
  */
 export function cardDimension(card: DashboardCard, id: string): CardDimension | undefined {
-  if (card.kind !== 'table')
-    return card.query.dimensions.find(dimension => dimension.id === id)
-  const view = card.view
+  const query = cardQuery(card)
+  if (query)
+    return query.query.dimensions.find(dimension => dimension.id === id)
+  const view = cardView(card)
+  if (!view)
+    return undefined
   switch (view.type) {
     case 'table': {
       const column = view.columns.find(item => item.id === id)

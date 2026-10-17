@@ -7,11 +7,11 @@
 // 明细表、分组报表与交叉表用 computeView / renderView。内容按定义缓存，改过的卡片才在去抖后重新取数计算；
 // 位置大小变了只改卡片的位置变量。没给取数回调时画占位。
 
-import type { ComputeOptions, DashboardCard, DashboardView, DatasetData, DatasetRequest, DatasetSchema, DataView, ParameterValues, ReportDocument } from '@xihan-report/core'
+import type { ComputeOptions, DashboardCard, DashboardView, DatasetData, DatasetRequest, DatasetSchema, DataView, ParameterValues, ReportDocument, ViewResult } from '@xihan-report/core'
 import type { ReportDataProvider } from '@xihan-report/runtime'
-import type { CardState, RenderContext, ViewResult } from '@xihan-report/runtime/design'
-import { cardTypeOf, createDatasetRequest, findDataset } from '@xihan-report/core'
-import { computeCard, computeView, renderCard, renderDashboardFrame, renderView, tableLabel } from '@xihan-report/runtime/design'
+import type { CardState, RenderContext } from '@xihan-report/runtime/design'
+import { cardQuery, cardTypeOf, cardView, computeCard, computeView, createDatasetRequest, findDataset, isDataView } from '@xihan-report/core'
+import { renderCard, renderDashboardFrame, renderView, tableLabel } from '@xihan-report/runtime/design'
 import { clampToGrid } from '@xihan-ui/designer-kit'
 import { createAuthoredElement } from '@xihan-ui/web-components/authoring'
 
@@ -90,8 +90,10 @@ export class CanvasContent {
     const body = inputs.document.body
     if (body.type === 'dashboard')
       this.#updateDashboard(body, inputs)
-    else
+    else if (isDataView(body))
       this.#updateView(body, inputs)
+    else
+      this.#clear()
     if ([...this.#entries.values()].some(entry => entry.pending))
       this.#schedule()
   }
@@ -153,6 +155,15 @@ export class CanvasContent {
     }
   }
 
+  /** 主体是扩展视图：画布上没有内容。 */
+  #clear(): void {
+    this.#frame = undefined
+    this.#frameKey = undefined
+    this.#view = undefined
+    this.#entries.clear()
+    this.#host.replaceChildren()
+  }
+
   #updateView(view: DataView, inputs: CanvasInputs): void {
     this.#frame = undefined
     this.#frameKey = undefined
@@ -175,7 +186,9 @@ export class CanvasContent {
 
   /** 卡片或视图的数据集与取数请求；数据集不存在时为 undefined。 */
   #request(source: DashboardCard | DataView, document: ReportDocument, values: ParameterValues): { readonly request: DatasetRequest, readonly dataset: DatasetSchema } | undefined {
-    const target = 'kind' in source ? (source.kind === 'table' ? source.view : source) : source
+    const target = 'kind' in source ? cardView(source) ?? cardQuery(source) : source
+    if (!target)
+      return undefined
     const dataset = findDataset(document, target.dataset)
     return dataset ? { request: createDatasetRequest(target, dataset, { parameters: values }), dataset } : undefined
   }
@@ -202,7 +215,7 @@ export class CanvasContent {
     const abort = new AbortController()
     this.#abort = abort
     const body = inputs.document.body
-    const sources: [string, DashboardCard | DataView][] = body.type === 'dashboard' ? body.cards.map(card => [card.id, card]) : [['', body]]
+    const sources: [string, DashboardCard | DataView][] = body.type === 'dashboard' ? body.cards.map(card => [card.id, card]) : isDataView(body) ? [['', body]] : []
     const used = new Set<string>()
     await Promise.all(sources.map(async ([id, source]) => {
       const entry = this.#entries.get(id)

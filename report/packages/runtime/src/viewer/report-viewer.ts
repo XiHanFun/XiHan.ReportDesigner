@@ -6,26 +6,24 @@
 // <xh-report-viewer>：报表查看器。校验报表定义与参数，经使用方的 dataProvider 取数，交给 core 计算后排成 UI 元素；
 // 看板的图表卡片可作联动源，选中值换成目标卡片的筛选后只重算目标卡片。
 
-import type { ComputeOptions, DashboardView, DatasetData, DatasetRequest, ExpressionEngine, LinkSelections, ParameterIssueCode, ParameterValue, ParameterValues, ReportDocument, ScalarValue, ValidationIssueCode } from '@xihan-report/core'
+import type { ComputeOptions, DashboardView, DatasetData, DatasetRequest, ExpressionEngine, LinkSelections, ParameterIssueCode, ParameterValue, ParameterValues, ReportDocument, ScalarValue, ValidationIssueCode, ViewResult } from '@xihan-report/core'
 import type { SchemaIssue } from '@xihan-ui/designer-kit/schema'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { XlsxSheet } from '@xihan-ui/xlsx'
 import type { ReportViewerTranslations } from '../translations'
 import type { ChartPress, RenderedChart } from './charts'
-import type { ViewResult } from './compute'
 import type { RenderContext } from './context'
 import type { CardState } from './dashboard'
 import type { ReportFormatter } from './format'
 import type { RenderedTable, TableCellRef } from './table'
-import { createDatasetRequest, findDataset, resolveLinkFilters, resolveParameters, validateDocument } from '@xihan-report/core'
+import { cardQuery, cardView, computeCard, computeView, createDatasetRequest, findDataset, isDataView, resolveLinkFilters, resolveParameters, validateDocument } from '@xihan-report/core'
 import { getLocalTimeZone } from '@xihan-ui/core/date'
 import { hasErrors, withSeverity } from '@xihan-ui/designer-kit/schema'
 import { valueKey } from '@xihan-ui/viz'
 import { emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { DEFAULT_REPORT_VIEWER_TRANSLATIONS } from '../translations'
-import { computeView } from './compute'
 import { createRenderContext } from './context'
-import { cardDataset, computeCard, keepTableFocus, renderCard, renderDashboardFrame, renderView, tableLabel } from './dashboard'
+import { keepTableFocus, renderCard, renderDashboardFrame, renderView, tableLabel } from './dashboard'
 import { ownPart } from './dom'
 import { defineViewerElements } from './elements'
 import { defaultFormatter } from './format'
@@ -210,13 +208,13 @@ export class XhReportViewer extends XhReactiveElement {
       const used = new Set<string>()
       for (const card of dashboard.cards) {
         const state = this.#cards.get(card.id)
-        if (state?.status !== 'ready' || state.result.kind !== 'table')
+        if (state?.status !== 'ready' || state.result.card.kind !== 'table')
           continue
         let name = xlsx.sheetName(card.title ?? card.id)
         for (let index = 2; used.has(name.toLowerCase()); index++)
           name = xlsx.sheetName(`${(card.title ?? card.id).slice(0, 26)} (${index})`)
         used.add(name.toLowerCase())
-        result.push(sheet(state.result.view, name))
+        result.push(sheet(state.result.value as ViewResult, name))
       }
     }
     else if (this.#view) {
@@ -402,6 +400,8 @@ export class XhReportViewer extends XhReactiveElement {
       this.#state = 'ready'
       return this.#loadCards(undefined, run, abort)
     }
+    if (!isDataView(body))
+      throw new TypeError(`[report] no renderer for view kind ${body.type}`)
 
     this.#setLoading(true)
     if (!this.#view) {
@@ -465,8 +465,11 @@ export class XhReportViewer extends XhReactiveElement {
     await Promise.all(targets.map(async (card) => {
       const cardFilters = filters[card.id] ?? []
       try {
-        const dataset = findDataset(inputs.schema, cardDataset(card))!
-        const request = createDatasetRequest(card.kind === 'table' ? card.view : card, dataset, { parameters: inputs.values, filters: cardFilters })
+        const source = cardView(card) ?? cardQuery(card)
+        if (!source)
+          throw new TypeError(`[report] no renderer for card kind ${card.kind}`)
+        const dataset = findDataset(inputs.schema, source.dataset)!
+        const request = createDatasetRequest(source, dataset, { parameters: inputs.values, filters: cardFilters })
         const key = JSON.stringify(request)
         let pending = requests.get(key)
         if (!pending) {
