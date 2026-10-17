@@ -12,6 +12,10 @@ hero:
     alt: 曦寒报表设计器
   actions:
     - theme: brand
+      text: 快速开始
+      link: /quickstart
+
+    - theme: alt
       text: 介绍
       link: /introduction
 
@@ -25,6 +29,8 @@ features:
   - title: 报表定义即数据
     icon: 📄
     details: 报表是纯 JSON：数据集、参数与主体视图；计算字段与公式度量用受限表达式，不执行任何代码。
+    link: /guide/structure
+    linkText: 了解报表结构
 
   - title: 数据由宿主提供
     icon: 🔌

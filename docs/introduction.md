@@ -58,3 +58,8 @@
 - `@xihan-report/core` 不依赖 DOM，可以在浏览器、Node.js 或其它 JavaScript 运行环境里校验报表、生成取数请求并计算结果。
 - `@xihan-report/runtime` 与 `@xihan-report/designer` 要在支持 Custom Elements 的浏览器里运行。
 - 计算字段与公式度量要一个表达式引擎，用 `@xihan-ui/expression` 的 `createExpressionEngine()` 即可；报表里没有公式时不需要。
+
+## 下一步
+
+- [快速开始](./quickstart)：在任意前端项目里装包，显示一张明细表。
+- [报表结构](./guide/structure)：数据集、参数与几种主体视图。
