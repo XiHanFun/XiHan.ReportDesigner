@@ -25,7 +25,7 @@ import { emitEvent, registerElement, XhConfigController, XhReactiveElement } fro
 import { DEFAULT_REPORT_VIEWER_TRANSLATIONS } from '../translations'
 import { computeView } from './compute'
 import { createRenderContext } from './context'
-import { cardDataset, computeCard, renderCard, renderDashboardFrame, renderView, tableLabel } from './dashboard'
+import { cardDataset, computeCard, keepTableFocus, renderCard, renderDashboardFrame, renderView, tableLabel } from './dashboard'
 import { ownPart } from './dom'
 import { defineViewerElements } from './elements'
 import { defaultFormatter } from './format'
@@ -61,6 +61,30 @@ export interface ReportViewerEventMap {
    * 与源维度上的取值，与联动无关时为 null。
    */
   'action': CustomEvent<{ card: string | null, link: string | null, value: unknown } & TableCellRef>
+}
+
+/** 一轮绘制用到的输入：内容（卡片状态或视图结果）、绘的位置与影响文字的几项。 */
+interface PaintKey {
+  readonly content: unknown
+  readonly target: HTMLElement
+  readonly translations: unknown
+  readonly formatter: unknown
+  readonly locale: string | undefined
+  readonly timeZone: string
+}
+
+/** 两份文案逐键相同（全局配置每次合并出一份新对象，里面的取值引用不变）。 */
+function sameTranslations(a: unknown, b: unknown): boolean {
+  if (a === b)
+    return true
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null)
+    return false
+  const keys = Object.keys(a)
+  return keys.length === Object.keys(b).length && keys.every(key => (a as Record<string, unknown>)[key] === (b as Record<string, unknown>)[key])
+}
+
+function samePaint(a: PaintKey | undefined, b: PaintKey): boolean {
+  return a !== undefined && a.content === b.content && a.target === b.target && sameTranslations(a.translations, b.translations) && a.formatter === b.formatter && a.locale === b.locale && a.timeZone === b.timeZone
 }
 
 /** 查看器的状态。 */
@@ -135,6 +159,9 @@ export class XhReportViewer extends XhReactiveElement {
   #frame: Map<string, { readonly card: HTMLElement, readonly body: HTMLElement }> | undefined
   #frameOf: DashboardView | undefined
   #charts = new Map<string, RenderedChart>()
+  readonly #pressBound = new WeakSet<HTMLElement>()
+  /** 各卡片（主体视图记在空串下）上一轮绘制用到的输入。 */
+  readonly #painted = new Map<string, PaintKey>()
   #ownSelections: LinkSelections = {}
   #ownParameters: ParameterValues | undefined
   #emittedParameters: string | undefined
@@ -539,11 +566,22 @@ export class XhReportViewer extends XhReactiveElement {
     }
   }
 
+  /** 这一轮绘制用到的输入：与上一轮相同的卡片或主体视图不重绘。 */
+  #paintKey(ctx: RenderContext, content: unknown, target: HTMLElement): PaintKey {
+    return { content, target, translations: ctx.translations, formatter: this.formatter, locale: this.#locale(), timeZone: this.#timeZone() }
+  }
+
   #renderCard(cardId: string, ctx: RenderContext): void {
     const frame = this.#frame?.get(cardId)
     const state = this.#cards.get(cardId)
     if (!frame || !state)
       return
+    const key = this.#paintKey(ctx, state, frame.body)
+    if (samePaint(this.#painted.get(cardId), key)) {
+      this.#renderActiveKeys()
+      return
+    }
+    this.#painted.set(cardId, key)
     this.#charts.delete(cardId)
     const rendered = renderCard(frame.body, state, ctx)
     if (rendered && 'cellOf' in rendered) {
@@ -551,7 +589,11 @@ export class XhReportViewer extends XhReactiveElement {
     }
     else if (rendered) {
       this.#charts.set(cardId, rendered)
-      rendered.element.addEventListener('datum-press', event => this.#onPress(cardId, event))
+      // 同种图表复用元素时监听已经挂过，不再重复挂
+      if (!this.#pressBound.has(rendered.element)) {
+        this.#pressBound.add(rendered.element)
+        rendered.element.addEventListener('datum-press', event => this.#onPress(cardId, event))
+      }
     }
     this.#renderActiveKeys()
   }
@@ -592,7 +634,11 @@ export class XhReportViewer extends XhReactiveElement {
     const view = this.#view
     if (!view)
       return
-    this.#bindTable(null, renderView(layers.body, view, ctx, tableLabel(this.schema?.title, view)))
+    const key = this.#paintKey(ctx, view, layers.body)
+    if (samePaint(this.#painted.get(''), key))
+      return
+    this.#painted.set('', key)
+    this.#bindTable(null, keepTableFocus(layers.body, () => renderView(layers.body, view, ctx, tableLabel(this.schema?.title, view))))
   }
 }
 

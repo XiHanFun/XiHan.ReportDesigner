@@ -101,7 +101,36 @@ export function tableLabel(title: string | undefined, view: ViewResult): string 
   return title ?? view.dataset.title ?? view.dataset.id
 }
 
-/** 把一张卡片的状态绘进内容区；图表与表格卡片返回绘好的元素，供联动与下钻接线。 */
+/** 还没还回去的焦点：表格升级前又重建了一次时接着用。 */
+const pendingFocus = new WeakMap<HTMLElement, { readonly row: string, readonly cell: string | undefined }>()
+
+/** 表格重建后把焦点还给原来的行（与格）：重建前焦点在哪一行，表格升级后再聚焦同一行。 */
+export function keepTableFocus(body: HTMLElement, render: () => RenderedTable): RenderedTable {
+  const active = body.ownerDocument.activeElement
+  const inside = active instanceof HTMLElement && body.contains(active) ? active : undefined
+  const pending = pendingFocus.get(body)
+  const row = inside?.closest('[data-xh-part="row"][value]')?.getAttribute('value') ?? pending?.row
+  const cell = inside ? inside.closest('[data-xh-part="cell"][value]')?.getAttribute('value') ?? undefined : pending?.cell
+  const rendered = render()
+  if (row === undefined)
+    return rendered
+  pendingFocus.set(body, { row, cell })
+  void rendered.element.updateComplete.then(() => {
+    if (!body.contains(rendered.element))
+      return
+    pendingFocus.delete(body)
+    const target = [...rendered.element.querySelectorAll<HTMLElement>('[data-xh-part="row"][value]')].find(item => item.getAttribute('value') === row)
+    const focusCell = cell === undefined ? undefined : [...(target?.querySelectorAll<HTMLElement>('[data-xh-part="cell"][value]') ?? [])].find(item => item.getAttribute('value') === cell && item.tabIndex >= 0)
+    ;(focusCell ?? target)?.focus()
+  })
+  return rendered
+}
+
+/**
+ * 把一张卡片的状态绘进内容区；图表与表格卡片返回绘好的元素，供联动与下钻接线。
+ * 上一轮绘的是同种图表或指标卡片时复用那些元素，只换数据：刷新与联动不重放入场动效，焦点留在原处。
+ * 表格整个重建，焦点还给原来的行。
+ */
 export function renderCard(body: HTMLElement, state: CardState, ctx: RenderContext): RenderedChart | RenderedTable | undefined {
   const section = body.parentElement
   if (state.status !== 'ready') {
@@ -114,14 +143,20 @@ export function renderCard(body: HTMLElement, state: CardState, ctx: RenderConte
   switch (result.kind) {
     case 'chart': {
       const label = result.card.title ?? result.card.query.measures.map(measure => measureLabel(measure, result.dataset)).join(' / ')
-      const rendered = renderChart(result.card.chart, result.data, result.card.query, result.dataset, ctx, label)
-      body.replaceChildren(rendered.element)
+      const previous = body.firstElementChild
+      const rendered = renderChart(result.card.chart, result.data, result.card.query, result.dataset, ctx, label, previous)
+      if (rendered.element !== previous || body.childElementCount !== 1)
+        body.replaceChildren(rendered.element)
       return rendered
     }
-    case 'metric':
-      body.replaceChildren(renderMetric(result.card, result.result, result.metric, result.dataset, ctx))
+    case 'metric': {
+      const previous = body.firstElementChild
+      const content = renderMetric(result.card, result.result, result.metric, result.dataset, ctx, previous)
+      if (content !== previous || body.childElementCount !== 1)
+        body.replaceChildren(content)
       return undefined
+    }
     case 'table':
-      return renderView(body, result.view, ctx, tableLabel(result.card.title, result.view))
+      return keepTableFocus(body, () => renderView(body, result.view, ctx, tableLabel(result.card.title, result.view)))
   }
 }
