@@ -4,6 +4,7 @@
  */
 
 // 图表卡片：core 的 chartData 整好数据，这里写成 UI 图表元素的外壳与属性；类目值换成显示文字，联动时再换回原值。
+// 上一轮绘的是同种图表时复用那个元素，只换属性：刷新与联动不重放入场动效，焦点留在原处。
 
 import type { CartesianAxisSpec, CartesianChartData, ChartData, ChartSpec, DatasetSchema, DateHeatmapData, FormatSpec, HeatmapChartSpec, MatrixHeatmapData, ReportQuery } from '@xihan-report/core'
 import type { RenderContext } from './context'
@@ -60,8 +61,51 @@ class Labels {
   }
 }
 
-function chartShell(tag: string, label: string, parts: { readonly legend?: boolean, readonly center?: boolean, readonly path?: boolean }, emptyText: string): HTMLElement {
+/** 图表外壳的可选部件。 */
+interface ShellParts {
+  readonly legend?: boolean
+  readonly center?: boolean
+  readonly path?: boolean
+}
+
+/** 元素建出来时的外壳样子：标签相同、外壳相同才复用。 */
+const shells = new WeakMap<Element, string>()
+
+/** 上一轮赋过的属性名。 */
+const assigned = new WeakMap<Element, readonly string[]>()
+
+/** 把属性赋到元素上：上一轮赋过、这一轮没有的设回 undefined，取值没变的不重设。 */
+function assign(element: HTMLElement, props: Readonly<Record<string, unknown>>): void {
+  const target = element as unknown as Record<string, unknown>
+  for (const key of assigned.get(element) ?? []) {
+    if (!(key in props))
+      target[key] = undefined
+  }
+  for (const [key, value] of Object.entries(props)) {
+    if (target[key] !== value)
+      target[key] = value
+  }
+  assigned.set(element, Object.keys(props))
+}
+
+/** 上一轮的元素能复用时改写它的可及名与空态文字并交回；不能复用时为 undefined。 */
+function reuseShell(previous: Element | null | undefined, tag: string, signature: string, label: string, emptyText: string): HTMLElement | undefined {
+  if (!(previous instanceof HTMLElement) || previous.localName !== tag || shells.get(previous) !== signature)
+    return undefined
+  previous.querySelector(':scope > [data-xh-part="root"]')?.setAttribute('aria-label', label)
+  const empty = previous.querySelector('[data-xh-part="empty"]')
+  if (empty && empty.textContent !== emptyText)
+    empty.textContent = emptyText
+  return previous
+}
+
+function chartShell(tag: string, label: string, parts: ShellParts, emptyText: string, previous?: Element | null): HTMLElement {
+  const signature = JSON.stringify([parts.legend ?? false, parts.center ?? false, parts.path ?? false])
+  const reused = reuseShell(previous, tag, signature, label, emptyText)
+  if (reused)
+    return reused
   const element = document.createElement(tag)
+  shells.set(element, signature)
   const root = uiPart('figure', 'root', { 'aria-label': label })
   if (parts.path)
     root.append(uiPart('nav', 'path'))
@@ -165,9 +209,13 @@ function cartesian(chart: Extract<ChartSpec, { type: 'cartesian' }>, data: Carte
  * 热力图：可及名写在网格上（gridLabel）。日期形态的格子键是 ISO 日期，选中值写回 activeKey 作强调；没写区间时取数据里最早到最晚的日期。
  * 矩阵形态按行、列维度发出取值，联动选中的是整行或整列，不对应单独一格，不写 activeKey。
  */
-function heatmap(chart: HeatmapChartSpec, data: DateHeatmapData | MatrixHeatmapData, query: ReportQuery, dataset: DatasetSchema, ctx: RenderContext, label: string): RenderedChart {
-  const element = document.createElement('xh-heatmap')
-  element.append(uiPart('div', 'root'))
+function heatmap(chart: HeatmapChartSpec, data: DateHeatmapData | MatrixHeatmapData, query: ReportQuery, dataset: DatasetSchema, ctx: RenderContext, label: string, previous?: Element | null): RenderedChart {
+  let element = previous instanceof HTMLElement && previous.localName === 'xh-heatmap' && shells.get(previous) === 'heatmap' ? previous : undefined
+  if (!element) {
+    element = document.createElement('xh-heatmap')
+    element.append(uiPart('div', 'root'))
+    shells.set(element, 'heatmap')
+  }
   const measure = query.measures.find(item => item.id === chart.valueField)
   const common = {
     ...(measure?.format ? { format: numberFormat(measure.format, ctx) } : {}),
@@ -179,7 +227,9 @@ function heatmap(chart: HeatmapChartSpec, data: DateHeatmapData | MatrixHeatmapD
     const columns = memberLabels(query, chart.columnField, dataset, ctx)
     const rowValues = new Map(matrix.rows.map(item => [item.id, item.value]))
     const columnValues = new Map(matrix.columns.map(item => [item.id, item.value]))
-    Object.assign(element, without(chart, ['type', 'valueField', 'rowField', 'columnField']), common, {
+    assign(element, {
+      ...without(chart, ['type', 'valueField', 'rowField', 'columnField']),
+      ...common,
       rows: matrix.rows.map(item => ({ value: item.id, label: rows.text(item.value) })),
       columns: matrix.columns.map(item => ({ value: item.id, label: columns.text(item.value) })),
       value: matrix.cells.map(cell => ({ ...cell })),
@@ -199,7 +249,9 @@ function heatmap(chart: HeatmapChartSpec, data: DateHeatmapData | MatrixHeatmapD
   const cells = (data as DateHeatmapData).cells
   const dates = new Set(cells.map(cell => cell.date))
   const sorted = [...dates].sort()
-  Object.assign(element, without(chart, ['type', 'valueField', 'dateField']), common, {
+  assign(element, {
+    ...without(chart, ['type', 'valueField', 'dateField']),
+    ...common,
     startDate: chart.startDate ?? sorted[0],
     endDate: chart.endDate ?? sorted.at(-1),
     value: cells.map(cell => ({ ...cell })),
@@ -211,14 +263,14 @@ function heatmap(chart: HeatmapChartSpec, data: DateHeatmapData | MatrixHeatmapD
   }
 }
 
-/** 把图表卡片排成 UI 图表元素，label 是图表的可及名。 */
-export function renderChart(chart: ChartSpec, data: ChartData, query: ReportQuery, dataset: DatasetSchema, ctx: RenderContext, label: string): RenderedChart {
+/** 把图表卡片排成 UI 图表元素，label 是图表的可及名；previous 是上一轮绘的元素，同种图表时复用它。 */
+export function renderChart(chart: ChartSpec, data: ChartData, query: ReportQuery, dataset: DatasetSchema, ctx: RenderContext, label: string, previous?: Element | null): RenderedChart {
   const empty = ctx.translations.empty
   switch (chart.type) {
     case 'cartesian': {
       const rendered = cartesian(chart, data as CartesianChartData, query, dataset, ctx)
-      const element = chartShell('xh-cartesian-chart', label, { legend: true }, empty)
-      Object.assign(element, rendered.props)
+      const element = chartShell('xh-cartesian-chart', label, { legend: true }, empty, previous)
+      assign(element, rendered.props)
       return { element, valueOf: rendered.valueOf, keyOf: rendered.keyOf }
     }
     case 'pie':
@@ -227,14 +279,14 @@ export function renderChart(chart: ChartSpec, data: ChartData, query: ReportQuer
       const labels = memberLabels(query, chart.nameField, dataset, ctx)
       const rows = (data as { rows: readonly Readonly<Record<string, unknown>>[] }).rows.map(row => ({ ...row, [chart.nameField]: labels.text(row[chart.nameField]) }))
       const tag = chart.type === 'pie' ? 'xh-pie-chart' : chart.type === 'funnel' ? 'xh-funnel-chart' : 'xh-radar-chart'
-      const element = chartShell(tag, label, { legend: chart.type !== 'funnel', center: chart.type === 'pie' }, empty)
+      const element = chartShell(tag, label, { legend: chart.type !== 'funnel', center: chart.type === 'pie' }, empty, previous)
       const rest = chart.type === 'radar'
         ? { ...without(chart, ['type', 'format', 'indicators']), indicators: chart.indicators.map((indicator) => {
             const measure = query.measures.find(item => item.id === indicator.key)
             return { ...indicator, label: indicator.label ?? (measure ? measureLabel(measure, dataset) : indicator.key) }
           }) }
         : without(chart, ['type', 'format'])
-      Object.assign(element, rest, { data: rows, ...(chart.format ? { format: numberFormat(chart.format, ctx) } : {}) })
+      assign(element, { ...rest, data: rows, ...(chart.format ? { format: numberFormat(chart.format, ctx) } : {}) })
       return {
         element,
         valueOf: (press, dimension) => (dimension === chart.nameField && press.key !== OTHER_KEY ? labels.raw(press.datum?.[chart.nameField]) : undefined),
@@ -245,8 +297,9 @@ export function renderChart(chart: ChartSpec, data: ChartData, query: ReportQuer
       const sankey = data as Extract<ChartData, { type: 'sankey' }>
       const source = memberLabels(query, chart.sourceField, dataset, ctx)
       const values = new Map(sankey.nodes.map(node => [node.id, node.value]))
-      const element = chartShell('xh-sankey-chart', label, { legend: true }, empty)
-      Object.assign(element, without(chart, ['type', 'format', 'sourceField', 'targetField', 'valueField']), {
+      const element = chartShell('xh-sankey-chart', label, { legend: true }, empty, previous)
+      assign(element, {
+        ...without(chart, ['type', 'format', 'sourceField', 'targetField', 'valueField']),
         nodes: sankey.nodes.map(node => ({ id: node.id, name: source.text(node.value) })),
         links: sankey.links,
         ...(chart.format ? { format: numberFormat(chart.format, ctx) } : {}),
@@ -261,8 +314,9 @@ export function renderChart(chart: ChartSpec, data: ChartData, query: ReportQuer
       const hierarchy = data as Extract<ChartData, { type: 'hierarchy' }>
       const levels = chart.levels.map(level => memberLabels(query, level, dataset, ctx))
       const nodes = new Map(hierarchy.nodes.map(node => [node.id, node]))
-      const element = chartShell('xh-hierarchy-chart', label, { path: true }, empty)
-      Object.assign(element, without(chart, ['type', 'format', 'levels', 'valueField']), {
+      const element = chartShell('xh-hierarchy-chart', label, { path: true }, empty, previous)
+      assign(element, {
+        ...without(chart, ['type', 'format', 'levels', 'valueField']),
         data: hierarchy.nodes.map(node => ({ id: node.id, parent: node.parent, name: node.depth === 0 ? label : levels[node.depth - 1]!.text(node.value), value: node.size })),
         idField: 'id',
         parentField: 'parent',
@@ -283,6 +337,6 @@ export function renderChart(chart: ChartSpec, data: ChartData, query: ReportQuer
       }
     }
     case 'heatmap':
-      return heatmap(chart, data as DateHeatmapData | MatrixHeatmapData, query, dataset, ctx, label)
+      return heatmap(chart, data as DateHeatmapData | MatrixHeatmapData, query, dataset, ctx, label, previous)
   }
 }
