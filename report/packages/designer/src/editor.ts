@@ -25,7 +25,7 @@ import type {
 } from '@xihan-report/core'
 import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
 import type { DataField, ExecuteOptions, GridRect, History, HistoryChangeKind } from '@xihan-ui/designer-kit'
-import { applyOperation, gridItems, planAddCard, planCardLayout, planRemoveCard, planRemoveItem, validateDocument } from '@xihan-report/core'
+import { applyOperation, bodyQuery, cardQuery, cardView, gridItems, isDataView, planAddCard, planCardLayout, planRemoveCard, planRemoveItem, validateDocument } from '@xihan-report/core'
 import { formatJsonPath, isPlainObject } from '@xihan-ui/core/json'
 import { createHistory, createIdAllocator, decodeClipboard, encodeClipboard, remapIds } from '@xihan-ui/designer-kit'
 
@@ -439,11 +439,12 @@ function dataExists(document: ReportDocument, ref: ReportDataRef): boolean {
 function itemExists(document: ReportDocument, ref: ReportItemRef): boolean {
   let owner: unknown
   if (ref.card === undefined) {
-    owner = document.body
+    const body = document.body
+    owner = isDataView(body) ? body : bodyQuery(body)?.query
   }
   else {
     const card = dashboardOf(document)?.cards.find(item => item.id === ref.card)
-    owner = card?.kind === 'table' ? card.view : ref.list === 'series' ? (card as { chart?: unknown } | undefined)?.chart : (card as { query?: unknown } | undefined)?.query
+    owner = card && (cardView(card) ?? (ref.list === 'series' ? card.kind === 'chart' ? card.chart : undefined : cardQuery(card)?.query))
   }
   const list = isPlainObject(owner) ? (owner as Record<string, unknown>)[ref.list] : undefined
   return Array.isArray(list) && list.some(item => isPlainObject(item) && item.id === ref.id)

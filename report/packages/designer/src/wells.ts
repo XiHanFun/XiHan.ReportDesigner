@@ -7,23 +7,29 @@
 // 列表内拖动排序；交叉表的行与列同组，在两者之间拖动即透视。从数据面板拖来的字段按落点插进列表。
 // 看板卡片下另有一段联动：以它为源的联动各是一枚可移除的标签，点选后在属性面板里编辑，也可以新增。
 
-import type { DashboardCard, DataView, FieldType, ItemList, ItemOwner, ReportDocument, ReportOperation } from '@xihan-report/core'
+import type { ChartSpec, DashboardCard, DataView, FieldType, ItemList, ItemOwner, ReportDocument, ReportOperation, ReportQuery } from '@xihan-report/core'
 import type { ReportDesignerTranslations } from '@xihan-report/runtime'
 import type { DropOver } from '@xihan-ui/designer-shell'
 import type { XhSortableElement, XhTagElement } from '@xihan-ui/web-components/define'
 import type { ReportItemRef, ReportSelection } from './editor'
-import { applyOperations, isDataView, planAddFieldItem, planFillBindings, planRemoveItem } from '@xihan-report/core'
+import { applyOperations, bodyQuery, cardQuery, cardView, isDataView, planAddFieldItem, planFillBindings, planRemoveItem } from '@xihan-report/core'
 import { createIdAllocator } from '@xihan-ui/designer-kit'
 import { registerDropTarget } from '@xihan-ui/designer-shell'
 import { createAuthoredElement, createGeneratedElement, setText } from '@xihan-ui/web-components/authoring'
 import { dataFieldPayload } from './data-panel'
 import { linkableDimensions } from './link-sources'
 
-/** 字段栏的编辑对象：视图属于报表主体（card 缺省）或表格卡片，查询属于图表或指标卡片。 */
-interface WellsOwner {
+/**
+ * 字段栏的编辑对象：报表主体（card 缺省）或一张卡片的视图或查询，两者有且只有一个。视图属于明细表、分组报表、交叉表、
+ * 表格卡片或取数形状为 view 的扩展卡片；查询属于图表与指标卡片、取数形状为 query 的扩展卡片与扩展视图。
+ */
+export interface WellsOwner {
   readonly card?: string
   readonly dataset: string
-  readonly source: DataView | Extract<DashboardCard, { kind: 'chart' | 'metric' }>
+  readonly view?: DataView
+  readonly query?: ReportQuery
+  /** 直角坐标图的图表配置：另有系列一栏。 */
+  readonly chart?: ChartSpec
 }
 
 /** 列表里的一项。 */
@@ -53,9 +59,9 @@ export interface WellsHost {
 }
 
 /** 字段直接拖到卡片或主体视图上时进哪个列表：数值字段进度量（明细表、分组报表进列），其余进维度、交叉表的行或列。 */
-export function fieldList(source: WellsOwner['source'], type: FieldType): ItemList {
-  if ('type' in source) {
-    if (source.type === 'crosstab')
+export function fieldList(owner: WellsOwner, type: FieldType): ItemList {
+  if (owner.view) {
+    if (owner.view.type === 'crosstab')
       return type === 'number' ? 'measures' : 'rows'
     return 'columns'
   }
@@ -77,18 +83,26 @@ function linkSources(card: DashboardCard | undefined): readonly WellItem[] {
 /** 字段栏的编辑对象：主体不是看板时是主体的视图；是看板时是唯一选中的那张卡片，否则没有。 */
 export function wellsOwner(document: ReportDocument, selection: ReportSelection): WellsOwner | undefined {
   const body = document.body
-  if (body.type !== 'dashboard')
-    return isDataView(body) ? { dataset: body.dataset, source: body } : undefined
+  if (body.type !== 'dashboard') {
+    if (isDataView(body))
+      return { dataset: body.dataset, view: body }
+    const query = bodyQuery(body)
+    return query ? { dataset: query.dataset, query: query.query } : undefined
+  }
   if (selection.cards.length !== 1)
     return undefined
   const card = body.cards.find(item => item.id === selection.cards[0])
   if (!card)
     return undefined
-  if (card.kind === 'table')
-    return { card: card.id, dataset: card.view.dataset, source: card.view }
-  if (card.kind === 'chart' || card.kind === 'metric')
-    return { card: card.id, dataset: card.dataset, source: card }
-  return undefined
+  const view = cardView(card)
+  if (view)
+    return { card: card.id, dataset: view.dataset, view }
+  const query = cardQuery(card)
+  if (!query)
+    return undefined
+  return card.kind === 'chart' && card.chart.type === 'cartesian'
+    ? { card: card.id, dataset: query.dataset, query: query.query, chart: card.chart }
+    : { card: card.id, dataset: query.dataset, query: query.query }
 }
 
 function wellLists(document: ReportDocument, owner: WellsOwner, t: ReportDesignerTranslations): WellList[] {
@@ -98,19 +112,19 @@ function wellLists(document: ReportDocument, owner: WellsOwner, t: ReportDesigne
     label: item.title ?? (item.field === undefined ? undefined : fields.get(item.field) ?? item.field) ?? item.id,
   })
   const list = (name: ItemList, key: string, items: readonly WellItem[], droppable = true): WellList => ({ list: name, label: t.lists[key] ?? key, items, droppable })
-  const source = owner.source
-  if ('type' in source) {
-    if (source.type === 'table')
-      return [list('columns', 'tableColumns', source.columns.map(named))]
-    if (source.type === 'group')
-      return [list('groups', 'groups', source.groups.map(named)), list('columns', 'tableColumns', source.columns.map(named))]
-    return [list('rows', 'rows', source.rows.map(named)), list('columns', 'columns', source.columns.map(named)), list('measures', 'measures', source.measures.map(named))]
+  const view = owner.view
+  if (view) {
+    if (view.type === 'table')
+      return [list('columns', 'tableColumns', view.columns.map(named))]
+    if (view.type === 'group')
+      return [list('groups', 'groups', view.groups.map(named)), list('columns', 'tableColumns', view.columns.map(named))]
+    return [list('rows', 'rows', view.rows.map(named)), list('columns', 'columns', view.columns.map(named)), list('measures', 'measures', view.measures.map(named))]
   }
-  const query = source.query
+  const query = owner.query!
   const lists = [list('dimensions', 'dimensions', query.dimensions.map(named)), list('measures', 'measures', query.measures.map(named))]
-  if (source.kind === 'chart' && source.chart.type === 'cartesian') {
+  if (owner.chart?.type === 'cartesian') {
     const measures = new Map(lists[1]!.items.map(item => [item.id, item.label]))
-    lists.push(list('series', 'series', source.chart.series.map(series => ({
+    lists.push(list('series', 'series', owner.chart.series.map(series => ({
       id: series.id,
       label: series.name ?? (typeof series.y === 'string' ? measures.get(series.y) : undefined) ?? series.id,
     })), false))
@@ -163,10 +177,10 @@ export class Wells {
     setText(this.#hint, t.wellsEmpty)
     this.#hint.hidden = owner !== undefined
     const lists = owner ? wellLists(document, owner, t) : []
-    const ownerKey = JSON.stringify([owner?.card, owner && ('type' in owner.source ? owner.source.type : owner.source.kind), lists.map(list => list.list)])
+    const ownerKey = JSON.stringify([owner?.card, owner?.view?.type, lists.map(list => list.list)])
     if (ownerKey !== this.#ownerKey) {
       this.#ownerKey = ownerKey
-      const pivot = owner !== undefined && 'type' in owner.source && owner.source.type === 'crosstab'
+      const pivot = owner?.view?.type === 'crosstab'
       this.#wells = new Map(lists.map(list => [list.list, this.#createWell(list.list, pivot)]))
       this.#lists.replaceChildren(...[...this.#wells.values()].map(well => well.element))
     }

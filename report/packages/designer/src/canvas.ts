@@ -3,15 +3,14 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 设计器的画布内容：看板用查看器的 renderDashboardFrame 搭网格与卡片外壳，卡片内容用 computeCard / renderCard；
-// 明细表、分组报表与交叉表用 computeView / renderView。内容按定义缓存，改过的卡片才在去抖后重新取数计算；
-// 位置大小变了只改卡片的位置变量。没给取数回调时画占位。
+// 设计器的画布内容：看板用查看器的 renderDashboardFrame 搭网格与卡片外壳，卡片内容用 computeCard 与运行时模型里的渲染；
+// 明细表、分组报表与交叉表用 computeView / renderView，作主体的扩展视图按种类计算并交给它的渲染。内容按定义缓存，
+// 改过的卡片才在去抖后重新取数计算；位置大小变了只改卡片的位置变量。没给取数回调时取数的内容画占位，没登记的种类画种类名。
 
-import type { ComputeOptions, DashboardCard, DashboardView, DatasetData, DatasetRequest, DatasetSchema, DataView, ParameterValues, ReportDocument, ViewResult } from '@xihan-report/core'
-import type { ReportDataProvider } from '@xihan-report/runtime'
+import type { ComputeOptions, DashboardCard, DashboardView, DatasetData, DatasetRequest, DatasetSchema, ExtensionViewResult, ParameterValues, ReportBody, ReportDocument, ViewResult } from '@xihan-report/core'
+import type { ReportDataProvider, ReportRuntimeModel } from '@xihan-report/runtime'
 import type { CardState, RenderContext } from '@xihan-report/runtime/design'
-import { cardQuery, cardTypeOf, cardView, computeCard, computeView, createDatasetRequest, findDataset, isDataView } from '@xihan-report/core'
-import { createReportRuntimeModel } from '@xihan-report/runtime'
+import { bodyQuery, cardQuery, cardTypeOf, cardView, computeCard, computeExtensionView, computeView, createDatasetRequest, findDataset, isDataView } from '@xihan-report/core'
 import { renderCard, renderDashboardFrame, renderView, tableLabel } from '@xihan-report/runtime/design'
 import { clampToGrid } from '@xihan-ui/designer-kit'
 import { createAuthoredElement } from '@xihan-ui/web-components/authoring'
@@ -26,12 +25,24 @@ export interface CanvasInputs {
   readonly values: ParameterValues
   readonly options: ComputeOptions
   readonly context: RenderContext
+  /** 种类、渲染与取数中间件；取数回调已经包好中间件。 */
+  readonly runtime: ReportRuntimeModel
   /** 占位上的说明：卡片种类与「给了取数回调后显示示例数据」。 */
   readonly placeholder: (kind: string) => string
 }
 
-/** 一张卡片（或报表主体的视图）的内容状态。 */
-type ContentState = CardState | { readonly status: 'placeholder' } | { readonly status: 'view', readonly view: ViewResult }
+/** 报表主体里不是看板的视图：明细表、分组报表、交叉表或扩展视图。 */
+type BodyView = Exclude<ReportBody, DashboardView>
+
+/** 画布上一份内容的定义：看板上的一张卡片，或报表主体的视图。 */
+type Source = { readonly card: DashboardCard, readonly view?: undefined } | { readonly card?: undefined, readonly view: BodyView }
+
+/** 一张卡片（或报表主体的视图）的内容状态；unknown 是种类没有登记。 */
+type ContentState
+  = | CardState
+    | { readonly status: 'placeholder' }
+    | { readonly status: 'unknown' }
+    | { readonly status: 'view', readonly view: ViewResult | ExtensionViewResult }
 
 interface ContentEntry {
   key: string
@@ -64,6 +75,7 @@ export class CanvasContent {
   #abort: AbortController | undefined
   #runs = 0
   #provider: ReportDataProvider | undefined
+  #runtime: ReportRuntimeModel | undefined
 
   constructor(host: HTMLElement) {
     this.#host = host
@@ -79,7 +91,7 @@ export class CanvasContent {
     return this.#frame ? this.#host.querySelector<HTMLElement>(':scope > [data-part="dashboard"]') ?? undefined : undefined
   }
 
-  /** 按文档更新画布；内容的重算排到去抖之后。 */
+  /** 按文档更新画布；内容的重算排到去抖之后。取数回调或扩展换了时全部重算。 */
   update(inputs: CanvasInputs): void {
     if (inputs.provider !== this.#provider) {
       this.#provider = inputs.provider
@@ -87,14 +99,17 @@ export class CanvasContent {
       for (const entry of this.#entries.values())
         entry.key = ''
     }
+    if (inputs.runtime !== this.#runtime) {
+      this.#runtime = inputs.runtime
+      for (const entry of this.#entries.values())
+        entry.key = ''
+    }
     this.#inputs = inputs
     const body = inputs.document.body
     if (body.type === 'dashboard')
       this.#updateDashboard(body, inputs)
-    else if (isDataView(body))
-      this.#updateView(body, inputs)
     else
-      this.#clear()
+      this.#updateView(body, inputs)
     if ([...this.#entries.values()].some(entry => entry.pending))
       this.#schedule()
   }
@@ -143,7 +158,7 @@ export class CanvasContent {
         this.#entries.delete(id)
     }
     for (const card of dashboard.cards) {
-      const key = this.#contentKey(card, inputs)
+      const key = this.#contentKey({ card }, inputs)
       const entry = this.#entries.get(card.id)
       if (entry && entry.key === key) {
         if (rebuild)
@@ -156,16 +171,7 @@ export class CanvasContent {
     }
   }
 
-  /** 主体是扩展视图：画布上没有内容。 */
-  #clear(): void {
-    this.#frame = undefined
-    this.#frameKey = undefined
-    this.#view = undefined
-    this.#entries.clear()
-    this.#host.replaceChildren()
-  }
-
-  #updateView(view: DataView, inputs: CanvasInputs): void {
+  #updateView(view: BodyView, inputs: CanvasInputs): void {
     this.#frame = undefined
     this.#frameKey = undefined
     if (!this.#view || this.#view.parentElement !== this.#host) {
@@ -176,7 +182,7 @@ export class CanvasContent {
       if (id !== '')
         this.#entries.delete(id)
     }
-    const key = this.#contentKey(view, inputs)
+    const key = this.#contentKey({ view }, inputs)
     const entry = this.#entries.get('')
     if (entry && entry.key === key)
       return
@@ -185,17 +191,38 @@ export class CanvasContent {
       this.#paintView(view)
   }
 
-  /** 卡片或视图的数据集与取数请求；数据集不存在时为 undefined。 */
-  #request(source: DashboardCard | DataView, document: ReportDocument, values: ParameterValues): { readonly request: DatasetRequest, readonly dataset: DatasetSchema } | undefined {
-    const target = 'kind' in source ? cardView(source) ?? cardQuery(source) : source
+  /** 卡片或视图取数的部分；不取数的为 undefined。 */
+  #target({ card, view }: Source): ReturnType<typeof cardQuery> | ReturnType<typeof cardView> {
+    if (card)
+      return cardView(card) ?? cardQuery(card)
+    return isDataView(view) ? view : bodyQuery(view)
+  }
+
+  /** 卡片或视图的数据集与取数请求；不取数或数据集不存在时为 undefined。 */
+  #request(source: Source, document: ReportDocument, values: ParameterValues): { readonly request: DatasetRequest, readonly dataset: DatasetSchema } | undefined {
+    const target = this.#target(source)
     if (!target)
       return undefined
     const dataset = findDataset(document, target.dataset)
     return dataset ? { request: createDatasetRequest(target, dataset, { parameters: values }), dataset } : undefined
   }
 
-  #contentKey(source: DashboardCard | DataView, inputs: CanvasInputs): string {
-    const definition = 'kind' in source ? { ...source, layout: undefined, title: undefined, description: undefined } : source
+  /** 种类有没有登记：内置的明细表、分组报表与交叉表总是登记的。 */
+  #registered({ card, view }: Source, runtime: ReportRuntimeModel): boolean {
+    return card ? runtime.cards.has(card.kind) : runtime.views.has(view.type)
+  }
+
+  /** 不取数的内容直接计算。 */
+  #computeWithoutData({ card, view }: Source, options: ComputeOptions): ContentState {
+    if (card)
+      return { status: 'ready', result: computeCard(card, undefined, undefined, options) }
+    if (isDataView(view))
+      throw new TypeError(`[report] view ${view.type} reads data`)
+    return { status: 'view', view: computeExtensionView(view, undefined, undefined, options) }
+  }
+
+  #contentKey(source: Source, inputs: CanvasInputs): string {
+    const definition = source.card ? { ...source.card, layout: undefined, title: undefined, description: undefined } : source.view
     const resolved = this.#request(source, inputs.document, inputs.values)
     return JSON.stringify([definition, resolved?.dataset, resolved?.request, inputs.options.timeZone, inputs.provider !== undefined])
   }
@@ -216,22 +243,37 @@ export class CanvasContent {
     const abort = new AbortController()
     this.#abort = abort
     const body = inputs.document.body
-    const sources: [string, DashboardCard | DataView][] = body.type === 'dashboard' ? body.cards.map(card => [card.id, card]) : isDataView(body) ? [['', body]] : []
+    const sources: [string, Source][] = body.type === 'dashboard' ? body.cards.map(card => [card.id, { card }]) : [['', { view: body }]]
     const used = new Set<string>()
     await Promise.all(sources.map(async ([id, source]) => {
       const entry = this.#entries.get(id)
       if (!entry?.pending)
         return
       entry.pending = false
+      if (!this.#registered(source, inputs.runtime)) {
+        entry.state = { status: 'unknown' }
+        this.#paint(source)
+        return
+      }
+      if (!this.#target(source)) {
+        try {
+          entry.state = this.#computeWithoutData(source, inputs.options)
+        }
+        catch {
+          entry.state = { status: 'error' }
+        }
+        this.#paint(source)
+        return
+      }
       if (!inputs.provider) {
         entry.state = { status: 'placeholder' }
-        this.#paint(id, source)
+        this.#paint(source)
         return
       }
       const resolved = this.#request(source, inputs.document, inputs.values)
       if (!resolved) {
         entry.state = { status: 'error' }
-        this.#paint(id, source)
+        this.#paint(source)
         return
       }
       const { request, dataset } = resolved
@@ -244,15 +286,16 @@ export class CanvasContent {
       }
       if (!entry.state) {
         entry.state = { status: 'loading' }
-        this.#paint(id, source)
+        this.#paint(source)
       }
       try {
         const data = await pending
         if (run !== this.#runs)
           return
-        entry.state = 'kind' in source
-          ? { status: 'ready', result: computeCard(source, dataset, data, inputs.options) }
-          : { status: 'view', view: computeView(source, dataset, data, inputs.options) }
+        const { card, view } = source
+        entry.state = card
+          ? { status: 'ready', result: computeCard(card, dataset, data, inputs.options) }
+          : { status: 'view', view: isDataView(view) ? computeView(view, dataset, data, inputs.options) : computeExtensionView(view, dataset, data, inputs.options) }
       }
       catch (error) {
         if (run !== this.#runs || isAbort(error))
@@ -260,7 +303,7 @@ export class CanvasContent {
         this.#data.delete(requestKey)
         entry.state = { status: 'error' }
       }
-      this.#paint(id, source)
+      this.#paint(source)
     }))
     if (run === this.#runs) {
       for (const key of this.#data.keys()) {
@@ -270,11 +313,11 @@ export class CanvasContent {
     }
   }
 
-  #paint(id: string, source: DashboardCard | DataView): void {
-    if (id === '')
-      this.#paintView(source as DataView)
+  #paint({ card, view }: Source): void {
+    if (card)
+      this.#paintCard(card)
     else
-      this.#paintCard(source as DashboardCard)
+      this.#paintView(view)
   }
 
   #paintCard(card: DashboardCard): void {
@@ -283,23 +326,33 @@ export class CanvasContent {
     if (!inputs || !frame)
       return
     const state = this.#entries.get(card.id)?.state
+    if (state?.status === 'unknown') {
+      frame.card.setAttribute('data-state', 'placeholder')
+      frame.body.replaceChildren(placeholderNode(this.#host.ownerDocument, card.kind))
+      return
+    }
     if (!state || state.status === 'placeholder' || state.status === 'view') {
       frame.card.setAttribute('data-state', 'placeholder')
       frame.body.replaceChildren(placeholderNode(this.#host.ownerDocument, inputs.placeholder(cardTypeOf(card))))
       return
     }
-    renderCard(frame.body, state, inputs.context, createReportRuntimeModel().cardRenderers)
+    renderCard(frame.body, state, inputs.context, inputs.runtime.cardRenderers)
   }
 
-  #paintView(view: DataView): void {
+  #paintView(view: BodyView): void {
     const inputs = this.#inputs
     const container = this.#view
     if (!inputs || !container)
       return
     const state = this.#entries.get('')?.state
+    if (state?.status === 'unknown') {
+      container.setAttribute('data-state', 'placeholder')
+      container.replaceChildren(placeholderNode(this.#host.ownerDocument, view.type))
+      return
+    }
     if (!state || state.status === 'placeholder' || state.status === 'ready') {
       container.setAttribute('data-state', 'placeholder')
-      container.replaceChildren(placeholderNode(this.#host.ownerDocument, inputs.placeholder(`table.${view.type}`)))
+      container.replaceChildren(placeholderNode(this.#host.ownerDocument, inputs.placeholder(isDataView(view) ? `table.${view.type}` : view.type)))
       return
     }
     container.setAttribute('data-state', state.status === 'view' ? 'ready' : state.status)
@@ -307,6 +360,11 @@ export class CanvasContent {
       container.replaceChildren(createAuthoredElement(this.#host.ownerDocument, 'div', { 'data-part': 'card-status' }, [state.status === 'loading' ? inputs.context.translations.loading : inputs.context.translations.error]))
       return
     }
-    renderView(container, state.view, inputs.context, tableLabel(inputs.document.title, state.view))
+    const result = state.view
+    if ('type' in result) {
+      renderView(container, result, inputs.context, tableLabel(inputs.document.title, result))
+      return
+    }
+    inputs.runtime.viewRenderers.get(result.view.type)?.(container, result, inputs.context)
   }
 }
