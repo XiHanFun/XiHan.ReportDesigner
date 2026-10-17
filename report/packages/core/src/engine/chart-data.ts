@@ -74,6 +74,7 @@ export interface HierarchyChartData {
   readonly nodes: readonly HierarchyNodeData[]
 }
 
+/** 交给图表渲染的数据，形状随图表类型。 */
 export type ChartData = CartesianChartData | RowsChartData | SankeyChartData | DateHeatmapData | MatrixHeatmapData | HierarchyChartData
 
 function finite(value: unknown): value is number {

@@ -67,6 +67,7 @@ export interface FormulaMeasure extends MeasureBase {
   readonly formula: string
 }
 
+/** 度量：聚合度量或公式度量。 */
 export type Measure = AggregateMeasure | FormulaMeasure
 
 /** 查询结果行的一条排序规则。 */

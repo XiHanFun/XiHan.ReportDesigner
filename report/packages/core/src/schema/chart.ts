@@ -79,6 +79,7 @@ export interface CartesianScatterSeriesSpec extends CartesianSeriesSpecBase {
   readonly color?: string
 }
 
+/** 柱线图的一条系列：柱、折线或散点。 */
 export type CartesianSeriesSpec = CartesianBarSeriesSpec | CartesianLineSeriesSpec | CartesianScatterSeriesSpec
 
 /** 坐标轴；时间值写 ISO 8601 字符串。 */
@@ -264,6 +265,7 @@ export interface HeatmapMatrixChartSpec extends HeatmapChartSpecBase {
   readonly columnField: string
 }
 
+/** 热力图：日历（含按月）或矩阵。 */
 export type HeatmapChartSpec = HeatmapDateChartSpec | HeatmapMatrixChartSpec
 
 /** 层级图：维度依次是由上到下的层。 */
@@ -282,6 +284,7 @@ export interface HierarchyChartSpec {
   readonly format?: NumericFormatSpec
 }
 
+/** 图表配置，按 type 分。 */
 export type ChartSpec
   = | CartesianChartSpec
     | PieChartSpec
