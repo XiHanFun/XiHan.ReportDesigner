@@ -12,6 +12,7 @@ import { displayText } from './format'
 
 /** 渲染上下文。 */
 export interface RenderContext {
+  /** 查看器此刻生效的文案。 */
   readonly translations: ReportViewerTranslations
   /** 值的显示文字：缺失值写成 missing（缺省空串）。 */
   readonly text: (value: unknown, format: FormatSpec | undefined, type: FieldType | undefined, missing?: string) => string

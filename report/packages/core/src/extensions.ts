@@ -35,8 +35,9 @@ export type ReportViewData = 'query' | 'none' | 'table' | 'group' | 'crosstab' |
 export interface ReportKindCheck {
   /** 对象在文档里的路径；返回的问题路径要以它开头。 */
   readonly path: JsonPath
-  /** query 形状时查询的维度与度量 id；别的形状为空集。 */
+  /** query 形状时查询的维度 id；别的形状为空集。 */
   readonly dimensions: ReadonlySet<string>
+  /** query 形状时查询的度量 id；别的形状为空集。 */
   readonly measures: ReadonlySet<string>
   /** 取数的数据集里某个字段的类型（含计算字段）；不取数、数据集未知或没有这个字段时为 undefined。 */
   readonly fieldType: (name: string) => FieldType | undefined
@@ -44,19 +45,25 @@ export interface ReportKindCheck {
 
 /** 交给种类计算的取数结果：query 形状是查询结果，view 形状是视图结果，none 两者都没有。 */
 export interface ReportKindInput {
+  /** 取数的数据集；不取数时为 undefined。 */
   readonly dataset: DatasetSchema | undefined
+  /** query 形状：跑好的聚合查询。 */
   readonly query?: QueryResult
+  /** view 形状：算好的明细表、分组报表或交叉表。 */
   readonly view?: ViewResult
 }
 
 /** 卡片查询里现有的维度与度量 id，按查询里的先后。 */
 export interface ReportQueryIds {
+  /** 维度 id。 */
   readonly dimensions: readonly string[]
+  /** 度量 id。 */
   readonly measures: readonly string[]
 }
 
 /** 一种卡片。 */
 export interface ReportCardKind<Card extends CardBase = ExtensionCard, Value = unknown> {
+  /** 取数形状：query 带聚合查询，view 带一个明细表、分组报表或交叉表，none 不取数。 */
   readonly data: ReportCardData
   /** 查种类自己的其余字段。扩展种类的问题码以扩展 id 的末段加点开头。 */
   readonly validate?: (card: Card, check: ReportKindCheck) => readonly SchemaIssue[]
@@ -71,13 +78,17 @@ export interface ReportCardKind<Card extends CardBase = ExtensionCard, Value = u
 
 /** 一种主体视图。 */
 export interface ReportViewKind<View = ExtensionView, Value = unknown> {
+  /** 取数形状：扩展视图只能是 query 或 none。 */
   readonly data: ReportViewData
+  /** 查种类自己的其余字段，规则同卡片种类。 */
   readonly validate?: (view: View, check: ReportKindCheck) => readonly SchemaIssue[]
+  /** 把取数结果换成交给渲染的值，规则同卡片种类。 */
   readonly compute?: (view: View, input: ReportKindInput) => Value
 }
 
 /** 规则拿到的上下文：合并后的报表模型。 */
 export interface ReportRuleContext {
+  /** 合并后的报表模型：校验规则可以按它查种类。 */
   readonly model: ReportModel
 }
 
@@ -122,9 +133,13 @@ export interface MetricValue {
 
 /** 合并后的一个种类：定义、登记它的扩展 id，以及是不是内置的。 */
 export interface ReportKindEntry<Kind> {
+  /** 种类名。 */
   readonly name: string
+  /** 种类的定义。 */
   readonly kind: Kind
+  /** 登记它的扩展 id。 */
   readonly owner: string
+  /** 是不是内置的种类。 */
   readonly builtin: boolean
 }
 
@@ -132,9 +147,13 @@ export interface ReportKindEntry<Kind> {
 export interface ReportModel {
   /** 内置扩展在前，传入的按顺序在后。 */
   readonly extensions: readonly ReportCoreExtension[]
+  /** 卡片种类名到登记项的对照，内置的在前。 */
   readonly cards: ReadonlyMap<string, ReportKindEntry<ReportCardKind<CardBase>>>
+  /** 视图种类名到登记项的对照，内置的在前。 */
   readonly views: ReadonlyMap<string, ReportKindEntry<ReportViewKind<unknown>>>
+  /** 各扩展追加的文档级属性，按扩展顺序。 */
   readonly documentProperties: readonly ReportPropertyDescriptor[]
+  /** 报表自己的编辑方式与各扩展登记的，键是 control.kind。 */
   readonly controls: Readonly<Record<string, ControlKind>>
   /** 扩展追加在某类对象上的属性，内置的不在其中。 */
   readonly properties: (target: ReportPropertyTarget) => readonly ReportPropertyDescriptor[]

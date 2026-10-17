@@ -38,12 +38,14 @@ export interface DatasetSchema extends ReportExtensible {
   /** 数据集身份，在报表内唯一，也是取数请求里的 dataset。 */
   readonly id: string
   readonly title?: string
+  /** 数据集的字段。 */
   readonly fields: readonly DatasetField[]
   readonly parameters?: readonly DatasetParameter[]
 }
 
 /** 取数请求里的一个维度：按 field 分组，写了 bucket 时按日期粒度取键。 */
 export interface DatasetQueryDimension {
+  /** 维度 id：交回的聚合行里以它为键。 */
   readonly id: string
   readonly field: string
   readonly bucket?: DateBucket
@@ -51,6 +53,7 @@ export interface DatasetQueryDimension {
 
 /** 取数请求里的一个度量：对 field 做 aggregate；count 不写 field 时数行。 */
 export interface DatasetQueryMeasure {
+  /** 度量 id：交回的聚合行里以它为键。 */
   readonly id: string
   readonly field?: string
   readonly aggregate: AggregateKind
@@ -61,7 +64,9 @@ export interface DatasetQueryMeasure {
  * 已聚合数据的每行以维度 id 与度量 id 为键。
  */
 export interface DatasetQuery {
+  /** 按哪些维度分组。 */
   readonly dimensions: readonly DatasetQueryDimension[]
+  /** 每组要算的度量。 */
   readonly measures: readonly DatasetQueryMeasure[]
   /**
    * 不可累加的度量（avg、distinctCount）要单独给出的汇总分组：每项是一组维度 id，空数组是总计。
@@ -88,7 +93,9 @@ export interface DatasetRequest {
 
 /** 明细行：core 负责计算字段、筛选、分组与聚合。 */
 export interface DatasetRows {
+  /** 交回明细行。 */
   readonly kind: 'rows'
+  /** 明细行：以字段名为键；core 在这些行上筛选、聚合与计算。 */
   readonly rows: readonly DataRow[]
 }
 
@@ -96,6 +103,7 @@ export interface DatasetRows {
 export interface DatasetRollup {
   /** 分组的维度 id；空数组是总计。 */
   readonly dimensions: readonly string[]
+  /** 这一组的汇总值：以度量 id 为键。 */
   readonly row: DataRow
 }
 
@@ -104,8 +112,11 @@ export interface DatasetRollup {
  * rows 以维度 id 与度量 id 为键；不可累加度量的汇总值由 rollups 给出。
  */
 export interface DatasetAggregated {
+  /** 交回按请求聚合好的行。 */
   readonly kind: 'aggregated'
+  /** 每组一行：以维度 id 与度量 id 为键。 */
   readonly rows: readonly DataRow[]
+  /** 请求的 rollups 里每个分组的汇总行；请求里 rollups 为空时不写。 */
   readonly rollups?: readonly DatasetRollup[]
 }
 

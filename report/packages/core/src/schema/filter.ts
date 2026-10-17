@@ -11,6 +11,7 @@ import type { ScalarValue } from './value'
 
 /** 引用一个报表参数的值。 */
 export interface ParameterRef {
+  /** 报表参数名：取数时换成参数的取值。 */
   readonly parameter: string
 }
 
@@ -28,6 +29,7 @@ export interface FilterCondition {
   readonly field: string
   /** 先把字段值按日期粒度取键再比较。 */
   readonly bucket?: DateBucket
+  /** 运算符，见 FilterOperator；isEmpty、isNotEmpty 不要操作数，between 要两个值，in、notIn 要一组值。 */
   readonly operator: FilterOperator
   /** 操作数；isEmpty / isNotEmpty 不写。 */
   readonly value?: Operand
@@ -37,7 +39,9 @@ export interface FilterCondition {
 
 /** 条件组：and 全部满足，or 任一满足。 */
 export interface FilterGroup {
+  /** and 是全部满足，or 是任一满足。 */
   readonly logic: 'and' | 'or'
+  /** 条件与子组；组里的条件都不参与（空数组，或操作数都为空）时整组不筛选。 */
   readonly conditions: readonly FilterNode[]
 }
 

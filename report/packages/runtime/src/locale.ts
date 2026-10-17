@@ -289,7 +289,7 @@ function range(params: Readonly<Record<string, unknown>>): string {
     params.exclusiveMin === undefined ? undefined : `大于 ${String(params.exclusiveMin)}`,
     params.max === undefined ? undefined : `不大于 ${String(params.max)}`,
   ].filter(part => part !== undefined)
-  return parts.length === 0 ? '' : `，应${parts.join('且')}`
+  return parts.length === 0 ? '' : `，应${parts.join(' 且')}`
 }
 
 function issueText(issue: ReportDesignerIssueDetails): string {

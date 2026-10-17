@@ -54,11 +54,13 @@ import { IssuesPanel } from './issues-panel'
 import { PropertiesPanel } from './properties-panel'
 import { fieldList, Wells, wellsOwner, withFilledBindings } from './wells'
 
+/** 设计器的标签名。 */
 export const REPORT_DESIGNER_TAG = 'xh-report-designer'
 
 /** 可以收起的面板，画布常驻、不在其中。 */
 export const REPORT_DESIGNER_PANELS = ['toolbar', 'data', 'palette', 'wells', 'properties', 'issues'] as const
 
+/** 可以收起的面板之一。 */
 export type ReportDesignerPanel = (typeof REPORT_DESIGNER_PANELS)[number]
 
 /** 设计或预览。 */
@@ -72,12 +74,19 @@ export type ReportSchemaChangeKind = 'execute' | 'undo' | 'redo' | 'load'
 
 /** 设计器派发的事件。 */
 export interface ReportDesignerEventMap {
+  /** 报表变了：schema 是新的报表，operations 是这一步的操作，kind 说明是执行、撤销、重做还是装载。 */
   'schema-change': CustomEvent<{ schema: ReportDocument, operations: readonly ReportOperation[], kind: ReportSchemaChangeKind }>
+  /** 选择变了，detail 是新的选择。 */
   'selection-change': CustomEvent<ReportSelection>
+  /** 与保存点相比有没有改动变了。 */
   'dirty-change': CustomEvent<{ dirty: boolean }>
+  /** 报表的校验问题变了。 */
   'issues-change': CustomEvent<{ issues: readonly ValidationIssue[] }>
+  /** 在画布上按了 Ctrl+S（macOS 上 ⌘S）；保存由宿主做，存好后调 markSaved()。 */
   'save': CustomEvent<Record<string, never>>
+  /** 在设计与预览之间切换了。 */
   'mode-change': CustomEvent<{ mode: ReportDesignerMode }>
+  /** 双击了一张卡片。 */
   'card-dblclick': CustomEvent<{ id: string }>
   /** 可取消；不取消时弹内建右键菜单。 */
   'card-contextmenu': CustomEvent<{ id: string, x: number, y: number }>
@@ -155,6 +164,7 @@ function sameIssues(a: readonly ValidationIssue[], b: readonly ValidationIssue[]
   return JSON.stringify(a) === JSON.stringify(b)
 }
 
+/** 报表设计器 <xh-report-designer>：编辑报表定义，画布与预览按 dataProvider 取数显示示例数据。 */
 export class XhReportDesigner extends XhReactiveElement {
   static override properties = {
     schema: { attribute: false },
@@ -176,14 +186,19 @@ export class XhReportDesigner extends XhReactiveElement {
   declare schema: ReportDocument | undefined
   /** 与查看器同一个取数回调，画布与预览用；不给时画布画占位。 */
   declare dataProvider: ReportDataProvider | undefined
+  /** 表达式引擎：计算字段与公式度量要用，校验公式也用它。 */
   declare expressionEngine: ExpressionEngine | undefined
+  /** 值的显示文字；缺省按格式说明调 formatValue。 */
   declare formatter: ReportFormatter | undefined
   /** 预览与画布取数用的报表参数取值。 */
   declare parameters: ParameterValues | undefined
   /** 工具栏与右键菜单（menu:card、menu:blank）的命令排列；写了某个位置就只显示列出的命令。 */
   declare commandLayout: DesignerCommandLayout | undefined
+  /** 元素自己的文案，压在全局配置之上。 */
   declare translations: Partial<ReportDesignerTranslations> | undefined
+  /** BCP 47 语言标记；缺省取全局配置。 */
   declare locale: string | undefined
+  /** IANA 时区；缺省取运行环境所在的时区。 */
   declare timeZone: string | undefined
   /** 只读：可选择、浏览与预览，不能修改。 */
   declare readonly: boolean
@@ -255,10 +270,12 @@ export class XhReportDesigner extends XhReactiveElement {
     this.requestUpdate('extensions', old)
   }
 
+  /** 能不能撤销；只读时为 false。 */
   get canUndo(): boolean {
     return !this.readonly && (this.#editor?.history.canUndo ?? false)
   }
 
+  /** 能不能重做；只读时为 false。 */
   get canRedo(): boolean {
     return !this.readonly && (this.#editor?.history.canRedo ?? false)
   }
@@ -288,10 +305,12 @@ export class XhReportDesigner extends XhReactiveElement {
     return this.#requireEditor().execute(operations, options)
   }
 
+  /** 撤销一步；只读或没有可撤销的时返回 false。 */
   undo(): boolean {
     return !this.readonly && (this.#editor?.undo() ?? false)
   }
 
+  /** 重做一步；只读或没有可重做的时返回 false。 */
   redo(): boolean {
     return !this.readonly && (this.#editor?.redo() ?? false)
   }
@@ -307,6 +326,7 @@ export class XhReportDesigner extends XhReactiveElement {
     return this.#requireEditor().addCard(init, options)
   }
 
+  /** 换成给出的选择：给了 data 只选数据面板里的对象，否则选 cards，再带 item 或 link 之一。 */
   select(selection: Partial<ReportSelection>): void {
     this.#editor?.select(selection)
   }
@@ -316,6 +336,7 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#editor?.selectAll()
   }
 
+  /** 当前的选择。 */
   getSelection(): ReportSelection {
     return this.#editor?.selection ?? EMPTY_SELECTION
   }
@@ -355,6 +376,7 @@ export class XhReportDesigner extends XhReactiveElement {
     return this.readonly || !this.#editor ? EMPTY_SELECTION : this.#editor.paste(clipboard)
   }
 
+  /** 复制选中的卡片并当场粘贴，不经剪贴板；返回新的选择。 */
   duplicate(): ReportSelection {
     return this.readonly || !this.#editor ? EMPTY_SELECTION : this.#editor.duplicate()
   }

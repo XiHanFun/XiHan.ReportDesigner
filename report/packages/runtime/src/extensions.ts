@@ -34,6 +34,7 @@ export type ReportDataMiddleware = (next: ReportDataProvider) => ReportDataProvi
 
 /** 叠加层场景里的一张卡片。 */
 export interface ReportSceneCard {
+  /** 卡片定义。 */
   readonly card: DashboardCard
   /** 网格上的位置与大小（格），已收进网格的列数。 */
   readonly layout: GridRect
@@ -47,9 +48,11 @@ export interface ReportSceneCard {
 
 /** 叠加层的场景：看板与它上面各卡片的布局和状态。 */
 export interface ReportScene {
+  /** 看板定义。 */
   readonly dashboard: DashboardView
-  /** 看板的像素宽高。 */
+  /** 看板的像素宽。 */
   readonly width: number
+  /** 看板的像素高。 */
   readonly height: number
   /** 各卡片，按卡片的先后。 */
   readonly cards: readonly ReportSceneCard[]
@@ -59,7 +62,9 @@ export interface ReportScene {
 export interface ReportOverlayContext {
   /** 画在查看器上还是设计器画布上。 */
   readonly mode: 'viewer' | 'designer'
+  /** 当前的报表定义。 */
   readonly schema: ReportDocument
+  /** 渲染上下文：文案与值的显示文字。 */
   readonly render: RenderContext
 }
 
@@ -67,6 +72,7 @@ export interface ReportOverlayContext {
 export interface ReportOverlay {
   /** 全局唯一，写作 `<扩展 id>.<名>`。 */
   readonly id: string
+  /** 画在卡片之下（below）还是之上（above）。 */
   readonly layer: 'below' | 'above'
   /**
    * 看板排好、卡片状态或看板大小变了时调用。container 铺满看板、随看板滚动，不接指针（要接指针的子节点自己写
@@ -89,9 +95,13 @@ export interface ReportResults {
 
 /** 导出时交给导出器的上下文。 */
 export interface ReportExportContext {
+  /** 当前的报表定义。 */
   readonly schema: ReportDocument
+  /** 查看器此刻的计算结果，同 getResults()。 */
   readonly results: ReportResults
+  /** 查看器此刻生效的文案。 */
   readonly translations: ReportViewerTranslations
+  /** 查看器计算用的时区。 */
   readonly timeZone: string
   /** 调用方给的选项，如文件里的表名。 */
   readonly options: Readonly<Record<string, unknown>>
@@ -134,7 +144,9 @@ export const REPORT_RUNTIME_EXTENSION: ReportRuntimeExtension = {
 
 /** 运行时用的报表模型：core 的模型加上渲染、导出与取数中间件。 */
 export interface ReportRuntimeModel extends ReportModel {
+  /** 卡片种类名到渲染的对照。 */
   readonly cardRenderers: ReadonlyMap<string, ReportCardRenderer>
+  /** 扩展视图种类名到渲染的对照。 */
   readonly viewRenderers: ReadonlyMap<string, ReportViewRenderer>
   /** 按扩展顺序。 */
   readonly overlays: readonly ReportOverlay[]
