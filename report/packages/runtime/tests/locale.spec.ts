@@ -3,8 +3,10 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import type { CommonIssueCode } from '@xihan-ui/designer-kit/schema'
 import type { ReportDesignerTranslations } from '../src'
-import { describe, expect, it } from 'vitest'
+import { PARAMETER_ISSUE_CODES, REPORT_ISSUE_CODES } from '@xihan-report/core'
+import { describe, expect, expectTypeOf, it } from 'vitest'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS } from '../src'
 import * as design from '../src/design'
 import { reportZhCN } from '../src/locale'
@@ -25,6 +27,30 @@ describe('reportZhCN', () => {
     expect(DEFAULT_REPORT_DESIGNER_TRANSLATIONS.issue({ code: 'unknown-measure', params: { key: 'amount' } })).toBe('Unknown measure "amount"')
     expect(DEFAULT_REPORT_DESIGNER_TRANSLATIONS.issue({ code: 'something-new' })).toBe('Problem: something-new')
     expect(DEFAULT_REPORT_DESIGNER_TRANSLATIONS.selected(3)).toBe('3 selected')
+  })
+})
+
+const COMMON_ISSUE_CODES = ['required', 'invalid-type', 'invalid-value', 'out-of-range', 'not-integer', 'invalid-option', 'invalid-color', 'empty', 'unknown-key', 'duplicate-key', 'duplicate-id', 'unknown-control'] as const satisfies readonly CommonIssueCode[]
+
+describe('问题说明', () => {
+  it('通用问题码列全了', () => {
+    expectTypeOf<Exclude<CommonIssueCode, (typeof COMMON_ISSUE_CODES)[number]>>().toEqualTypeOf<never>()
+  })
+
+  it('中英两份都给每个问题码写了自己的说明', () => {
+    const zh = (reportZhCN.translations as Record<string, Partial<ReportDesignerTranslations>>)['xh-report-designer']!.issue!
+    for (const code of [...COMMON_ISSUE_CODES, ...REPORT_ISSUE_CODES, ...PARAMETER_ISSUE_CODES]) {
+      expect(zh({ code }), code).not.toBe(`问题：${code}`)
+      expect(DEFAULT_REPORT_DESIGNER_TRANSLATIONS.issue({ code }), code).not.toBe(`Problem: ${code}`)
+    }
+  })
+
+  it('说明带上问题参数', () => {
+    const zh = (reportZhCN.translations as Record<string, Partial<ReportDesignerTranslations>>)['xh-report-designer']!.issue!
+    expect(zh({ code: 'formula-cycle', params: { names: 'a,b,a' } })).toBe('公式互相引用成环：a → b → a')
+    expect(zh({ code: 'operator-type-mismatch', params: { operator: 'contains', type: 'number' } })).toBe('「包含」不适用于数值字段')
+    expect(zh({ code: 'out-of-range', params: { min: 1, max: 24 } })).toBe('超出取值范围，应不小于 1且不大于 24')
+    expect(DEFAULT_REPORT_DESIGNER_TRANSLATIONS.issue({ code: 'operand-shape', params: { operator: 'between' } })).toBe('"between" needs two values')
   })
 })
 

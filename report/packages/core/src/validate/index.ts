@@ -5,6 +5,7 @@
 
 // 汇总导出 schema 自校验。
 
+export { REPORT_ISSUE_CODES } from './checker'
 export type { ValidationIssue, ValidationIssueCode } from './checker'
 export { validateDocument } from './document'
 export type { ValidateOptions } from './document'

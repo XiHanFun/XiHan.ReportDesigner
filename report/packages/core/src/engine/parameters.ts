@@ -11,12 +11,16 @@ import { isMissing, valueKey } from '@xihan-ui/viz'
 import { createDateTools } from './date'
 
 /** 参数取值的问题码。 */
-export type ParameterIssueCode
-  = | 'parameter-required'
-    | 'parameter-type-mismatch'
-    | 'parameter-not-multiple'
-    | 'parameter-option-mismatch'
-    | 'unknown-parameter'
+export const PARAMETER_ISSUE_CODES = [
+  'parameter-required',
+  'parameter-type-mismatch',
+  'parameter-not-multiple',
+  'parameter-option-mismatch',
+  'unknown-parameter',
+] as const
+
+/** 参数取值的问题码。 */
+export type ParameterIssueCode = (typeof PARAMETER_ISSUE_CODES)[number]
 
 /** 解析后的参数取值。 */
 export interface ResolvedParameters {

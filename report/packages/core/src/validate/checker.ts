@@ -10,37 +10,38 @@ import type { CommonIssueCode, IssueParamValue, IssueSink, NumberRule as ReadNum
 import { isPlainObject } from '@xihan-ui/core/json'
 import { createIssueSink, readArray, readBoolean, readNumber, readObject, readOneOf, readString } from '@xihan-ui/designer-kit/schema'
 
-/** 校验问题码：designer-kit/schema 的通用问题码，加上报表自己的。 */
-export type ValidationIssueCode
-  = | CommonIssueCode
-    | 'aggregate-type-mismatch'
-    | 'bucket-type-mismatch'
-    | 'chart-reference-role'
-    | 'format-invalid'
-    | 'formula-cycle'
-    | 'formula-invalid'
-    | 'formula-unknown-reference'
-    | 'layout-out-of-bounds'
-    | 'layout-overlap'
-    | 'link-target-type-mismatch'
-    | 'measure-definition'
-    | 'operand-required'
-    | 'operand-shape'
-    | 'operand-type-mismatch'
-    | 'operator-type-mismatch'
-    | 'reserved-name'
-    | 'unknown-card'
-    | 'unknown-dataset'
-    | 'unknown-dataset-parameter'
-    | 'unknown-dimension'
-    | 'unknown-field'
-    | 'unknown-kind'
-    | 'unknown-measure'
-    | 'unknown-parameter'
-    | 'unknown-series'
-    | 'unsupported-schema-version'
-    /** 扩展的问题码：扩展 id 的末段、一个点、码。 */
-    | `${string}.${string}`
+/** 报表自己的校验问题码，按字母序；通用问题码见 @xihan-ui/designer-kit/schema 的 CommonIssueCode。报表的校验问题都是错误级。 */
+export const REPORT_ISSUE_CODES = [
+  'aggregate-type-mismatch',
+  'bucket-type-mismatch',
+  'chart-reference-role',
+  'format-invalid',
+  'formula-cycle',
+  'formula-invalid',
+  'formula-unknown-reference',
+  'layout-out-of-bounds',
+  'layout-overlap',
+  'link-target-type-mismatch',
+  'measure-definition',
+  'operand-required',
+  'operand-shape',
+  'operand-type-mismatch',
+  'operator-type-mismatch',
+  'reserved-name',
+  'unknown-card',
+  'unknown-dataset',
+  'unknown-dataset-parameter',
+  'unknown-dimension',
+  'unknown-field',
+  'unknown-kind',
+  'unknown-measure',
+  'unknown-parameter',
+  'unknown-series',
+  'unsupported-schema-version',
+] as const
+
+/** 校验问题码：designer-kit/schema 的通用问题码、报表自己的（REPORT_ISSUE_CODES），以及扩展的问题码（扩展 id 的末段、一个点、码）。 */
+export type ValidationIssueCode = CommonIssueCode | (typeof REPORT_ISSUE_CODES)[number] | `${string}.${string}`
 
 /** 一条校验问题：path 只用对象键与数组下标，target 指出所在的带键对象。 */
 export type ValidationIssue = SchemaIssue<ValidationIssueCode>
