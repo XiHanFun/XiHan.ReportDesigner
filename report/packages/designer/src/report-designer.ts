@@ -622,6 +622,7 @@ export class XhReportDesigner extends XhReactiveElement {
       selectItem: ref => this.#editor?.select({ cards: ref.card === undefined ? [] : [ref.card], item: ref }),
       selectLink: (card, id) => this.#editor?.select({ cards: [card], link: id }),
       isReadonly: () => this.readonly,
+      extensions: () => this.#extensions ?? NO_EXTENSIONS,
     })
     const properties = new PropertiesPanel({
       ownerDocument: doc,
@@ -1138,7 +1139,7 @@ export class XhReportDesigner extends XhReactiveElement {
     if (!owner || type === undefined)
       return
     const target = drop.card === undefined ? {} : { card: drop.card }
-    editor.execute(withFilledBindings(document, target, planAddFieldItem(document, target, fieldList(owner, type), drop.field)))
+    editor.execute(withFilledBindings(document, target, planAddFieldItem(document, target, fieldList(owner, type), drop.field), this.#extensions ?? NO_EXTENSIONS))
     if (drop.card !== undefined)
       editor.select({ cards: [drop.card] })
   }

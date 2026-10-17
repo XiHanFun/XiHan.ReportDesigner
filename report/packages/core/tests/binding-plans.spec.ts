@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { DashboardCard, DashboardView, ReportCardType, ReportDocument, ReportQuery } from '../src'
+import type { DashboardCard, DashboardView, ReportCardType, ReportCoreExtension, ReportDocument, ReportQuery } from '../src'
 import { describe, expect, it } from 'vitest'
 import { applyOperations, cardTemplate, planFillBindings, validateDocument } from '../src'
 
@@ -68,5 +68,34 @@ describe('planFillBindings', () => {
     const table = cardTemplate('table.table', 'sales')
     expect(planFillBindings(documentWith({ ...table, id: 'c', layout: { x: 0, y: 0, ...table.layout } } as DashboardCard), 'c')).toEqual([])
     expect(() => planFillBindings(done, 'ghost')).toThrow(RangeError)
+  })
+})
+
+describe('planFillBindings：扩展卡片', () => {
+  const calls: unknown[] = []
+  const lanes: ReportCoreExtension = {
+    id: '@acme/lanes',
+    cards: {
+      'lanes.board': {
+        data: 'query',
+        fillBindings: (card, ids) => {
+          calls.push(ids)
+          return (card as { lane?: string }).lane === undefined && ids.dimensions[0] !== undefined ? [{ path: ['lane'], value: ids.dimensions[0] }] : []
+        },
+      },
+      'lanes.note': { data: 'query' },
+    },
+  }
+  const card = (kind: string): DashboardCard => ({ id: 'c', kind, layout: { x: 0, y: 0, w: 6, h: 4 }, dataset: 'sales', query } as DashboardCard)
+
+  it('交给种类的 fillBindings，拿到查询里的维度与度量 id；返回的改动写成一步 updateCard', () => {
+    const operations = planFillBindings(documentWith(card('lanes.board')), 'c', { extensions: [lanes] })
+    expect(calls.at(-1)).toEqual({ dimensions: ['region', 'channel'], measures: ['amount', 'n', 'avg'] })
+    expect(operations).toEqual([{ type: 'updateCard', id: 'c', changes: [{ path: ['lane'], value: 'region' }] }])
+  })
+
+  it('种类没给 fillBindings 或没装扩展时为空数组', () => {
+    expect(planFillBindings(documentWith(card('lanes.note')), 'c', { extensions: [lanes] })).toEqual([])
+    expect(planFillBindings(documentWith(card('lanes.board')), 'c')).toEqual([])
   })
 })
