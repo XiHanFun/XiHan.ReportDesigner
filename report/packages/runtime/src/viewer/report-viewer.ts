@@ -6,21 +6,22 @@
 // <xh-report-viewer>：报表查看器。校验报表定义与参数，经使用方的 dataProvider 取数，交给 core 计算后排成 UI 元素；
 // 看板的图表卡片可作联动源，选中值换成目标卡片的筛选后只重算目标卡片。
 
-import type { ComputeOptions, DashboardView, DatasetData, DatasetRequest, ExpressionEngine, LinkSelections, ParameterIssueCode, ParameterValue, ParameterValues, ReportDocument, ScalarValue, ValidationIssueCode, ViewResult } from '@xihan-report/core'
+import type { ComputeOptions, DashboardView, DatasetData, DatasetRequest, ExpressionEngine, ExtensionViewResult, FilterCondition, LinkSelections, ParameterIssueCode, ParameterValue, ParameterValues, ReportDocument, ScalarValue, ValidationIssueCode, ViewResult } from '@xihan-report/core'
 import type { SchemaIssue } from '@xihan-ui/designer-kit/schema'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
-import type { XlsxSheet } from '@xihan-ui/xlsx'
+import type { ReportResults, ReportRuntimeExtension, ReportRuntimeModel } from '../extensions'
 import type { ReportViewerTranslations } from '../translations'
 import type { ChartPress, RenderedChart } from './charts'
 import type { RenderContext } from './context'
 import type { CardState } from './dashboard'
 import type { ReportFormatter } from './format'
 import type { RenderedTable, TableCellRef } from './table'
-import { cardQuery, cardView, computeCard, computeView, createDatasetRequest, findDataset, isDataView, resolveLinkFilters, resolveParameters, validateDocument } from '@xihan-report/core'
+import { bodyQuery, cardQuery, cardView, computeCard, computeExtensionView, computeView, createDatasetRequest, findDataset, isDataView, resolveLinkFilters, resolveParameters, validateDocument } from '@xihan-report/core'
 import { getLocalTimeZone } from '@xihan-ui/core/date'
 import { hasErrors, withSeverity } from '@xihan-ui/designer-kit/schema'
 import { valueKey } from '@xihan-ui/viz'
 import { emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
+import { createReportRuntimeModel } from '../extensions'
 import { DEFAULT_REPORT_VIEWER_TRANSLATIONS } from '../translations'
 import { createRenderContext } from './context'
 import { keepTableFocus, renderCard, renderDashboardFrame, renderView, tableLabel } from './dashboard'
@@ -102,7 +103,7 @@ interface LoadInputs {
   readonly options: ComputeOptions
 }
 
-const DATA_PROPERTIES: readonly PropertyKey[] = ['schema', 'dataProvider', 'expressionEngine', 'parameters', 'timeZone']
+const DATA_PROPERTIES: readonly PropertyKey[] = ['schema', 'dataProvider', 'expressionEngine', 'extensions', 'parameters', 'timeZone']
 
 function isAbort(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { name?: unknown }).name === 'AbortError'
@@ -113,6 +114,7 @@ export class XhReportViewer extends XhReactiveElement {
     schema: { attribute: false },
     dataProvider: { attribute: false },
     expressionEngine: { attribute: false },
+    extensions: { attribute: false },
     formatter: { attribute: false },
     parameters: { attribute: false },
     selections: { attribute: false },
@@ -128,6 +130,8 @@ export class XhReportViewer extends XhReactiveElement {
   declare dataProvider: ReportDataProvider | undefined
   /** 表达式引擎：计算字段与公式度量要用。 */
   declare expressionEngine: ExpressionEngine | undefined
+  /** 卡片与视图种类、渲染、导出与取数中间件的扩展；赋值时当场合并查重，冲突时退回原值再抛。 */
+  declare extensions: readonly ReportRuntimeExtension[] | undefined
   /** 值的显示文字；缺省按格式说明调 formatValue。 */
   declare formatter: ReportFormatter | undefined
   /** 报表参数的取值；不给时用各参数的缺省值。 */
@@ -151,9 +155,9 @@ export class XhReportViewer extends XhReactiveElement {
   #runs = 0
   #abort: AbortController | undefined
   #inputs: LoadInputs | undefined
-  #view: ViewResult | undefined
+  #view: ViewResult | ExtensionViewResult | undefined
   #cards = new Map<string, CardState>()
-  #cardFilters = new Map<string, string>()
+  #cardFilters = new Map<string, readonly FilterCondition[]>()
   #frame: Map<string, { readonly card: HTMLElement, readonly body: HTMLElement }> | undefined
   #frameOf: DashboardView | undefined
   #charts = new Map<string, RenderedChart>()
@@ -176,6 +180,21 @@ export class XhReportViewer extends XhReactiveElement {
     return this.#loading
   }
 
+  /** 此刻的计算结果，只读快照：主体视图或看板上已算好的卡片，以及当时的参数与联动。 */
+  getResults(): ReportResults {
+    const dashboard = this.#dashboard()
+    const cards = (dashboard?.cards ?? []).flatMap((card) => {
+      const state = this.#cards.get(card.id)
+      return state?.status === 'ready' ? [{ result: state.result, filters: this.#cardFilters.get(card.id) ?? [] }] : []
+    })
+    return {
+      parameters: this.#inputs?.values ?? {},
+      selections: this.#selectionsNow(),
+      body: dashboard ? undefined : this.#view,
+      cards,
+    }
+  }
+
   /** 重新取数并计算；看板可以只刷新部分卡片。 */
   refresh(options: { readonly cards?: readonly string[] } = {}): Promise<void> {
     return options.cards && this.#inputs && this.#dashboard() ? this.#loadCards(new Set(options.cards)) : this.#load()
@@ -190,39 +209,20 @@ export class XhReportViewer extends XhReactiveElement {
    * 把当前的计算结果导出成 xlsx：表格主体导出一张表，看板按已算好的表格卡片各导一张（表名取卡片标题）。
    * 写出部分按需加载。还没有可导出的结果时抛 RangeError。
    */
-  async exportXlsx(options: { readonly name?: string } = {}): Promise<Blob> {
-    const [sheets, xlsx] = await Promise.all([import('../xlsx/index'), import('@xihan-ui/xlsx')])
-    const t = this.#translations()
-    const base = { timeZone: this.#timeZone(), translations: { total: t.total, subtotal: t.subtotal } }
-    const sheet = (view: ViewResult, name: string): XlsxSheet => {
-      const sheetOptions = { ...base, dataset: view.dataset, name }
-      if (view.type === 'table')
-        return sheets.tableSheet(view.view, view.result, sheetOptions)
-      if (view.type === 'group')
-        return sheets.groupSheet(view.view, view.result, sheetOptions)
-      return sheets.crosstabSheet(view.view, view.result, sheetOptions)
-    }
-    const result: XlsxSheet[] = []
-    const dashboard = this.#dashboard()
-    if (dashboard) {
-      const used = new Set<string>()
-      for (const card of dashboard.cards) {
-        const state = this.#cards.get(card.id)
-        if (state?.status !== 'ready' || state.result.card.kind !== 'table')
-          continue
-        let name = xlsx.sheetName(card.title ?? card.id)
-        for (let index = 2; used.has(name.toLowerCase()); index++)
-          name = xlsx.sheetName(`${(card.title ?? card.id).slice(0, 26)} (${index})`)
-        used.add(name.toLowerCase())
-        result.push(sheet(state.result.value as ViewResult, name))
-      }
-    }
-    else if (this.#view) {
-      result.push(sheet(this.#view, options.name ?? this.schema?.title ?? this.schema?.id ?? ''))
-    }
-    if (result.length === 0)
-      throw new RangeError('[xh-report-viewer] there is no computed table to export')
-    return xlsx.xlsxBlob(await xlsx.writeXlsx({ sheets: result }))
+  exportXlsx(options: { readonly name?: string } = {}): Promise<Blob> {
+    return this.export('xlsx', options) as Promise<Blob>
+  }
+
+  /**
+   * 导出成文件：交给登记了这种格式的第一个导出器（内置的 xlsx 在最前，扩展可以加别的格式），options 原样交给它。
+   * 没有导出器认这种格式时抛 RangeError。
+   */
+  export(format: string, options: Readonly<Record<string, unknown>> = {}): Promise<Blob | string> {
+    const schema = this.schema
+    const exporter = this.#model().exporters.find(item => item.formats.includes(format))
+    if (!schema || !exporter)
+      return Promise.reject(new RangeError(`[xh-report-viewer] no exporter for ${format}`))
+    return exporter.export(format, { schema, results: this.getResults(), translations: this.#translations(), timeZone: this.#timeZone(), options })
   }
 
   override disconnectedCallback(): void {
@@ -241,6 +241,24 @@ export class XhReportViewer extends XhReactiveElement {
       void this.#loadLinked()
     else
       this.#render(layers)
+  }
+
+  /** extensions 赋值时当场合并查重，冲突时退回原值再抛。 */
+  override requestUpdate(name?: PropertyKey, oldValue?: unknown): void {
+    if (name === 'extensions') {
+      try {
+        createReportRuntimeModel(this.extensions)
+      }
+      catch (error) {
+        this.extensions = oldValue as readonly ReportRuntimeExtension[] | undefined
+        throw error
+      }
+    }
+    super.requestUpdate(name, oldValue)
+  }
+
+  #model(): ReportRuntimeModel {
+    return createReportRuntimeModel(this.extensions)
   }
 
   #translations(): ReportViewerTranslations {
@@ -364,7 +382,8 @@ export class XhReportViewer extends XhReactiveElement {
       this.#setIssues([])
       return this.#reset('idle')
     }
-    const issues = withSeverity(validateDocument(schema, this.expressionEngine ? { expressionEngine: this.expressionEngine } : {}), {})
+    const extensions = this.extensions ?? []
+    const issues = withSeverity(validateDocument(schema, { extensions, ...(this.expressionEngine ? { expressionEngine: this.expressionEngine } : {}) }), {})
     if (hasErrors(issues)) {
       this.#setIssues(issues)
       return this.#reset('invalid')
@@ -374,15 +393,16 @@ export class XhReportViewer extends XhReactiveElement {
     this.#setIssues([...issues, ...parameterIssues])
     if (hasErrors(parameterIssues))
       return this.#reset('parameters')
-    const provider = this.dataProvider
-    if (!provider)
+    if (!this.dataProvider)
       return this.#reset('idle')
+    const provider = this.#model().provider(this.dataProvider)
 
     const inputs: LoadInputs = {
       schema,
       values: resolved.values,
       provider,
       options: {
+        extensions,
         parameters: resolved.values,
         timeZone: this.#timeZone(),
         collate: new Intl.Collator(this.#locale()).compare,
@@ -400,8 +420,6 @@ export class XhReportViewer extends XhReactiveElement {
       this.#state = 'ready'
       return this.#loadCards(undefined, run, abort)
     }
-    if (!isDataView(body))
-      throw new TypeError(`[report] no renderer for view kind ${body.type}`)
 
     this.#setLoading(true)
     if (!this.#view) {
@@ -409,12 +427,12 @@ export class XhReportViewer extends XhReactiveElement {
       this.#render(this.#ensureLayers())
     }
     try {
-      const dataset = findDataset(schema, body.dataset)!
-      const request = createDatasetRequest(body, dataset, { parameters: inputs.values })
-      const data = await provider(request, { signal: abort.signal })
+      const source = isDataView(body) ? body : bodyQuery(body)
+      const dataset = source ? findDataset(schema, source.dataset)! : undefined
+      const data = source && dataset ? await provider(createDatasetRequest(source, dataset, { parameters: inputs.values }), { signal: abort.signal }) : undefined
       if (run !== this.#runs)
         return
-      this.#view = computeView(body, dataset, data, inputs.options)
+      this.#view = isDataView(body) ? computeView(body, dataset!, data!, inputs.options) : computeExtensionView(body, dataset, data, inputs.options)
       this.#state = 'ready'
     }
     catch (error) {
@@ -436,7 +454,7 @@ export class XhReportViewer extends XhReactiveElement {
     if (this.#pendingCards > 0)
       return this.#load()
     const filters = resolveLinkFilters(dashboard, this.#selectionsNow())
-    const changed = new Set(dashboard.cards.filter(card => JSON.stringify(filters[card.id] ?? []) !== this.#cardFilters.get(card.id)).map(card => card.id))
+    const changed = new Set(dashboard.cards.filter(card => JSON.stringify(filters[card.id] ?? []) !== JSON.stringify(this.#cardFilters.get(card.id))).map(card => card.id))
     this.#renderActiveKeys()
     return changed.size > 0 ? this.#loadCards(changed) : Promise.resolve()
   }
@@ -466,8 +484,11 @@ export class XhReportViewer extends XhReactiveElement {
       const cardFilters = filters[card.id] ?? []
       try {
         const source = cardView(card) ?? cardQuery(card)
-        if (!source)
-          throw new TypeError(`[report] no renderer for card kind ${card.kind}`)
+        if (!source) {
+          this.#cards.set(card.id, { status: 'ready', result: computeCard(card, undefined, undefined, { ...inputs.options, filters: cardFilters }) })
+          this.#cardFilters.set(card.id, cardFilters)
+          return
+        }
         const dataset = findDataset(inputs.schema, source.dataset)!
         const request = createDatasetRequest(source, dataset, { parameters: inputs.values, filters: cardFilters })
         const key = JSON.stringify(request)
@@ -480,7 +501,7 @@ export class XhReportViewer extends XhReactiveElement {
         if (run !== this.#runs)
           return
         this.#cards.set(card.id, { status: 'ready', result: computeCard(card, dataset, data, { ...inputs.options, filters: cardFilters }) })
-        this.#cardFilters.set(card.id, JSON.stringify(cardFilters))
+        this.#cardFilters.set(card.id, cardFilters)
       }
       catch (error) {
         if (run !== this.#runs || isAbort(error))
@@ -586,7 +607,7 @@ export class XhReportViewer extends XhReactiveElement {
     }
     this.#painted.set(cardId, key)
     this.#charts.delete(cardId)
-    const rendered = renderCard(frame.body, state, ctx)
+    const rendered = renderCard(frame.body, state, ctx, this.#model().cardRenderers)
     if (rendered && 'cellOf' in rendered) {
       this.#bindTable(cardId, rendered)
     }
@@ -641,7 +662,13 @@ export class XhReportViewer extends XhReactiveElement {
     if (samePaint(this.#painted.get(''), key))
       return
     this.#painted.set('', key)
-    this.#bindTable(null, keepTableFocus(layers.body, () => renderView(layers.body, view, ctx, tableLabel(this.schema?.title, view))))
+    if ('type' in view) {
+      this.#bindTable(null, keepTableFocus(layers.body, () => renderView(layers.body, view, ctx, tableLabel(this.schema?.title, view))))
+      return
+    }
+    const rendered = this.#model().viewRenderers.get(view.view.type)!(layers.body, view, ctx)
+    if (rendered && 'cellOf' in rendered)
+      this.#bindTable(null, rendered)
   }
 }
 

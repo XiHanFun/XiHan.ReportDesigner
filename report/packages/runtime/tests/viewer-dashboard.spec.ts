@@ -8,7 +8,7 @@ import type { DashboardView, DatasetData, DatasetRequest, DatasetSchema, ReportD
 import type { XhReportViewer } from '../src'
 import { computeCard } from '@xihan-report/core'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter, defineReportViewer } from '../src'
+import { createReportRuntimeModel, DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter, defineReportViewer } from '../src'
 import { createRenderContext, renderCard } from '../src/design'
 
 const dataset: DatasetSchema = {
@@ -403,18 +403,19 @@ describe('<xh-report-viewer>：卡片原地更新', () => {
 describe('renderCard：同一块内容区上换卡片定义', () => {
   const pie = dashboard.cards[0]! as Extract<DashboardView['cards'][number], { kind: 'chart' }>
   const ctx = createRenderContext(DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter, undefined, 'UTC')
+  const renderers = createReportRuntimeModel().cardRenderers
   const state = (card: DashboardView['cards'][number]) => ({ status: 'ready' as const, result: computeCard(card, dataset, { kind: 'rows', rows }, { timeZone: 'UTC' }) })
 
   it('同种图表复用元素：去掉的选项设回 undefined；换成别种图表时换新元素', () => {
     const body = document.createElement('div')
     document.body.append(body)
-    renderCard(body, state({ ...pie, chart: { ...pie.chart, format: { kind: 'number', decimals: 1 } } as typeof pie.chart }), ctx)
+    renderCard(body, state({ ...pie, chart: { ...pie.chart, format: { kind: 'number', decimals: 1 } } as typeof pie.chart }), ctx, renderers)
     const element = body.firstElementChild as HTMLElement & { format?: unknown }
     expect(typeof element.format).toBe('function')
-    renderCard(body, state(pie), ctx)
+    renderCard(body, state(pie), ctx, renderers)
     expect(body.firstElementChild).toBe(element)
     expect(element.format).toBeUndefined()
-    renderCard(body, state({ ...pie, chart: { type: 'funnel', nameField: 'region', valueField: 'amount' } }), ctx)
+    renderCard(body, state({ ...pie, chart: { type: 'funnel', nameField: 'region', valueField: 'amount' } }), ctx, renderers)
     expect(body.firstElementChild).not.toBe(element)
     expect(body.firstElementChild!.localName).toBe('xh-funnel-chart')
   })
@@ -423,10 +424,10 @@ describe('renderCard：同一块内容区上换卡片定义', () => {
     const metric = dashboard.cards[2]! as Extract<DashboardView['cards'][number], { kind: 'metric' }>
     const body = document.createElement('div')
     document.body.append(body)
-    renderCard(body, state({ ...metric, metric: { ...metric.metric, sparkline: { x: 'amount', y: 'amount' } } }), ctx)
+    renderCard(body, state({ ...metric, metric: { ...metric.metric, sparkline: { x: 'amount', y: 'amount' } } }), ctx, renderers)
     const statistic = body.querySelector('xh-statistic')
     expect(body.querySelector('xh-sparkline')).not.toBeNull()
-    renderCard(body, state(metric), ctx)
+    renderCard(body, state(metric), ctx, renderers)
     expect(body.querySelector('xh-statistic')).toBe(statistic)
     expect(body.querySelector('xh-sparkline')).toBeNull()
   })
