@@ -14,6 +14,7 @@ overrides:
   '@xihan-ui/expression': 'link:../../XiHan.UI/ui/packages/engine/expression'
   '@xihan-ui/styles': 'link:../../XiHan.UI/ui/packages/design/styles'
   '@xihan-ui/web-components': 'link:../../XiHan.UI/ui/packages/adapters/web-components'
+  '@xihan-ui/xlsx': 'link:../../XiHan.UI/ui/packages/features/xlsx'
 
 allowBuilds:
   esbuild: true

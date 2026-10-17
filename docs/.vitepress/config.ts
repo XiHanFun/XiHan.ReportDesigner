@@ -32,6 +32,9 @@ const guideSidebar: DefaultTheme.SidebarItem[] = [
       { text: '看板与卡片', link: '/guide/dashboard' },
       { text: '透视与交叉表', link: '/guide/pivot' },
       { text: '联动与下钻', link: '/guide/linking' },
+      { text: '查看器', link: '/guide/viewer' },
+      { text: '设计器', link: '/guide/designer' },
+      { text: '导出', link: '/guide/export' },
     ],
   },
 ]
