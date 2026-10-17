@@ -92,12 +92,13 @@ describe('<xh-report-viewer>：明细表', () => {
     expect([element.getAttribute('footer-rows'), element.hasAttribute('sticky-footer'), footer.getAttribute('level'), footer.getAttribute('aria-rowindex')]).toEqual(['1', true, '1', '5'])
   })
 
-  it('行数超过阈值时表体交给 xh-virtualizer', async () => {
+  it('行数超过阈值时表体交给 xh-virtualizer，虚拟列表跟着表格根滚，视口不占 Tab 位', async () => {
     const many = Array.from({ length: 500 }, (_, index) => ({ region: `R${index}`, date: '2026-01-01', amount: index }))
     const viewer = mount(documentOf(table), async () => ({ kind: 'rows', rows: many }))
     await viewer.refresh()
     const virtualizer = viewer.querySelector('xh-table xh-virtualizer')!
     expect(virtualizer.getAttribute('count')).toBe('500')
+    expect([virtualizer.getAttribute('scroll-container'), virtualizer.hasAttribute('viewport-tab-index')]).toEqual(['ancestor', false])
     expect((viewer.querySelector('xh-table') as HTMLElement & { rows: unknown[] }).rows).toHaveLength(500)
   })
 
