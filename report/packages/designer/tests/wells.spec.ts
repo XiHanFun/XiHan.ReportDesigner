@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { DashboardCard, ReportDocument } from '@xihan-report/core'
+import type { DashboardCard, ReportCoreExtension, ReportDocument } from '@xihan-report/core'
 import { cardTemplate, planAddFieldItem } from '@xihan-report/core'
 import { describe, expect, it } from 'vitest'
 import { fieldList, wellsOwner, withFilledBindings } from '../src/wells'
@@ -35,10 +35,21 @@ describe('字段栏的辅助函数', () => {
   })
 
   it('加项之后补全卡片的必填绑定，合为一组操作；主体的视图不补', () => {
-    const operations = withFilledBindings(board, { card: 'pie' }, planAddFieldItem(board, { card: 'pie' }, 'dimensions', 'region'))
+    const operations = withFilledBindings(board, { card: 'pie' }, planAddFieldItem(board, { card: 'pie' }, 'dimensions', 'region'), [])
     expect(operations.map(operation => operation.type)).toEqual(['addItem', 'updateCard'])
     expect(operations[1]).toMatchObject({ changes: [{ path: ['chart', 'nameField'], value: 'region' }] })
     const table: ReportDocument = { ...board, body: { type: 'table', dataset: 'sales', columns: [] } }
-    expect(withFilledBindings(table, {}, planAddFieldItem(table, {}, 'columns', 'region')).map(operation => operation.type)).toEqual(['addItem'])
+    expect(withFilledBindings(table, {}, planAddFieldItem(table, {}, 'columns', 'region'), []).map(operation => operation.type)).toEqual(['addItem'])
+  })
+
+  it('扩展卡片的补全取自设计器装的扩展里它的种类', () => {
+    const lanes: ReportCoreExtension = {
+      id: '@acme/lanes',
+      cards: { 'lanes.board': { data: 'query', fillBindings: (_card, ids) => (ids.dimensions.length > 0 ? [{ path: ['lane'], value: ids.dimensions[0]! }] : []) } },
+    }
+    const document: ReportDocument = { ...board, body: { type: 'dashboard', grid: { columns: 12, rowHeight: 40 }, cards: [{ id: 'b', kind: 'lanes.board', layout: { x: 0, y: 0, w: 6, h: 4 }, dataset: 'sales', query: { dimensions: [], measures: [] } }] } }
+    const added = planAddFieldItem(document, { card: 'b' }, 'dimensions', 'region')
+    expect(withFilledBindings(document, { card: 'b' }, added, [lanes]).at(-1)).toMatchObject({ type: 'updateCard', id: 'b', changes: [{ path: ['lane'], value: 'region' }] })
+    expect(withFilledBindings(document, { card: 'b' }, added, []).map(operation => operation.type)).toEqual(['addItem'])
   })
 })

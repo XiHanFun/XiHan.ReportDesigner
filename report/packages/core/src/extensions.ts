@@ -14,11 +14,13 @@ import type { ChartData } from './engine/chart-data'
 import type { ViewResult } from './engine/compute'
 import type { MetricResult } from './engine/dashboard'
 import type { QueryResult } from './engine/query'
+import type { PropertyChange } from './operations'
 import type { ReportPropertyDescriptor } from './properties'
 import type { CardBase, ChartCard, DatasetSchema, ExtensionCard, ExtensionView, FieldType, MetricCard, ReportDocument, TableCard } from './schema'
 import type { ValidationIssue } from './validate'
 import { formatJsonPath } from '@xihan-ui/core/json'
 import { DesignerExtensionError, extensionControls, extensionIssuePrefix, mergeExtensions } from '@xihan-ui/designer-kit'
+import { chartBindings, metricBindings } from './card-bindings'
 import { chartData } from './engine/chart-data'
 import { computeMetric } from './engine/dashboard'
 import { builtinProperties, documentProperties } from './properties'
@@ -47,6 +49,12 @@ export interface ReportKindInput {
   readonly view?: ViewResult
 }
 
+/** 卡片查询里现有的维度与度量 id，按查询里的先后。 */
+export interface ReportQueryIds {
+  readonly dimensions: readonly string[]
+  readonly measures: readonly string[]
+}
+
 /** 一种卡片。 */
 export interface ReportCardKind<Card extends CardBase = ExtensionCard, Value = unknown> {
   readonly data: ReportCardData
@@ -54,6 +62,11 @@ export interface ReportCardKind<Card extends CardBase = ExtensionCard, Value = u
   readonly validate?: (card: Card, check: ReportKindCheck) => readonly SchemaIssue[]
   /** 把取数结果换成交给渲染的值；不给时值就是取数结果本身（query 形状是 QueryResult，view 形状是 ViewResult）。 */
   readonly compute?: (card: Card, input: ReportKindInput) => Value
+  /**
+   * 补全种类自己的必填绑定（planFillBindings 调它，设计器在字段栏增删维度、度量之后调）：拿到卡片与查询里现有的维度、
+   * 度量 id，返回要改的属性，路径从卡片算起。只对取数形状为 query 的卡片调用；不给时不补。
+   */
+  readonly fillBindings?: (card: Card, query: ReportQueryIds) => readonly PropertyChange[]
 }
 
 /** 一种主体视图。 */
@@ -136,11 +149,13 @@ const DATA_VIEWS: readonly ReportViewData[] = ['table', 'group', 'crosstab', 'da
 
 const CHART_CARD: ReportCardKind<ChartCard, ChartData> = {
   data: 'query',
+  fillBindings: chartBindings,
   compute: (card, input) => chartData(card.chart, card.query, input.query!),
 }
 
 const METRIC_CARD: ReportCardKind<MetricCard, MetricValue> = {
   data: 'query',
+  fillBindings: metricBindings,
   compute: (card, input) => ({ result: input.query!, metric: computeMetric(card.metric, input.query!) }),
 }
 

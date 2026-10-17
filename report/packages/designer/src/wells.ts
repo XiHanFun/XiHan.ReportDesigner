@@ -7,7 +7,7 @@
 // 列表内拖动排序；交叉表的行与列同组，在两者之间拖动即透视。从数据面板拖来的字段按落点插进列表。
 // 看板卡片下另有一段联动：以它为源的联动各是一枚可移除的标签，点选后在属性面板里编辑，也可以新增。
 
-import type { ChartSpec, DashboardCard, DataView, FieldType, ItemList, ItemOwner, ReportDocument, ReportOperation, ReportQuery } from '@xihan-report/core'
+import type { ChartSpec, DashboardCard, DataView, FieldType, ItemList, ItemOwner, ReportCoreExtension, ReportDocument, ReportOperation, ReportQuery } from '@xihan-report/core'
 import type { ReportDesignerTranslations } from '@xihan-report/runtime'
 import type { DropOver } from '@xihan-ui/designer-shell'
 import type { XhSortableElement, XhTagElement } from '@xihan-ui/web-components/define'
@@ -56,6 +56,8 @@ export interface WellsHost {
   /** 选中以 card 为源的联动。 */
   readonly selectLink: (card: string, id: string) => void
   readonly isReadonly: () => boolean
+  /** 设计器装的扩展：扩展卡片的绑定补全取自它的种类。 */
+  readonly extensions: () => readonly ReportCoreExtension[]
 }
 
 /** 字段直接拖到卡片或主体视图上时进哪个列表：数值字段进度量（明细表、分组报表进列），其余进维度、交叉表的行或列。 */
@@ -68,11 +70,11 @@ export function fieldList(owner: WellsOwner, type: FieldType): ItemList {
   return type === 'number' ? 'measures' : 'dimensions'
 }
 
-/** 在操作之后补全卡片的必填绑定（planFillBindings），与操作合为一组；不是卡片时原样返回。 */
-export function withFilledBindings(document: ReportDocument, owner: ItemOwner, operations: readonly ReportOperation[]): ReportOperation[] {
+/** 在操作之后补全卡片的必填绑定（planFillBindings，按 extensions 里登记的种类），与操作合为一组；不是卡片时原样返回。 */
+export function withFilledBindings(document: ReportDocument, owner: ItemOwner, operations: readonly ReportOperation[], extensions: readonly ReportCoreExtension[]): ReportOperation[] {
   if (owner.card === undefined || operations.length === 0)
     return [...operations]
-  return [...operations, ...planFillBindings(applyOperations(document, operations).document, owner.card)]
+  return [...operations, ...planFillBindings(applyOperations(document, operations).document, owner.card, { extensions })]
 }
 
 /** 卡片上能作联动源的维度与标题。 */
@@ -333,7 +335,7 @@ export class Wells {
       return
     const target: ItemOwner = owner.card === undefined ? {} : { card: owner.card }
     const built = build(target)
-    const operations = fill ? withFilledBindings(document, target, built) : built
+    const operations = fill ? withFilledBindings(document, target, built, this.#host.extensions()) : built
     if (operations.length > 0)
       this.#host.execute(operations)
   }
