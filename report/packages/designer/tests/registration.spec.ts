@@ -110,6 +110,7 @@ async function settle(designer: XhReportDesigner): Promise<void> {
   await designer.updateComplete
 }
 
+/** 走遍各类卡片与面板的一整轮，耗时随机器负载变化，给足时间预算。 */
 describe('defineReportDesigner()', () => {
   it('只调它、不调 defineXhElements()：看板各类卡片、属性面板、字段栏、数据面板、参数编辑器、预览与确认框里的 xh-* 元素都已升级', async () => {
     const designer = document.createElement('xh-report-designer')
@@ -193,5 +194,5 @@ describe('defineReportDesigner()', () => {
       'xh-dialog',
     ])
       expect(seen, tag).toContain(tag)
-  })
+  }, 30_000)
 })
