@@ -20,11 +20,17 @@ const CONTINUOUS_SCALES: ReadonlySet<string> = new Set(['linear', 'log', 'sqrt',
 
 /** UI 图表派发的 datum-press 明细里查看器用到的字段：图表家族带 seriesId 与 datum，热力图带 date 或 row、column。 */
 export interface ChartPress {
+  /** 点中的数据点在图表里的键。 */
   readonly key: unknown
+  /** 点中的系列。 */
   readonly seriesId?: string
+  /** 点中的数据行。 */
   readonly datum?: Readonly<Record<string, unknown>>
+  /** 日历热力图点中的日期，YYYY-MM-DD。 */
   readonly date?: string
+  /** 矩阵热力图点中的行。 */
   readonly row?: string
+  /** 矩阵热力图点中的列。 */
   readonly column?: string
 }
 

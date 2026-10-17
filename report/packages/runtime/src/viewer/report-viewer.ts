@@ -35,6 +35,7 @@ export const REPORT_VIEWER_TAG = 'xh-report-viewer'
 
 /** 取数时附带的上下文：参数或联动变化、元素卸载时 signal 被取消。 */
 export interface ReportDataContext {
+  /** 取消信号：这一轮取数作废时触发，取数回调应随之中止请求。 */
   readonly signal: AbortSignal
 }
 
@@ -46,9 +47,13 @@ export type ReportViewerIssue = SchemaIssue<ValidationIssueCode | ParameterIssue
 
 /** 查看器派发的事件。 */
 export interface ReportViewerEventMap {
+  /** 报表定义的校验问题或参数的检查问题变了。 */
   'issues-change': CustomEvent<{ issues: readonly ReportViewerIssue[] }>
+  /** 取数或计算出错：card 是出错的卡片，报表主体出错时为 null。 */
   'load-error': CustomEvent<{ card: string | null, error: unknown }>
+  /** 开始或结束取数。 */
   'loading-change': CustomEvent<{ loading: boolean }>
+  /** 看板联动的选中值变了：value 是联动 id 到选中取值的对照；受控时宿主要把它写回 selections。 */
   'selections-change': CustomEvent<{ value: LinkSelections }>
   /** 参数栏改了参数：value 是新的参数取值，清空的参数写 null。 */
   'parameters-change': CustomEvent<{ value: ParameterValues }>
@@ -109,6 +114,7 @@ function isAbort(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { name?: unknown }).name === 'AbortError'
 }
 
+/** 报表查看器 <xh-report-viewer>：按报表定义、参数与联动取数，算出并绘出报表主体或看板。 */
 export class XhReportViewer extends XhReactiveElement {
   static override properties = {
     schema: { attribute: false },
@@ -130,7 +136,7 @@ export class XhReportViewer extends XhReactiveElement {
   declare dataProvider: ReportDataProvider | undefined
   /** 表达式引擎：计算字段与公式度量要用。 */
   declare expressionEngine: ExpressionEngine | undefined
-  /** 卡片与视图种类、渲染、导出与取数中间件的扩展；赋值时当场合并查重，冲突时退回原值再抛。 */
+  /** 卡片与视图种类、渲染、叠加层、导出与取数中间件的扩展；赋值时当场合并查重，冲突时退回原值再抛。 */
   declare extensions: readonly ReportRuntimeExtension[] | undefined
   /** 值的显示文字；缺省按格式说明调 formatValue。 */
   declare formatter: ReportFormatter | undefined

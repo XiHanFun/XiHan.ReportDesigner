@@ -83,25 +83,41 @@ export type CartesianSeriesSpec = CartesianBarSeriesSpec | CartesianLineSeriesSp
 
 /** 坐标轴；时间值写 ISO 8601 字符串。 */
 export interface CartesianAxisSpec {
+  /** 比例尺；不写按数据推断：带柱或非数值的自变量用 band，日期用 time，数值用 linear。 */
   readonly scale?: 'band' | 'point' | 'linear' | 'log' | 'sqrt' | 'pow' | 'symlog' | 'time' | 'utc'
   /** 类目轴的显式顺序。 */
   readonly domain?: readonly (string | number)[]
+  /** 下界；时间轴写 ISO 8601 字符串。 */
   readonly min?: number | string
+  /** 上界；时间轴写 ISO 8601 字符串。 */
   readonly max?: number | string
+  /** 两端取整到刻度上，数值轴缺省为真。 */
   readonly nice?: boolean
+  /** 数值轴包含 0；有柱系列时总是包含。 */
   readonly zero?: boolean
   /** 刻度数量提示。 */
   readonly ticks?: number
+  /** 刻度标签的格式。 */
   readonly format?: FormatSpec
+  /** 轴标题。 */
   readonly title?: string
+  /** 画网格线；不写时数值轴画、类目轴不画。 */
   readonly grid?: boolean
+  /** 刻度标签放不下时：自动、旋转、截断或折行。 */
   readonly labelOverflow?: 'auto' | 'rotate' | 'truncate' | 'wrap'
+  /** 反向。 */
   readonly reverse?: boolean
+  /** pow 轴的指数，正数，缺省 1。 */
   readonly exponent?: number
+  /** symlog 轴 sign(x) · log1p(|x| / c) 里的 c，正数，缺省 1；越小越接近对数，越大越接近线性。 */
   readonly constant?: number
+  /** 时间轴按哪个时区（IANA 名）排刻度、写标签；不写时 time 轴按运行环境所在时区，utc 轴按 UTC。 */
   readonly timeZone?: string
+  /** 这根轴（刻度、标签与标题）至少占的厚度（px）：上下叠放的几张图写同一个值，绘图区的左边就对齐。 */
   readonly minSize?: number
+  /** 只用于横轴：数据点等距排列，跳过没有数据的时段；比例尺须为 time、utc 或 linear。 */
   readonly ordinal?: boolean
+  /** 只用于纵轴：定义域按全部数据（all，缺省）还是只按缩放窗口里露出的数据（window）算。 */
   readonly fit?: 'all' | 'window'
 }
 
@@ -116,11 +132,14 @@ export type CartesianAnnotationSpec
 /** 笛卡尔图：柱、折线、面积、散点。 */
 export interface CartesianChartSpec {
   readonly type: 'cartesian'
+  /** 各系列：柱、折线与散点可以混排。 */
   readonly series: readonly CartesianSeriesSpec[]
   /** 拆分维度：每个系列按这个维度的每个成员各展开一条。 */
   readonly splitBy?: string
   readonly orientation?: 'vertical' | 'horizontal'
+  /** 横轴（自变量轴）；orientation 为 horizontal 时画在左侧。 */
   readonly xAxis?: CartesianAxisSpec
+  /** 纵轴（数值轴）。 */
   readonly yAxis?: CartesianAxisSpec
   readonly renderer?: 'svg' | 'canvas' | 'auto'
   readonly trigger?: 'axis' | 'item'
@@ -169,8 +188,11 @@ export interface FunnelChartSpec {
 export interface RadarIndicatorSpec {
   /** 度量 id。 */
   readonly key: string
+  /** 轴上的名字；不写取度量的标题。 */
   readonly label?: string
+  /** 这根轴的下界；不写按数据算。 */
   readonly min?: number
+  /** 这根轴的上界；不写按数据算。 */
   readonly max?: number
 }
 
@@ -280,6 +302,7 @@ export interface SparklineSpec {
   readonly y: string
   readonly variant?: 'line' | 'area' | 'bar' | 'win-loss'
   readonly curve?: 'linear' | 'monotone'
+  /** 标出哪些点：不标、末点或最高最低点。 */
   readonly markers?: 'none' | 'last' | 'extremes'
   /** 参考带 [下界, 上界]。 */
   readonly band?: readonly [number, number]
@@ -299,5 +322,6 @@ export interface MetricSpec {
   readonly format?: NumericFormatSpec
   readonly size?: ChartSize
   readonly tone?: ChartTone
+  /** 迷你图；不写不画。 */
   readonly sparkline?: SparklineSpec
 }

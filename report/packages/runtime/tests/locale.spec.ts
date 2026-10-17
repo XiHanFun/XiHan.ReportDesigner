@@ -49,7 +49,7 @@ describe('问题说明', () => {
     const zh = (reportZhCN.translations as Record<string, Partial<ReportDesignerTranslations>>)['xh-report-designer']!.issue!
     expect(zh({ code: 'formula-cycle', params: { names: 'a,b,a' } })).toBe('公式互相引用成环：a → b → a')
     expect(zh({ code: 'operator-type-mismatch', params: { operator: 'contains', type: 'number' } })).toBe('「包含」不适用于数值字段')
-    expect(zh({ code: 'out-of-range', params: { min: 1, max: 24 } })).toBe('超出取值范围，应不小于 1且不大于 24')
+    expect(zh({ code: 'out-of-range', params: { min: 1, max: 24 } })).toBe('超出取值范围，应不小于 1 且不大于 24')
     expect(DEFAULT_REPORT_DESIGNER_TRANSLATIONS.issue({ code: 'operand-shape', params: { operator: 'between' } })).toBe('"between" needs two values')
   })
 })

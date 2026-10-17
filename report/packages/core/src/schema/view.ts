@@ -42,6 +42,7 @@ export interface TableColumn extends ReportExtensible {
 /** 明细表：逐行列出数据。 */
 export interface TableView extends DataBinding, ReportExtensible {
   readonly type: 'table'
+  /** 各列，从左到右。 */
   readonly columns: readonly TableColumn[]
   readonly filter?: FilterGroup
   readonly sort?: readonly RowSortRule[]
@@ -69,7 +70,9 @@ export interface GroupLevel extends ReportExtensible {
 /** 分组报表：多级分组，组内列出明细，组尾写小计，末尾写总计。 */
 export interface GroupView extends DataBinding, ReportExtensible {
   readonly type: 'group'
+  /** 各级分组，由外到内。 */
   readonly groups: readonly GroupLevel[]
+  /** 明细行与组小计的各列，从左到右。 */
   readonly columns: readonly TableColumn[]
   readonly filter?: FilterGroup
   /** 组内明细行的次序。 */
@@ -95,9 +98,12 @@ export interface CrosstabView extends DataBinding, ReportExtensible {
   readonly rows: readonly Dimension[]
   /** 列维度，由外到内。 */
   readonly columns: readonly Dimension[]
+  /** 每个格子里的度量。 */
   readonly measures: readonly Measure[]
   readonly filter?: FilterGroup
+  /** 行方向（行维度）的小计与总计。 */
   readonly rowTotals?: CrosstabTotals
+  /** 列方向（列维度）的小计与总计。 */
   readonly columnTotals?: CrosstabTotals
   /** 多个度量排在列方向还是行方向，缺省 columns。 */
   readonly measuresOn?: 'columns' | 'rows'
@@ -115,7 +121,9 @@ export interface DashboardGrid {
 export interface CardLayout {
   readonly x: number
   readonly y: number
+  /** 宽，单位是格。 */
   readonly w: number
+  /** 高，单位是行。 */
   readonly h: number
 }
 
@@ -130,21 +138,29 @@ export interface CardBase extends ReportExtensible {
 
 /** 图表卡片。 */
 export interface ChartCard extends CardBase, DataBinding {
+  /** 图表卡片。 */
   readonly kind: 'chart'
+  /** 取数的聚合查询：图表的维度与度量都引用它的 id。 */
   readonly query: ReportQuery
+  /** 图表配置。 */
   readonly chart: ChartSpec
 }
 
 /** 指标卡片。 */
 export interface MetricCard extends CardBase, DataBinding {
+  /** 指标卡片。 */
   readonly kind: 'metric'
+  /** 取数的聚合查询：指标取它的总计，迷你图取它的分组。 */
   readonly query: ReportQuery
+  /** 指标配置。 */
   readonly metric: MetricSpec
 }
 
 /** 表格卡片：内嵌一个明细表、分组报表或交叉表。 */
 export interface TableCard extends CardBase {
+  /** 表格卡片。 */
   readonly kind: 'table'
+  /** 卡片里的明细表、分组报表或交叉表，带自己的数据集与筛选。 */
   readonly view: TableView | GroupView | CrosstabView
 }
 
@@ -153,9 +169,13 @@ export interface TableCard extends CardBase {
  * 或同表格卡片的 view，或不取数；其余字段归种类自己。
  */
 export interface ExtensionCard extends CardBase, Partial<DataBinding> {
+  /** 扩展登记的种类名。 */
   readonly kind: ReportExtensionKind
+  /** 取数形状为 query 的种类：聚合查询。 */
   readonly query?: ReportQuery
+  /** 取数形状为 view 的种类：明细表、分组报表或交叉表。 */
   readonly view?: DataView
+  /** 种类自己的其余字段，由种类的 validate 校验。 */
   readonly [key: string]: unknown
 }
 
@@ -189,8 +209,11 @@ export interface DashboardLink extends ReportExtensible {
 /** 看板：网格上排列的卡片。 */
 export interface DashboardView extends ReportExtensible {
   readonly type: 'dashboard'
+  /** 网格的列数与行高。 */
   readonly grid: DashboardGrid
+  /** 看板上的卡片，位置与大小写在各自的 layout 上。 */
   readonly cards: readonly DashboardCard[]
+  /** 卡片之间的筛选联动。 */
   readonly links?: readonly DashboardLink[]
 }
 
@@ -200,7 +223,9 @@ export interface DashboardView extends ReportExtensible {
  */
 export interface ExtensionView extends Partial<DataBinding>, ReportExtensible {
   readonly type: ReportExtensionKind
+  /** 取数形状为 query 的种类：聚合查询。 */
   readonly query?: ReportQuery
+  /** 种类自己的其余字段，由种类的 validate 校验。 */
   readonly [key: string]: unknown
 }
 

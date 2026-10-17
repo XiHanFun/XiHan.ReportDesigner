@@ -12,7 +12,9 @@ import { isMissing } from '@xihan-ui/viz'
 
 /** 格式化时的上下文。 */
 export interface ReportFormatContext {
+  /** BCP 47 语言标记；没有时按运行环境。 */
   readonly locale: string | undefined
+  /** IANA 时区：日期按它的墙上时间写。 */
   readonly timeZone: string
   /** 值所在字段的类型；度量、按粒度取键的维度等没有字段类型时为 undefined。 */
   readonly type: FieldType | undefined

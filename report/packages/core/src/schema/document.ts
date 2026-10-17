@@ -16,6 +16,7 @@ export const REPORT_SCHEMA_VERSION = 1
 /** 参数的一个候选项。 */
 export interface ParameterOption {
   readonly value: ScalarValue
+  /** 显示的文字；不写按取值显示。 */
   readonly label?: string
 }
 
@@ -37,12 +38,15 @@ export interface ReportParameter extends ReportExtensible {
 
 /** 报表文档：纯 JSON。 */
 export interface ReportDocument extends ReportExtensible {
+  /** 报表定义的版本，写 REPORT_SCHEMA_VERSION。 */
   readonly schemaVersion: typeof REPORT_SCHEMA_VERSION
   /** 报表身份。 */
   readonly id: string
   readonly title?: string
   readonly description?: string
   readonly parameters?: readonly ReportParameter[]
+  /** 报表用到的数据集：只描述字段与参数，数据由取数回调交回。 */
   readonly datasets: readonly DatasetSchema[]
+  /** 报表的主体：明细表、分组报表、交叉表、看板，或扩展登记的视图。 */
   readonly body: ReportBody
 }

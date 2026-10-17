@@ -29,14 +29,18 @@ import { applyOperation, bodyQuery, cardQuery, cardView, gridItems, isDataView, 
 import { formatJsonPath, isPlainObject } from '@xihan-ui/core/json'
 import { createHistory, createIdAllocator, decodeClipboard, encodeClipboard, remapIds } from '@xihan-ui/designer-kit'
 
-/** 剪贴板包的产品名与版本。 */
+/** 剪贴板包的产品名。 */
 export const REPORT_CLIPBOARD_PRODUCT = 'xihan-report'
+/** 剪贴板包的版本。 */
 export const REPORT_CLIPBOARD_VERSION = 1
 
 /** 选中的列表项：报表主体或卡片里某个列表的一项（列、分组、维度、度量、系列）。 */
 export interface ReportItemRef {
+  /** 所在的卡片；报表主体的列表项不写。 */
   readonly card?: string
+  /** 所在的列表：dimensions、measures、series、rows、columns、groups。 */
   readonly list: ItemList
+  /** 列表项的 id。 */
   readonly id: string
 }
 
@@ -51,10 +55,13 @@ export type ReportDataRef
  * 列表项与联动。
  */
 export interface ReportSelection {
+  /** 选中的卡片 id。 */
   readonly cards: readonly string[]
+  /** 选中的列表项。 */
   readonly item?: ReportItemRef
   /** 选中的联动 id；它的源卡片也在 cards 里。 */
   readonly link?: string
+  /** 数据面板里选中的对象。 */
   readonly data?: ReportDataRef
 }
 
@@ -63,7 +70,9 @@ export type ReportSelectMode = 'replace' | 'add' | 'toggle'
 
 /** 剪贴板里的内容：卡片，以及源卡片与目标都在其中的联动。 */
 export interface ReportClipboard {
+  /** 复制的卡片。 */
   readonly cards: readonly DashboardCard[]
+  /** 源卡片与全部目标都在复制范围里的联动。 */
   readonly links: readonly DashboardLink[]
 }
 
@@ -91,7 +100,6 @@ export interface LayoutGesture {
   readonly cancel: () => void
 }
 
-/** 新增卡片的参数：id 缺省时按卡片种类分配，layout 只写大小时放到第一个空位。 */
 /** 待新增的扩展卡片：同 NewExtensionCard，id 可以不给。 */
 export interface ReportAddExtensionCardInit extends Partial<DataBinding> {
   readonly id?: string
@@ -107,6 +115,7 @@ export interface ReportAddExtensionCardInit extends Partial<DataBinding> {
 
 type BuiltinNewCard = Exclude<NewCard, NewExtensionCard>
 
+/** 新增卡片的参数：id 缺省时按卡片种类分配，layout 只写大小时放到第一个空位。 */
 export type ReportAddCardInit
   = | (BuiltinNewCard extends infer C ? C extends BuiltinNewCard ? Omit<C, 'id'> & { readonly id?: string } : never : never)
     | ReportAddExtensionCardInit

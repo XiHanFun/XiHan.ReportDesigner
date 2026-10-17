@@ -17,6 +17,7 @@ import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
 
 /** 命令、面板、物料与扩展装上时拿到的上下文。 */
 export interface ReportDesignerContext {
+  /** 所在的设计器元素。 */
   readonly designer: XhReportDesigner
   /** 此刻生效的设计器文案。 */
   readonly translations: ReportDesignerTranslations
@@ -33,7 +34,9 @@ export type ReportCardTemplate = ReportAddCardInit & { readonly id?: never }
 
 /** 物料面板的一组。 */
 export interface ReportPaletteGroup {
+  /** 全局唯一；扩展的写扩展 id 末段加点加名字。 */
   readonly id: string
+  /** 组名，可以按此刻的文案生成。 */
   readonly label: string | ((context: ReportDesignerContext) => string)
 }
 
@@ -43,6 +46,7 @@ export interface ReportPaletteItem {
   readonly id: string
   /** 所在的组：内置的 charts、metrics、tables，或某个扩展登记的组。 */
   readonly group: string
+  /** 物料名，可以按此刻的文案生成。 */
   readonly label: string | ((context: ReportDesignerContext) => string)
   /** 新卡片；dataset 是报表的第一个数据集，没有数据集时为空串。 */
   readonly template: (dataset: string) => ReportCardTemplate
@@ -50,7 +54,9 @@ export interface ReportPaletteItem {
 
 /** 报表设计器层的扩展：运行时层的全部字段，加上属性编辑器、命令、面板、物料与 setup。导出器在运行时层，导入暂不支持。 */
 export interface ReportDesignerExtension extends ReportRuntimeExtension, Omit<DesignerShellExtension<ReportDesignerContext, ReportPropertyEditor, ReportDocument, ReportRuleContext>, keyof DesignerExtensionCore | 'exporters' | 'importers'> {
+  /** 物料面板的组，排在内置的图表、指标、表格之后。 */
   readonly paletteGroups?: readonly ReportPaletteGroup[]
+  /** 物料面板里的项。 */
   readonly palette?: readonly ReportPaletteItem[]
 }
 
@@ -145,9 +151,13 @@ export interface ReportDesignerModel {
   readonly list: readonly ReportDesignerExtension[]
   /** 再加上 core 与 runtime 层内置扩展的全部扩展，面板与命令按它的顺序。 */
   readonly extensions: readonly ReportDesignerExtension[]
+  /** 运行时层的模型：种类、渲染、导出器与取数中间件。 */
   readonly runtime: ReportRuntimeModel
+  /** 命令 id 到命令的对照：内置的在前，扩展的按登记顺序。 */
   readonly commands: DesignerCommandTable<ReportDesignerContext>
+  /** 物料面板的组，内置的在前。 */
   readonly paletteGroups: readonly ReportPaletteGroup[]
+  /** 物料项 id 到物料项的对照。 */
   readonly palette: ReadonlyMap<string, ReportPaletteItem>
 }
 

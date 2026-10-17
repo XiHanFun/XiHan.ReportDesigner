@@ -81,7 +81,9 @@ export interface QuerySortRule {
 
 /** 聚合查询：按维度分组、计算度量，结果每个维度组合一行。 */
 export interface ReportQuery {
+  /** 按哪些维度分组；不写维度时结果只有总计。 */
   readonly dimensions: readonly Dimension[]
+  /** 每组要算的度量。 */
   readonly measures: readonly Measure[]
   readonly filter?: FilterGroup
   /** 结果行的次序；不写按维度依次升序。 */

@@ -15,5 +15,6 @@ export type ReportExtensionData = Readonly<Record<string, JsonObject>>
 
 /** 能带扩展数据的对象：文档、数据集、字段、参数、视图、卡片、各列表项与联动。 */
 export interface ReportExtensible {
+  /** 各扩展自己的数据：键是扩展 id，值是 JSON 对象；编辑与剪贴板原样带过去。 */
   readonly extensions?: ReportExtensionData
 }
