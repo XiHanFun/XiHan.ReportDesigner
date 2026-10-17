@@ -21,6 +21,14 @@ const guideSidebar: DefaultTheme.SidebarItem[] = [
     collapsed: false,
     items: [
       { text: '介绍', link: '/introduction' },
+      { text: '快速开始', link: '/quickstart' },
+    ],
+  },
+  {
+    text: '指南',
+    collapsed: false,
+    items: [
+      { text: '报表结构', link: '/guide/structure' },
     ],
   },
 ]
@@ -126,9 +134,11 @@ export default defineXiHanConfig({
     site: 'https://report.docs.xihanfun.com',
     sections: [
       { dir: '.', label: '开始' },
+      { dir: 'guide', label: '指南' },
       { dir: 'reference', label: '参考' },
     ],
     bundles: [
+      { name: 'guide', label: '指南', dirs: ['guide'] },
       { name: 'reference', label: '参考', dirs: ['reference'] },
     ],
     transform: machineReadable,
