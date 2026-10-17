@@ -158,7 +158,6 @@ const REPORT_CONTROLS: Readonly<Record<string, ControlKind>> = {
   queryKey: STRING_VALUE,
   card: STRING_VALUE,
   cardDimension: STRING_VALUE,
-  format: OBJECT_VALUE,
   filter: OBJECT_VALUE,
   parameterValue: {},
 }

@@ -72,7 +72,6 @@ import {
  * - dataset：报表里的数据集 id；
  * - field：所在数据集的字段名，types 只列这些类型的字段；
  * - dimension / measure：所在查询的维度 id / 度量 id；queryKey 是两者之一；
- * - format：值的格式说明，numeric 只给数值与百分比格式；
  * - filter：筛选条件树；
  * - parameterValue：报表参数的取值，按参数的 type 与 multiple；
  * - card：看板上的卡片 id；cardDimension：联动源卡片上能发出取值的维度。
@@ -84,7 +83,6 @@ export type ReportPropertyControl
     | { readonly kind: 'dimension' }
     | { readonly kind: 'measure' }
     | { readonly kind: 'queryKey' }
-    | { readonly kind: 'format', readonly numeric?: boolean }
     | { readonly kind: 'filter' }
     | { readonly kind: 'parameterValue' }
     | { readonly kind: 'card' }
@@ -117,7 +115,7 @@ const BOOLEAN: ReportPropertyControl = { kind: 'boolean' }
 const JSON_VALUE: ReportPropertyControl = { kind: 'json' }
 const DIMENSION: ReportPropertyControl = { kind: 'dimension' }
 const MEASURE: ReportPropertyControl = { kind: 'measure' }
-const NUMERIC_FORMAT: ReportPropertyControl = { kind: 'format', numeric: true }
+const NUMERIC_FORMAT: ReportPropertyControl = { kind: 'format', kinds: ['number', 'percent'] }
 
 function integer(min: number, max?: number): ReportPropertyControl {
   return max === undefined ? { kind: 'number', integer: true, min } : { kind: 'number', integer: true, min, max }
