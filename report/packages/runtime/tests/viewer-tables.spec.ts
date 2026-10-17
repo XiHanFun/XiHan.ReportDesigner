@@ -102,6 +102,21 @@ describe('<xh-report-viewer>：分组报表', () => {
     expect([table.getAttribute('footer-rows'), table.hasAttribute('sticky-footer')]).toEqual(['1', true])
   })
 
+  it('组头是可开合的父行：明细挂在组头下、小计与组头同级；点开合钮收起后表体按可见行重铺，留组头与小计', async () => {
+    const table = await show(view)
+    expect(table.rows!.slice(0, 4)).toEqual([{ id: 'r0' }, { id: 'r1', parentId: 'r0' }, { id: 'r2', parentId: 'r0' }, { id: 'r3' }])
+    expect(['r0', 'r4', 'r7'].map(id => table.isExpanded(id))).toEqual([true, true, true])
+    const trigger = table.querySelector('[data-xh-part="row"][value="r0"] [data-xh-part="cell"][value="g0"] [data-xh-part="expand-trigger"]') as HTMLElement
+    expect(trigger.getAttribute('data-state')).toBe('open')
+    expect(table.querySelector('[data-xh-part="row"][value="r1"] [data-xh-part="expand-trigger"]')).toBeNull()
+    trigger.click()
+    await table.updateComplete
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(['r0', 'r4', 'r7'].map(id => table.isExpanded(id))).toEqual([false, true, true])
+    expect(bodyRows(table).slice(0, 3)).toEqual([['East', '', ''], ['Subtotal', '', '150'], ['West', '', '']])
+    expect(table.querySelector('[data-xh-part="row"][value="r0"]')!.getAttribute('aria-expanded')).toBe('false')
+  })
+
   it('组头的键只横跨其后的分组列，留在冻结区里', async () => {
     const two = await show({ ...view, groups: [{ id: 'region', field: 'region' }, { id: 'product', field: 'product' }], columns: [{ id: 'amount', field: 'amount', summary: { aggregate: 'sum' } }] })
     expect(two.cellSpanOf('r0', 'g0')).toMatchObject({ colSpan: 2 })
@@ -162,19 +177,35 @@ describe('<xh-report-viewer>：交叉表', () => {
     expect([none.hasAttribute('footer-rows'), none.querySelector('[data-xh-part="footer"]')]).toEqual([false, null])
   })
 
-  it('两层行维度：上层成员纵向合并，小计与总计的标签横跨剩余的行表头列', async () => {
+  it('两层行维度：上层成员纵向合并，被合并掉的格子照常写标签、由表格藏起；表尾不合并，被跨过的格子留空', async () => {
     const table = await show({ ...view, rows: [{ id: 'region', field: 'region' }, { id: 'product', field: 'product' }], columns: [], measures: [view.measures[0]!], rowTotals: { subtotals: true } })
     expect(bodyRows(table).map(row => row.slice(0, 2))).toEqual([
       ['East', 'A'],
-      ['', 'B'],
-      ['', 'Subtotal'],
+      ['East', 'B'],
+      ['East', 'Subtotal'],
       ['West', 'A'],
-      ['', 'Subtotal'],
+      ['West', 'Subtotal'],
       ['(Blank)', 'A'],
-      ['', 'Subtotal'],
+      ['(Blank)', 'Subtotal'],
     ])
+    expect(table.querySelector('[data-xh-part="row"][value="r1"] [data-xh-part="cell"][value="row0"]')!.hasAttribute('data-covered')).toBe(true)
     expect(sectionRows(table, 'footer').map(row => row.slice(0, 2))).toEqual([['Total', '']])
     expect(table.cellSpanOf('r0', 'row0')).toMatchObject({ rowSpan: 3 })
+  })
+
+  it('行数超过阈值时表体交给 xh-virtualizer，合并照旧由 cellSpan 给出', async () => {
+    const many = Array.from({ length: 300 }, (_, index) => ({ region: `R${index % 3}`, product: `P${index}`, amount: index }))
+    const viewer = document.createElement('xh-report-viewer') as XhReportViewer
+    viewer.timeZone = 'UTC'
+    viewer.dataProvider = async () => ({ kind: 'rows', rows: many })
+    viewer.schema = { schemaVersion: 1, id: 'demo', datasets: [dataset], body: { ...view, rows: [{ id: 'region', field: 'region' }, { id: 'product', field: 'product' }], columns: [], measures: [view.measures[0]!] } } as ReportDocument
+    document.body.append(viewer)
+    await viewer.refresh()
+    const table = viewer.querySelector('xh-table') as XhTableElement
+    await table.updateComplete
+    expect(table.querySelector('xh-virtualizer')!.getAttribute('count')).toBe('300')
+    expect(table.rows).toHaveLength(300)
+    expect(table.cellSpanOf('r0', 'row0')).toMatchObject({ rowSpan: 100 })
   })
 })
 

@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 明细表：排成 <xh-table>，合计写进表尾；行数多时表体交给 <xh-virtualizer>，只渲染窗口里的行。
+// 明细表：排成 <xh-table>，合计写进表尾；三类表格共用的外壳、行与表体铺法也在这里，行数多时表体交给 <xh-virtualizer>，只渲染窗口里的行。
 
 import type { DatasetSchema, TableColumn, TableResult, TableView } from '@xihan-report/core'
 import type { XhTableElement, XhVirtualizerElement } from '@xihan-ui/web-components/define'
@@ -59,11 +59,103 @@ export interface TableShell {
   readonly footer: HTMLElement | undefined
 }
 
+/** 一行里的一格：expand 为真时格子里先放开合钮。 */
+export interface TableCellSpec {
+  readonly id: string
+  readonly text: string
+  readonly expand?: boolean
+}
+
 /** 建一行：row 部件与各列的 cell 部件。 */
-export function tableRow(value: string | undefined, cells: readonly { readonly id: string, readonly text: string }[], attributes: Readonly<Record<string, string>> = {}): HTMLElement {
+export function tableRow(value: string | undefined, cells: readonly TableCellSpec[], attributes: Readonly<Record<string, string>> = {}): HTMLElement {
   const row = uiPart('div', 'row', value === undefined ? attributes : { ...attributes, value })
-  row.append(...cells.map(cell => uiPart('div', 'cell', { value: cell.id }, cell.text)))
+  row.append(...cells.map((cell) => {
+    if (!cell.expand)
+      return uiPart('div', 'cell', { value: cell.id }, cell.text)
+    const element = uiPart('div', 'cell', { value: cell.id })
+    element.append(uiPart('span', 'expand-trigger'), cell.text)
+    return element
+  }))
   return row
+}
+
+/** 铺好的表体：行数变了（树形表开合）时按新的行重铺。 */
+export interface TableBody {
+  readonly refresh: (count: number) => void
+}
+
+/**
+ * 铺表体：rowAt 给出第几行的节点。行数不超过阈值时直接铺；超过时交给 <xh-virtualizer>，只铺窗口里的行，
+ * 行节点归表格（data-xh-part-owner）。是否虚拟按第一次的行数定，之后行数变了只换 count。表格须已在文档里。
+ */
+export function fillTableBody(shell: TableShell, count: number, rowAt: (index: number) => HTMLElement): TableBody {
+  if (count <= VIRTUAL_ROW_THRESHOLD) {
+    const refresh = (rows: number): void => {
+      shell.body.replaceChildren(...Array.from({ length: rows }, (_, index) => rowAt(index)))
+    }
+    refresh(count)
+    return { refresh }
+  }
+  shell.root.dataset.virtual = ''
+  const virtualizer = document.createElement('xh-virtualizer') as XhVirtualizerElement
+  virtualizer.setAttribute('count', String(count))
+  virtualizer.setAttribute('estimate-size', String(ESTIMATED_ROW_SIZE))
+  virtualizer.setAttribute('viewport-tab-index', '-1')
+  const virtualRoot = uiPart('div', 'root')
+  const viewport = uiPart('div', 'viewport')
+  const content = uiPart('div', 'content')
+  viewport.append(content)
+  virtualRoot.append(viewport)
+  virtualizer.append(virtualRoot)
+  shell.body.replaceChildren(virtualizer)
+
+  // 条目按下标复用：窗口没变就不动节点，只增删进出窗口的那几条，实测过的条目高度不会因重建而反复变化
+  let slots = new Map<number, HTMLElement>()
+  let shown = ''
+  const render = (items: readonly { readonly index: number }[]): void => {
+    const key = items.map(item => item.index).join(',')
+    if (key === shown)
+      return
+    shown = key
+    const next = new Map<number, HTMLElement>()
+    const nodes = items.map((item) => {
+      let slot = slots.get(item.index)
+      if (!slot) {
+        slot = uiPart('div', 'item', { value: String(item.index), measure: '' })
+        const row = rowAt(item.index)
+        row.setAttribute('data-xh-part-owner', 'table')
+        slot.append(row)
+      }
+      next.set(item.index, slot)
+      return slot
+    })
+    for (const [index, slot] of slots) {
+      if (!next.has(index))
+        slot.remove()
+    }
+    nodes.forEach((slot, position) => {
+      if (content.children[position] !== slot)
+        content.insertBefore(slot, content.children[position] ?? null)
+    })
+    slots = next
+    virtualizer.requestUpdate()
+    shell.table.virtualizer = virtualizer.collectionVirtualizer ?? undefined
+    shell.table.requestUpdate()
+  }
+  if (virtualizer.isConnected && typeof virtualizer.requestUpdate === 'function')
+    render(virtualizer.virtualItems)
+  virtualizer.addEventListener('range-change', event => render((event as CustomEvent<{ virtualItems: readonly { index: number }[] }>).detail.virtualItems))
+  return {
+    refresh: (rows) => {
+      for (const slot of slots.values())
+        slot.remove()
+      slots = new Map()
+      shown = ''
+      virtualizer.setAttribute('count', String(rows))
+      if (typeof virtualizer.requestUpdate === 'function')
+        render(virtualizer.virtualItems)
+    },
+  }
 }
 
 /** 一层表头行。 */
@@ -119,7 +211,7 @@ export function summaryType(column: TableColumn, dataset: DatasetSchema): Return
 }
 
 /** 汇总行的各格：带汇总的列写汇总值，第一个不带汇总的列写 label。 */
-export function summaryCells(columns: readonly TableColumn[], dataset: DatasetSchema, values: Readonly<Record<string, unknown>>, label: string, ctx: RenderContext): { id: string, text: string }[] {
+export function summaryCells(columns: readonly TableColumn[], dataset: DatasetSchema, values: Readonly<Record<string, unknown>>, label: string, ctx: RenderContext): TableCellSpec[] {
   const first = columns.findIndex(column => column.summary === undefined)
   return columns.map((column, index) => ({
     id: column.id,
@@ -145,45 +237,13 @@ export function renderDetailTable(container: HTMLElement, view: TableView, datas
   if (result.summary)
     shell.footer!.append(tableRow(undefined, summaryCells(columns, dataset, result.summary, ctx.translations.total, ctx), { level: '1' }))
 
-  const rowCells = (index: number): { id: string, text: string }[] => {
+  const rowCells = (index: number): TableCellSpec[] => {
     const row = result.rows[index]!
     return columns.map(column => ({ id: column.id, text: ctx.text(row[column.field], column.format, fieldType(dataset, column.field)) }))
   }
   shell.table.columns = columns.map(column => columnDef(column, dataset))
   shell.table.rows = result.rows.map((_, index) => ({ id: `r${index}` }))
-
-  if (result.rows.length <= VIRTUAL_ROW_THRESHOLD) {
-    shell.body.append(...result.rows.map((_, index) => tableRow(`r${index}`, rowCells(index))))
-    container.replaceChildren(shell.table)
-    return { element: shell.table, cellOf }
-  }
-
-  shell.root.dataset.virtual = ''
-  const virtualizer = document.createElement('xh-virtualizer') as XhVirtualizerElement
-  virtualizer.setAttribute('count', String(result.rows.length))
-  virtualizer.setAttribute('estimate-size', String(ESTIMATED_ROW_SIZE))
-  virtualizer.setAttribute('viewport-tab-index', '-1')
-  const virtualRoot = uiPart('div', 'root')
-  const viewport = uiPart('div', 'viewport')
-  const content = uiPart('div', 'content')
-  viewport.append(content)
-  virtualRoot.append(viewport)
-  virtualizer.append(virtualRoot)
-  shell.body.append(virtualizer)
   container.replaceChildren(shell.table)
-
-  const render = (items: readonly { readonly index: number }[]): void => {
-    content.replaceChildren(...items.map((item) => {
-      const slot = uiPart('div', 'item', { value: String(item.index), measure: '' })
-      slot.append(tableRow(`r${item.index}`, rowCells(item.index), { 'data-xh-part-owner': 'table' }))
-      return slot
-    }))
-    virtualizer.requestUpdate()
-    shell.table.virtualizer = virtualizer.collectionVirtualizer ?? undefined
-    shell.table.requestUpdate()
-  }
-  if (virtualizer.isConnected && typeof virtualizer.requestUpdate === 'function')
-    render(virtualizer.virtualItems)
-  virtualizer.addEventListener('range-change', event => render((event as CustomEvent<{ virtualItems: readonly { index: number }[] }>).detail.virtualItems))
+  fillTableBody(shell, result.rows.length, index => tableRow(`r${index}`, rowCells(index)))
   return { element: shell.table, cellOf }
 }
