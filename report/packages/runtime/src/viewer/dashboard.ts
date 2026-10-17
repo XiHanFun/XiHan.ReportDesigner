@@ -5,7 +5,8 @@
 
 // 看板：卡片按网格位置排在 CSS grid 上；每张卡片单独计算与绘制，图表卡片可作联动源。
 
-import type { CardResult, ChartData, DashboardView, MetricValue, ViewResult } from '@xihan-report/core'
+import type { CardResult, ChartCard, ChartData, DashboardView, MetricCard, MetricValue, ViewResult } from '@xihan-report/core'
+import type { ReportCardRenderer, ReportRendered } from '../extensions'
 import type { RenderedChart } from './charts'
 import type { RenderContext } from './context'
 import type { RenderedTable } from './table'
@@ -97,12 +98,39 @@ export function keepTableFocus(body: HTMLElement, render: () => RenderedTable): 
   return rendered
 }
 
+/** 内置图表卡片的渲染：上一轮画的是同种图表时复用元素，只换数据，刷新与联动不重放入场动效。 */
+export function renderChartCard(body: HTMLElement, result: CardResult, ctx: RenderContext): RenderedChart {
+  const card = result.card as ChartCard
+  const dataset = result.dataset!
+  const label = card.title ?? card.query.measures.map(measure => measureLabel(measure, dataset)).join(' / ')
+  const previous = body.firstElementChild
+  const rendered = renderChart(card.chart, result.value as ChartData, card.query, dataset, ctx, label, previous)
+  if (rendered.element !== previous || body.childElementCount !== 1)
+    body.replaceChildren(rendered.element)
+  return rendered
+}
+
+/** 内置指标卡片的渲染：复用上一轮的指标与迷你图元素，只换数据。 */
+export function renderMetricCard(body: HTMLElement, result: CardResult, ctx: RenderContext): undefined {
+  const previous = body.firstElementChild
+  const metric = result.value as MetricValue
+  const content = renderMetric(result.card as MetricCard, metric.result, metric.metric, result.dataset!, ctx, previous)
+  if (content !== previous || body.childElementCount !== 1)
+    body.replaceChildren(content)
+  return undefined
+}
+
+/** 内置表格卡片的渲染：表格整个重建，焦点还给原来的行。 */
+export function renderTableCard(body: HTMLElement, result: CardResult, ctx: RenderContext): RenderedTable {
+  const view = result.value as ViewResult
+  return keepTableFocus(body, () => renderView(body, view, ctx, tableLabel(result.card.title, view)))
+}
+
 /**
- * 把一张卡片的状态绘进内容区；图表与表格卡片返回绘好的元素，供联动与下钻接线。
- * 上一轮绘的是同种图表或指标卡片时复用那些元素，只换数据：刷新与联动不重放入场动效，焦点留在原处。
- * 表格整个重建，焦点还给原来的行。
+ * 把一张卡片的状态绘进内容区：取数中或出错时写状态，算好了交给它种类的渲染；图表与表格返回绘好的元素，供联动与下钻接线。
+ * 种类没有渲染时抛 TypeError。
  */
-export function renderCard(body: HTMLElement, state: CardState, ctx: RenderContext): RenderedChart | RenderedTable | undefined {
+export function renderCard(body: HTMLElement, state: CardState, ctx: RenderContext, renderers: ReadonlyMap<string, ReportCardRenderer>): ReportRendered | undefined {
   const section = body.parentElement
   if (state.status !== 'ready') {
     section?.setAttribute('data-state', state.status)
@@ -110,29 +138,8 @@ export function renderCard(body: HTMLElement, state: CardState, ctx: RenderConte
     return undefined
   }
   section?.setAttribute('data-state', 'ready')
-  const { card, dataset, value } = state.result
-  switch (card.kind) {
-    case 'chart': {
-      const label = card.title ?? card.query.measures.map(measure => measureLabel(measure, dataset!)).join(' / ')
-      const previous = body.firstElementChild
-      const rendered = renderChart(card.chart, value as ChartData, card.query, dataset!, ctx, label, previous)
-      if (rendered.element !== previous || body.childElementCount !== 1)
-        body.replaceChildren(rendered.element)
-      return rendered
-    }
-    case 'metric': {
-      const previous = body.firstElementChild
-      const metric = value as MetricValue
-      const content = renderMetric(card, metric.result, metric.metric, dataset!, ctx, previous)
-      if (content !== previous || body.childElementCount !== 1)
-        body.replaceChildren(content)
-      return undefined
-    }
-    case 'table': {
-      const view = value as ViewResult
-      return keepTableFocus(body, () => renderView(body, view, ctx, tableLabel(card.title, view)))
-    }
-    default:
-      throw new TypeError(`[report] no renderer for card kind ${card.kind}`)
-  }
+  const render = renderers.get(state.result.card.kind)
+  if (!render)
+    throw new TypeError(`[report] no renderer for card kind ${state.result.card.kind}`)
+  return render(body, state.result, ctx)
 }

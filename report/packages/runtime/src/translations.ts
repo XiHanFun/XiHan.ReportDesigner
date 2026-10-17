@@ -28,6 +28,8 @@ export interface ReportViewerTranslations {
   readonly parameters: string
   /** 清除联动选中的按钮。 */
   readonly clearSelections: string
+  /** 内置 xlsx 导出器的名字。 */
+  readonly exportXlsx: string
 }
 
 /** 内建英文文案。 */
@@ -43,6 +45,7 @@ export const DEFAULT_REPORT_VIEWER_TRANSLATIONS: ReportViewerTranslations = {
   missing: '(Blank)',
   parameters: 'Report parameters',
   clearSelections: 'Clear selections',
+  exportXlsx: 'Excel workbook',
 }
 
 declare module '@xihan-ui/web-components' {

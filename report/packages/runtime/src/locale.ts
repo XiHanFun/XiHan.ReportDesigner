@@ -298,6 +298,7 @@ export const reportZhCN: XhConfig = mergeXhConfig(designerShellZhCN, {
       missing: '（空）',
       parameters: '报表参数',
       clearSelections: '清除联动',
+      exportXlsx: 'Excel 工作簿',
     },
     'xh-report-designer': {
       label: '报表设计器',
