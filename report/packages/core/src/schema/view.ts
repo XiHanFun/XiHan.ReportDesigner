@@ -3,9 +3,10 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 定义报表视图：明细表、分组报表、交叉表与看板。
+// 定义报表视图：明细表、分组报表、交叉表与看板，以及扩展登记的卡片与视图。
 
 import type { ChartSpec, MetricSpec } from './chart'
+import type { ReportExtensible, ReportExtensionKind } from './extension'
 import type { FilterGroup, Operand, RowSortRule } from './filter'
 import type { FormatSpec } from './format'
 import type { AggregateKind, AxisSort, DateBucket, Dimension, Measure, ReportQuery } from './query'
@@ -22,7 +23,7 @@ export interface DataBinding {
 export type ColumnSummary = { readonly aggregate: AggregateKind } | { readonly formula: string }
 
 /** 表格的一列。 */
-export interface TableColumn {
+export interface TableColumn extends ReportExtensible {
   /** 列身份，在视图内唯一。 */
   readonly id: string
   /** 数据集字段名。 */
@@ -39,7 +40,7 @@ export interface TableColumn {
 }
 
 /** 明细表：逐行列出数据。 */
-export interface TableView extends DataBinding {
+export interface TableView extends DataBinding, ReportExtensible {
   readonly type: 'table'
   readonly columns: readonly TableColumn[]
   readonly filter?: FilterGroup
@@ -49,7 +50,7 @@ export interface TableView extends DataBinding {
 }
 
 /** 分组报表的一级分组。 */
-export interface GroupLevel {
+export interface GroupLevel extends ReportExtensible {
   /** 分组身份，在视图内唯一。 */
   readonly id: string
   /** 数据集字段名。 */
@@ -66,7 +67,7 @@ export interface GroupLevel {
 }
 
 /** 分组报表：多级分组，组内列出明细，组尾写小计，末尾写总计。 */
-export interface GroupView extends DataBinding {
+export interface GroupView extends DataBinding, ReportExtensible {
   readonly type: 'group'
   readonly groups: readonly GroupLevel[]
   readonly columns: readonly TableColumn[]
@@ -88,7 +89,7 @@ export interface CrosstabTotals {
 }
 
 /** 交叉表：行维度与列维度交叉，格子里写度量。 */
-export interface CrosstabView extends DataBinding {
+export interface CrosstabView extends DataBinding, ReportExtensible {
   readonly type: 'crosstab'
   /** 行维度，由外到内。 */
   readonly rows: readonly Dimension[]
@@ -119,7 +120,7 @@ export interface CardLayout {
 }
 
 /** 卡片的共有属性。 */
-export interface CardBase {
+export interface CardBase extends ReportExtensible {
   /** 卡片身份，在看板内唯一。 */
   readonly id: string
   readonly title?: string
@@ -147,10 +148,21 @@ export interface TableCard extends CardBase {
   readonly view: TableView | GroupView | CrosstabView
 }
 
-export type DashboardCard = ChartCard | MetricCard | TableCard
+/**
+ * 扩展登记的卡片：kind 是带点的种类名。取数部分按种类声明的形状写：同图表卡片的 dataset、parameters 与 query，
+ * 或同表格卡片的 view，或不取数；其余字段归种类自己。
+ */
+export interface ExtensionCard extends CardBase, Partial<DataBinding> {
+  readonly kind: ReportExtensionKind
+  readonly query?: ReportQuery
+  readonly view?: DataView
+  readonly [key: string]: unknown
+}
+
+export type DashboardCard = ChartCard | MetricCard | TableCard | ExtensionCard
 
 /** 联动的一个目标：在目标卡片上按字段筛选。 */
-export interface LinkTarget {
+export interface LinkTarget extends ReportExtensible {
   /** 目标卡片 id。 */
   readonly card: string
   /** 目标卡片数据集的字段名。 */
@@ -161,7 +173,7 @@ export interface LinkTarget {
  * 筛选联动：在源卡片上选中的取值，成为目标卡片在对应字段上的 in 条件。
  * 源维度带日期粒度时，目标字段按同一粒度取键再比较。
  */
-export interface DashboardLink {
+export interface DashboardLink extends ReportExtensible {
   /** 联动身份，在看板内唯一。 */
   readonly id: string
   /** 源卡片 id。 */
@@ -175,15 +187,25 @@ export interface DashboardLink {
 }
 
 /** 看板：网格上排列的卡片。 */
-export interface DashboardView {
+export interface DashboardView extends ReportExtensible {
   readonly type: 'dashboard'
   readonly grid: DashboardGrid
   readonly cards: readonly DashboardCard[]
   readonly links?: readonly DashboardLink[]
 }
 
+/**
+ * 扩展登记的主体视图：type 是带点的种类名。取数部分按种类声明的形状写：同图表卡片的 dataset、parameters 与 query，
+ * 或不取数；其余字段归种类自己。
+ */
+export interface ExtensionView extends Partial<DataBinding>, ReportExtensible {
+  readonly type: ReportExtensionKind
+  readonly query?: ReportQuery
+  readonly [key: string]: unknown
+}
+
 /** 报表的主体。 */
-export type ReportBody = TableView | GroupView | CrosstabView | DashboardView
+export type ReportBody = TableView | GroupView | CrosstabView | DashboardView | ExtensionView
 
 /** 可以直接取数计算的视图。 */
 export type DataView = TableView | GroupView | CrosstabView

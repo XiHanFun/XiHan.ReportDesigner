@@ -5,12 +5,13 @@
 
 // 定义数据集描述，以及使用方取数回调的请求与返回契约。
 
+import type { ReportExtensible } from './extension'
 import type { FilterGroup, RowSortRule } from './filter'
 import type { AggregateKind, DateBucket } from './query'
 import type { DataRow, FieldType, ParameterValues } from './value'
 
 /** 数据集里的一个字段。写了 formula 的是计算字段，以同一行的字段与报表参数（$名字）为变量逐行求值，不由使用方提供。 */
-export interface DatasetField {
+export interface DatasetField extends ReportExtensible {
   /** 字段名：数据行里的键，在数据集内唯一；不以 $ 开头。 */
   readonly name: string
   readonly type: FieldType
@@ -21,7 +22,7 @@ export interface DatasetField {
 }
 
 /** 数据集接受的一个参数：取数时由使用方的数据源解释。 */
-export interface DatasetParameter {
+export interface DatasetParameter extends ReportExtensible {
   /** 参数名，在数据集内唯一。 */
   readonly name: string
   readonly type: FieldType
@@ -33,7 +34,7 @@ export interface DatasetParameter {
 }
 
 /** 报表引用的一个数据集。 */
-export interface DatasetSchema {
+export interface DatasetSchema extends ReportExtensible {
   /** 数据集身份，在报表内唯一，也是取数请求里的 dataset。 */
   readonly id: string
   readonly title?: string

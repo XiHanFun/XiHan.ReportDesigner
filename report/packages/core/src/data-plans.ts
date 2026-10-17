@@ -5,8 +5,10 @@
 
 // 数据集、字段与报表参数的计划函数：删除时把别处对它的引用一并删掉并报出删了几处，改名时连同公式里的引用一起改。
 
+import type { QueryBinding } from './card-data'
 import type { ReportOperation } from './operations'
-import type { DashboardCard, DataView, FilterGroup, FilterNode, Operand, ReportDocument, ReportQuery } from './schema'
+import type { DataView, FilterGroup, FilterNode, Operand, ReportDocument, ReportQuery } from './schema'
+import { bodyQuery, cardQuery, cardView, isDataView } from './card-data'
 import { fieldFormulaSites, renameFormulas, viewFormulaSites } from './formula-sites'
 import { planRemoveItem } from './item-plans'
 import { applyOperations } from './operations'
@@ -26,24 +28,32 @@ export interface DataRemoval {
   readonly cascade: DataCascade
 }
 
-/** 取数的对象：报表主体或表格卡片的视图，或图表与指标卡片（带查询）。 */
+/** 取数的对象：报表主体或带视图的卡片的视图，或带查询的卡片与扩展视图（card 缺省时是报表主体）。不取数的卡片不在其列。 */
 type Owner
   = | { readonly card?: string, readonly dataset: string, readonly view: DataView }
-    | { readonly card: string, readonly dataset: string, readonly query: ReportQuery, readonly source: Exclude<DashboardCard, { kind: 'table' }> }
+    | { readonly card?: string, readonly dataset: string, readonly query: ReportQuery, readonly source: QueryBinding }
 
 function owners(document: ReportDocument): Owner[] {
   const body = document.body
-  if (body.type !== 'dashboard')
+  if (isDataView(body))
     return [{ dataset: body.dataset, view: body }]
-  return body.cards.map((card): Owner => card.kind === 'table'
-    ? { card: card.id, dataset: card.view.dataset, view: card.view }
-    : { card: card.id, dataset: card.dataset, query: card.query, source: card })
+  if (body.type !== 'dashboard') {
+    const query = bodyQuery(body)
+    return query ? [{ dataset: query.dataset, query: query.query, source: query }] : []
+  }
+  return body.cards.flatMap((card): Owner[] => {
+    const view = cardView(card)
+    if (view)
+      return [{ card: card.id, dataset: view.dataset, view }]
+    const query = cardQuery(card)
+    return query ? [{ card: card.id, dataset: query.dataset, query: query.query, source: query }] : []
+  })
 }
 
-/** 对象上的修改：视图写 updateView，图表与指标卡片写 updateCard（路径带上 query 前缀由调用方给）。 */
+/** 对象上的修改：视图与作主体的扩展视图写 updateView，带查询的卡片写 updateCard（路径带上 query 前缀由调用方给）。 */
 function ownerUpdate(owner: Owner, path: readonly (string | number)[], value: unknown): ReportOperation {
   const change = value === undefined ? { path } : { path, value: value as never }
-  if ('view' in owner)
+  if ('view' in owner || owner.card === undefined)
     return owner.card === undefined ? { type: 'updateView', changes: [change] } : { type: 'updateView', card: owner.card, changes: [change] }
   return { type: 'updateCard', id: owner.card, changes: [change] }
 }

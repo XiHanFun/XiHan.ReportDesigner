@@ -5,16 +5,21 @@
 
 // 报表文档的自校验：结构、取值范围与引用关系，只给出问题码、定位与参数。
 
-import type { JsonPath } from '@xihan-ui/core/json'
-import type { SchemaIssueTarget } from '@xihan-ui/designer-kit/schema'
+import type { JsonPath, JsonObject as JsonRecord, JsonValue } from '@xihan-ui/core/json'
+import type { SchemaIssue, SchemaIssueTarget } from '@xihan-ui/designer-kit/schema'
 import type { ExpressionEngine } from '../expression'
-import type { DateBucket, FieldType } from '../schema'
+import type { ReportCoreExtension, ReportKindEntry, ReportModel, ReportPropertyTarget } from '../extensions'
+import type { ReportPropertyDescriptor } from '../properties'
+import type { DateBucket, FieldType, ReportDocument } from '../schema'
 import type { JsonObject, KeyedItem, ValidationIssue } from './checker'
 import type { FormulaSite } from './common'
 import { isPlainObject } from '@xihan-ui/core/json'
+import { checkExtensionData, extensionIssuePrefix, runExtensionRules } from '@xihan-ui/designer-kit'
+import { checkProperties } from '@xihan-ui/designer-kit/properties'
 import { withSeverity } from '@xihan-ui/designer-kit/schema'
+import { createReportModel } from '../extensions'
 import { itemKey } from '../operations'
-import { AGGREGATE_KINDS, CARD_KINDS, COLUMN_ALIGNS, COLUMN_STICKY_SIDES, DATE_BUCKETS, FIELD_TYPES, FILTER_LOGICS, FILTER_OPERATORS, MEASURES_ON, REPORT_SCHEMA_VERSION } from '../schema'
+import { AGGREGATE_KINDS, COLUMN_ALIGNS, COLUMN_STICKY_SIDES, DATE_BUCKETS, FIELD_TYPES, FILTER_LOGICS, FILTER_OPERATORS, MEASURES_ON, REPORT_SCHEMA_VERSION } from '../schema'
 import { checkChart, checkMetric } from './chart'
 import { Checker } from './checker'
 import { checkAxisSort, checkFormat, checkFormulas, checkSortOrder, isParameterRef, isScalar, literalMatches, typeCompatible } from './common'
@@ -23,6 +28,8 @@ import { checkAxisSort, checkFormat, checkFormulas, checkSortOrder, isParameterR
 export interface ValidateOptions {
   /** 表达式引擎：提供时检查公式能否编译、引用是否存在、有没有循环引用。 */
   readonly expressionEngine?: ExpressionEngine
+  /** 卡片与视图种类、追加属性与规则的扩展；内置扩展总在最前。 */
+  readonly extensions?: readonly ReportCoreExtension[]
 }
 
 interface DatasetInfo {
@@ -37,6 +44,7 @@ interface ParameterInfo {
 
 interface Scope {
   readonly c: Checker
+  readonly model: ReportModel
   readonly datasets: ReadonlyMap<string, DatasetInfo>
   readonly parameters: ReadonlyMap<string, ParameterInfo>
   readonly expressionEngine: ExpressionEngine | undefined
@@ -425,6 +433,150 @@ function checkDataView(scope: Scope, view: JsonObject, path: JsonPath, types: re
   }
 }
 
+const NO_KEYS = { dimensions: new Set<string>(), measures: new Set<string>() }
+
+/** 种类自己的校验：扩展种类的问题码必须以扩展 id 的末段加点开头，否则抛 TypeError。 */
+function checkKind(
+  scope: Scope,
+  entry: ReportKindEntry<{ readonly validate?: (object: never, check: never) => readonly SchemaIssue[] }>,
+  object: JsonObject,
+  path: JsonPath,
+  keys: { readonly dimensions: ReadonlySet<string>, readonly measures: ReadonlySet<string> },
+  dataset: DatasetInfo | undefined,
+): void {
+  const validate = entry.kind.validate as ((object: unknown, check: unknown) => readonly SchemaIssue[]) | undefined
+  if (!validate)
+    return
+  const issues = validate(object, { path, dimensions: keys.dimensions, measures: keys.measures, fieldType: (name: string) => dataset?.fields.get(name) })
+  if (!entry.builtin) {
+    const prefix = `${extensionIssuePrefix(entry.owner)}.`
+    for (const issue of issues) {
+      if (!issue.code.startsWith(prefix))
+        throw new TypeError(`[report] issue ${issue.code} from ${entry.name} must start with ${prefix}`)
+    }
+  }
+  scope.c.add(issues)
+}
+
+/** 主体：按视图种类查。内置的明细表、分组报表、交叉表与看板走各自的校验，扩展视图按登记的取数形状查取数部分再交给种类。 */
+function checkBody(scope: Scope, body: JsonObject, path: JsonPath): void {
+  const { c } = scope
+  const type = c.string(body, 'type', path, true)
+  if (type === undefined)
+    return
+  const entry = scope.model.views.get(type)
+  if (!entry) {
+    c.report('unknown-kind', [...path, 'type'], { kind: type })
+    return
+  }
+  switch (entry.kind.data) {
+    case 'table':
+    case 'group':
+    case 'crosstab':
+    case 'dashboard':
+      checkDataView(scope, body, path, [entry.kind.data])
+      return
+    case 'query': {
+      const dataset = checkBinding(scope, body, path)
+      const query = checkQuery(scope, body, path, dataset)
+      checkKind(scope, entry, body, path, { dimensions: new Set(query.dimensions.keys()), measures: query.measures }, dataset)
+      return
+    }
+    case 'none':
+      checkKind(scope, entry, body, path, NO_KEYS, undefined)
+  }
+}
+
+/** 一个能带扩展数据或追加属性的对象：路径、追加属性的类别（没有的不查属性）、能不能带扩展数据。 */
+interface ExtensibleSite {
+  readonly object: unknown
+  readonly path: JsonPath
+  readonly target: ReportPropertyTarget | 'document' | undefined
+  readonly extensible: boolean
+}
+
+function itemsAt(owner: unknown, key: string, path: JsonPath): { object: JsonObject, path: JsonPath }[] {
+  if (!isPlainObject(owner) || !Array.isArray(owner[key]))
+    return []
+  return (owner[key] as unknown[]).flatMap((object, index) => isPlainObject(object) ? [{ object, path: [...path, key, index] }] : [])
+}
+
+function querySites(owner: JsonObject, path: JsonPath): ExtensibleSite[] {
+  const query = owner.query
+  if (!isPlainObject(query))
+    return []
+  const at = [...path, 'query']
+  return [
+    ...itemsAt(query, 'dimensions', at).map(item => ({ ...item, target: 'dimension' as const, extensible: true })),
+    ...itemsAt(query, 'measures', at).map(item => ({ ...item, target: 'measure' as const, extensible: true })),
+  ]
+}
+
+function viewSites(view: JsonObject, path: JsonPath): ExtensibleSite[] {
+  const type = typeof view.type === 'string' ? view.type : undefined
+  const sites: ExtensibleSite[] = [{ object: view, path, target: type === undefined ? undefined : `view:${type}`, extensible: true }]
+  if (type === 'crosstab') {
+    sites.push(...itemsAt(view, 'rows', path).map(item => ({ ...item, target: 'dimension' as const, extensible: true })))
+    sites.push(...itemsAt(view, 'columns', path).map(item => ({ ...item, target: 'dimension' as const, extensible: true })))
+    sites.push(...itemsAt(view, 'measures', path).map(item => ({ ...item, target: 'measure' as const, extensible: true })))
+  }
+  else {
+    sites.push(...itemsAt(view, 'columns', path).map(item => ({ ...item, target: 'column' as const, extensible: true })))
+    sites.push(...itemsAt(view, 'groups', path).map(item => ({ ...item, target: 'group-level' as const, extensible: true })))
+  }
+  return [...sites, ...querySites(view, path)]
+}
+
+/** 文档里能带扩展数据或追加属性的对象，按文档次序。 */
+function extensibleSites(document: JsonObject): ExtensibleSite[] {
+  const sites: ExtensibleSite[] = [{ object: document, path: [], target: 'document', extensible: true }]
+  sites.push(...itemsAt(document, 'parameters', []).map(item => ({ ...item, target: 'parameter' as const, extensible: true })))
+  for (const dataset of itemsAt(document, 'datasets', [])) {
+    sites.push({ ...dataset, target: undefined, extensible: true })
+    sites.push(...itemsAt(dataset.object, 'fields', dataset.path).map(item => ({ ...item, target: 'field' as const, extensible: true })))
+    sites.push(...itemsAt(dataset.object, 'parameters', dataset.path).map(item => ({ ...item, target: undefined, extensible: true })))
+  }
+  const body = document.body
+  if (!isPlainObject(body))
+    return sites
+  if (body.type !== 'dashboard')
+    return [...sites, ...viewSites(body, ['body'])]
+  sites.push({ object: body, path: ['body'], target: 'dashboard', extensible: true })
+  for (const card of itemsAt(body, 'cards', ['body'])) {
+    const kind = typeof card.object.kind === 'string' ? card.object.kind : undefined
+    sites.push({ ...card, target: kind === undefined ? undefined : `card:${kind}`, extensible: true })
+    const chart = card.object.chart
+    if (isPlainObject(chart)) {
+      const at = [...card.path, 'chart']
+      sites.push({ object: chart, path: at, target: typeof chart.type === 'string' ? `chart:${chart.type}` : undefined, extensible: false })
+      sites.push(...itemsAt(chart, 'series', at).map(item => ({ ...item, target: 'series' as const, extensible: false })))
+    }
+    if (isPlainObject(card.object.metric))
+      sites.push({ object: card.object.metric, path: [...card.path, 'metric'], target: 'metric', extensible: false })
+    if (isPlainObject(card.object.view))
+      sites.push(...viewSites(card.object.view, [...card.path, 'view']))
+    sites.push(...querySites(card.object, card.path))
+  }
+  for (const link of itemsAt(body, 'links', ['body'])) {
+    sites.push({ ...link, target: 'link', extensible: true })
+    sites.push(...itemsAt(link.object, 'targets', link.path).map(item => ({ ...item, target: undefined, extensible: true })))
+  }
+  return sites
+}
+
+/** 各对象上的扩展数据只查结构；扩展追加的属性按描述查，内置属性由上面的校验器查过。 */
+function checkExtensible(c: Checker, document: JsonObject, model: ReportModel): void {
+  for (const site of extensibleSites(document)) {
+    if (site.extensible)
+      c.add(checkExtensionData(site.object as JsonValue, site.path))
+    const descriptors: readonly ReportPropertyDescriptor[] = site.target === undefined
+      ? []
+      : site.target === 'document' ? model.documentProperties : model.properties(site.target)
+    if (descriptors.length > 0 && isPlainObject(site.object))
+      c.add(checkProperties(descriptors, site.object as JsonRecord, { path: site.path, controls: model.controls }))
+  }
+}
+
 function checkDashboard(scope: Scope, view: JsonObject, path: JsonPath): void {
   const { c } = scope
   const grid = c.objectAt(view, 'grid', path, true)
@@ -435,7 +587,10 @@ function checkDashboard(scope: Scope, view: JsonObject, path: JsonPath): void {
   const cards = new Map<string, ViewInfo>()
   const placed: { id: string, x: number, y: number, w: number, h: number }[] = []
   for (const { item, path: at, key } of c.keyed(view, 'cards', path, 'id', { required: true })) {
-    const kind = c.oneOf(item, 'kind', at, CARD_KINDS, true)
+    const kind = c.string(item, 'kind', at, true)
+    const entry = kind === undefined ? undefined : scope.model.cards.get(kind)
+    if (kind !== undefined && !entry)
+      c.report('unknown-kind', [...at, 'kind'], { kind })
     c.string(item, 'title', at)
     c.string(item, 'description', at)
     const layout = c.objectAt(item, 'layout', at, true)
@@ -456,19 +611,24 @@ function checkDashboard(scope: Scope, view: JsonObject, path: JsonPath): void {
       }
     }
     let info: ViewInfo | undefined
-    if (kind === 'chart' || kind === 'metric') {
+    if (entry?.kind.data === 'query') {
       const dataset = checkBinding(scope, item, at)
       const query = checkQuery(scope, item, at, dataset)
       const keys = { dimensions: new Set(query.dimensions.keys()), measures: query.measures }
-      if (kind === 'chart')
+      if (entry.builtin && kind === 'chart')
         checkChart(c, item, at, keys)
-      else
+      else if (entry.builtin && kind === 'metric')
         checkMetric(c, item, at, keys)
+      checkKind(scope, entry, item, at, keys, dataset)
       info = { dataset, dimensions: query.dimensions }
     }
-    else if (kind === 'table') {
+    else if (entry?.kind.data === 'view') {
       const nested = c.objectAt(item, 'view', at, true)
       info = nested ? checkDataView(scope, nested, [...at, 'view'], ['table', 'group', 'crosstab']) : undefined
+      checkKind(scope, entry, item, at, NO_KEYS, info?.dataset)
+    }
+    else if (entry) {
+      checkKind(scope, entry, item, at, NO_KEYS, undefined)
     }
     if (key !== undefined && info)
       cards.set(key, info)
@@ -511,7 +671,7 @@ function checkParameterValue(scope: Scope, value: unknown, path: JsonPath, type:
 
 function checkReportParameters(c: Checker, document: JsonObject): Map<string, ParameterInfo> {
   const result = new Map<string, ParameterInfo>()
-  const scope: Scope = { c, datasets: new Map(), parameters: new Map(), expressionEngine: undefined, variables: new Set() }
+  const scope: Scope = { c, model: createReportModel(), datasets: new Map(), parameters: new Map(), expressionEngine: undefined, variables: new Set() }
   for (const { item, path, key } of c.keyed(document, 'parameters', [], 'name')) {
     const type = c.oneOf(item, 'type', path, FIELD_TYPES, true)
     c.string(item, 'title', path)
@@ -634,10 +794,13 @@ function checkDocument(c: Checker, document: JsonObject, options: ValidateOption
   c.string(document, 'id', [], true)
   c.string(document, 'title', [])
   c.string(document, 'description', [])
+  const model = createReportModel(options.extensions)
   const parameters = checkReportParameters(c, document)
   const variables = new Set([...parameters.keys()].map(name => `$${name}`))
   const datasets = checkDatasets(c, document, options.expressionEngine, variables)
   const body = c.objectAt(document, 'body', [], true)
   if (body)
-    checkDataView({ c, datasets, parameters, expressionEngine: options.expressionEngine, variables }, body, ['body'], ['table', 'group', 'crosstab', 'dashboard'])
+    checkBody({ c, model, datasets, parameters, expressionEngine: options.expressionEngine, variables }, body, ['body'])
+  checkExtensible(c, document, model)
+  c.add(runExtensionRules(model.extensions, document as unknown as ReportDocument, { model }))
 }

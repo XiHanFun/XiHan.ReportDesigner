@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest'
 import {
   cardProperties,
   chartProperties,
+  createReportModel,
   dashboardProperties,
   datasetFieldProperties,
   dimensionProperties,
@@ -28,7 +29,7 @@ import {
 import { dashboardDocument, groupDocument } from './documents'
 
 function issues(descriptors: readonly ReportPropertyDescriptor[], target: unknown): unknown[] {
-  return checkProperties(descriptors, target as JsonValue)
+  return checkProperties(descriptors, target as JsonValue, { controls: createReportModel().controls })
 }
 
 function visible(descriptors: readonly ReportPropertyDescriptor[], target: unknown): string[] {
@@ -62,11 +63,11 @@ describe('属性描述', () => {
       }
       if (card.kind === 'metric')
         expect(issues(metricProperties(), card.metric)).toEqual([])
-      if (card.kind !== 'table') {
+      if (card.kind === 'chart' || card.kind === 'metric') {
         card.query.dimensions.forEach(dimension => expect(issues(dimensionProperties(), dimension)).toEqual([]))
         card.query.measures.forEach(measure => expect(issues(measureProperties(), measure)).toEqual([]))
       }
-      else {
+      else if (card.kind === 'table') {
         const view = card.view
         expect(issues(viewProperties(view.type), view)).toEqual([])
         if (view.type !== 'crosstab')

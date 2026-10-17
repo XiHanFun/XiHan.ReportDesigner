@@ -6,9 +6,10 @@
 
 import type { DashboardView, DatasetData, DatasetRequest, DatasetSchema, ReportDocument } from '@xihan-report/core'
 import type { XhReportViewer } from '../src'
+import { computeCard } from '@xihan-report/core'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter, defineReportViewer } from '../src'
-import { computeCard, createRenderContext, renderCard } from '../src/design'
+import { createRenderContext, renderCard } from '../src/design'
 
 const dataset: DatasetSchema = {
   id: 'sales',

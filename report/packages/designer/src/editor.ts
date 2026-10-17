@@ -6,13 +6,20 @@
 // 报表设计器的编辑模型：在历史栈之上维护选择、看板布局手势、剪贴板与编辑命令；不碰 DOM。
 
 import type {
+  CardPlacement,
   DashboardCard,
   DashboardLink,
   DashboardView,
+  DataBinding,
+  DataView,
   ItemList,
   NewCard,
+  NewExtensionCard,
   ReportDocument,
+  ReportExtensionData,
+  ReportExtensionKind,
   ReportOperation,
+  ReportQuery,
   ValidateOptions,
   ValidationIssue,
 } from '@xihan-report/core'
@@ -85,7 +92,24 @@ export interface LayoutGesture {
 }
 
 /** 新增卡片的参数：id 缺省时按卡片种类分配，layout 只写大小时放到第一个空位。 */
-export type ReportAddCardInit = NewCard extends infer C ? C extends NewCard ? Omit<C, 'id'> & { readonly id?: string } : never : never
+/** 待新增的扩展卡片：同 NewExtensionCard，id 可以不给。 */
+export interface ReportAddExtensionCardInit extends Partial<DataBinding> {
+  readonly id?: string
+  readonly kind: ReportExtensionKind
+  readonly title?: string
+  readonly description?: string
+  readonly layout: CardPlacement
+  readonly query?: ReportQuery
+  readonly view?: DataView
+  readonly extensions?: ReportExtensionData
+  readonly [key: string]: unknown
+}
+
+type BuiltinNewCard = Exclude<NewCard, NewExtensionCard>
+
+export type ReportAddCardInit
+  = | (BuiltinNewCard extends infer C ? C extends BuiltinNewCard ? Omit<C, 'id'> & { readonly id?: string } : never : never)
+    | ReportAddExtensionCardInit
 
 export interface ReportEditor {
   readonly document: ReportDocument

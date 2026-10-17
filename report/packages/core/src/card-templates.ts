@@ -5,8 +5,9 @@
 
 // 卡片种类与新卡片的模板：每种卡片一份字段绑定留空的定义与缺省大小。
 
-import type { NewCard } from './grid'
+import type { NewCard, NewExtensionCard } from './grid'
 import type { ChartSpec } from './schema/chart'
+import type { ReportExtensionKind } from './schema/extension'
 import type { DashboardCard, TableCard } from './schema/view'
 import { CHART_TYPES } from './schema/chart'
 
@@ -23,15 +24,18 @@ export const REPORT_CARD_TYPES: readonly ReportCardType[] = [
 ]
 
 /** 新卡片的模板：除 id 外的定义，layout 只写大小。 */
-export type CardTemplate = NewCard extends infer C ? C extends NewCard ? Omit<C, 'id'> : never : never
+/** 内置种类的新卡片模板。 */
+export type CardTemplate = Exclude<NewCard, NewExtensionCard> extends infer C ? C extends NewCard ? Omit<C, 'id'> : never : never
 
-/** 卡片的种类。 */
-export function cardTypeOf(card: DashboardCard): ReportCardType {
+/** 卡片的种类：内置的按图表或视图类型细分，扩展卡片就是它的种类名。 */
+export function cardTypeOf(card: DashboardCard): ReportCardType | ReportExtensionKind {
   if (card.kind === 'chart')
     return `chart.${card.chart.type}`
   if (card.kind === 'table')
     return `table.${card.view.type}`
-  return 'metric'
+  if (card.kind === 'metric')
+    return 'metric'
+  return card.kind
 }
 
 function chartSpec(type: ChartSpec['type']): ChartSpec {

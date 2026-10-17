@@ -8,6 +8,7 @@
 
 import type { JsonPath, JsonPrimitive } from '@xihan-ui/core/json'
 import type { PropertyCondition, PropertyControl, PropertyDescriptor } from '@xihan-ui/designer-kit/properties'
+import type { ReportCardData, ReportKindEntry, ReportPropertyTarget, ReportViewData } from './extensions'
 import type { ChartSpec, DashboardCard, DataView, FieldType } from './schema'
 import { SYMBOL_NAMES } from '@xihan-ui/viz'
 import {
@@ -24,6 +25,7 @@ import {
   CHART_SIZES,
   CHART_TONES,
   CHART_TRIGGERS,
+  CHART_TYPES,
   COLUMN_ALIGNS,
   COLUMN_STICKY_SIDES,
   DATE_BUCKETS,
@@ -137,24 +139,36 @@ export function dashboardProperties(): ReportPropertyDescriptor[] {
   ]
 }
 
-/**
- * 卡片自身的属性：标题、说明；图表与指标卡片还有数据集、参数绑定与查询的筛选、行数上限。
- * 图表配置、指标配置与表格卡片的视图另用 chartProperties、metricProperties、viewProperties。
- */
-export function cardProperties(card: Pick<DashboardCard, 'kind'>): ReportPropertyDescriptor[] {
-  const base = [
-    property(['title'], 'basic', TEXT),
-    property(['description'], 'basic', { kind: 'text', multiline: true }),
-  ]
-  if (card.kind === 'table')
-    return base
+/** 带查询的卡片与扩展视图的取数属性：数据集、参数绑定与查询的筛选、行数上限。 */
+function queryDataProperties(): ReportPropertyDescriptor[] {
   return [
-    ...base,
     property(['dataset'], 'data', { kind: 'dataset' }, { required: true }),
     property(['parameters'], 'data', JSON_VALUE),
     property(['query', 'filter'], 'data', { kind: 'filter' }),
     property(['query', 'limit'], 'data', integer(1)),
   ]
+}
+
+function builtinCardData(kind: string): ReportCardData {
+  return kind === 'table' ? 'view' : kind === 'chart' || kind === 'metric' ? 'query' : 'none'
+}
+
+/**
+ * 卡片自身的属性：标题、说明；带查询的卡片（图表、指标，或取数形状为 query 的扩展卡片）还有数据集、参数绑定与查询的筛选、行数上限。
+ * data 是卡片种类的取数形状，内置种类可以不给；扩展种类按它登记的形状给。
+ * 图表配置、指标配置与带视图的卡片的视图另用 chartProperties、metricProperties、viewProperties。
+ */
+export function cardProperties(card: Pick<DashboardCard, 'kind'>, data: ReportCardData = builtinCardData(card.kind)): ReportPropertyDescriptor[] {
+  const base = [
+    property(['title'], 'basic', TEXT),
+    property(['description'], 'basic', { kind: 'text', multiline: true }),
+  ]
+  return data === 'query' ? [...base, ...queryDataProperties()] : base
+}
+
+/** 作主体的扩展视图的属性：取数形状为 query 时是取数属性，none 时没有。 */
+export function extensionViewProperties(data: Extract<ReportViewData, 'query' | 'none'>): ReportPropertyDescriptor[] {
+  return data === 'query' ? queryDataProperties() : []
 }
 
 /** 坐标轴的属性，路径相对图表配置。 */
@@ -445,4 +459,50 @@ export function linkProperties(): ReportPropertyDescriptor[] {
     property(['dimension'], 'data', { kind: 'cardDimension' }, { required: true }),
     property(['targets'], 'data', JSON_VALUE, { required: true }),
   ]
+}
+
+const DATA_VIEW_TYPES: ReadonlySet<string> = new Set(['table', 'group', 'crosstab'])
+
+/** 某类对象的内置属性；扩展追加的属性不能与它们同路径。kinds 给出卡片与视图种类的取数形状。 */
+export function builtinProperties(
+  target: ReportPropertyTarget,
+  kinds: { readonly cards: ReadonlyMap<string, ReportKindEntry<{ readonly data: ReportCardData }>>, readonly views: ReadonlyMap<string, ReportKindEntry<{ readonly data: ReportViewData }>> },
+): ReportPropertyDescriptor[] {
+  const [head, name] = target.split(/:(.*)/s) as [string, string | undefined]
+  switch (head) {
+    case 'dashboard':
+      return dashboardProperties()
+    case 'card': {
+      const data = kinds.cards.get(name ?? '')?.kind.data
+      return data === undefined ? [] : cardProperties({ kind: name as DashboardCard['kind'] }, data)
+    }
+    case 'chart':
+      return (CHART_TYPES as readonly string[]).includes(name ?? '') ? chartProperties(name as ChartSpec['type']) : []
+    case 'series':
+      return seriesProperties()
+    case 'metric':
+      return metricProperties()
+    case 'view': {
+      if (DATA_VIEW_TYPES.has(name ?? ''))
+        return viewProperties(name as DataView['type'])
+      const data = kinds.views.get(name ?? '')?.kind.data
+      return data === 'query' || data === 'none' ? extensionViewProperties(data) : []
+    }
+    case 'column':
+      return tableColumnProperties()
+    case 'group-level':
+      return groupLevelProperties()
+    case 'dimension':
+      return dimensionProperties()
+    case 'measure':
+      return measureProperties()
+    case 'field':
+      return datasetFieldProperties()
+    case 'parameter':
+      return parameterProperties()
+    case 'link':
+      return linkProperties()
+    default:
+      return []
+  }
 }

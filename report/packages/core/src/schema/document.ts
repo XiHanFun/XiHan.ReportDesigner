@@ -6,6 +6,7 @@
 // 定义报表文档：参数、数据集与主体。
 
 import type { DatasetSchema } from './dataset'
+import type { ReportExtensible } from './extension'
 import type { FieldType, ParameterValue, ScalarValue } from './value'
 import type { ReportBody } from './view'
 
@@ -19,7 +20,7 @@ export interface ParameterOption {
 }
 
 /** 报表参数：报表使用者填写，经绑定传给数据集参数或筛选条件。 */
-export interface ReportParameter {
+export interface ReportParameter extends ReportExtensible {
   /** 参数名，在报表内唯一。 */
   readonly name: string
   readonly type: FieldType
@@ -35,7 +36,7 @@ export interface ReportParameter {
 }
 
 /** 报表文档：纯 JSON。 */
-export interface ReportDocument {
+export interface ReportDocument extends ReportExtensible {
   readonly schemaVersion: typeof REPORT_SCHEMA_VERSION
   /** 报表身份。 */
   readonly id: string

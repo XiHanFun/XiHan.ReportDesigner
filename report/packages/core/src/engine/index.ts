@@ -8,6 +8,8 @@
 export { createRollupAccumulator, isAdditive, NEEDS_ROLLUP } from './aggregate'
 export { chartData } from './chart-data'
 export type { CartesianChartData, CartesianSeriesData, ChartData, DateHeatmapData, HierarchyChartData, HierarchyNodeData, MatrixHeatmapData, RowsChartData, SankeyChartData } from './chart-data'
+export { computeCard, computeExtensionView, computeView } from './compute'
+export type { CardResult, ExtensionViewResult, ViewResult } from './compute'
 export type { ComputeEnvironment, ComputeOptions } from './context'
 export { buildCrosstab } from './crosstab'
 export type { CrosstabHeader, CrosstabResult } from './crosstab'

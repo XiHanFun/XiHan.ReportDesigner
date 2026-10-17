@@ -5,54 +5,25 @@
 
 // 看板：卡片按网格位置排在 CSS grid 上；每张卡片单独计算与绘制，图表卡片可作联动源。
 
-import type { ChartCard, ChartData, ComputeOptions, DashboardCard, DashboardView, DatasetData, DatasetSchema, MetricCard, MetricResult, QueryResult, TableCard } from '@xihan-report/core'
+import type { CardResult, ChartData, DashboardView, MetricValue, ViewResult } from '@xihan-report/core'
 import type { RenderedChart } from './charts'
-import type { ViewResult } from './compute'
 import type { RenderContext } from './context'
 import type { RenderedTable } from './table'
-import { chartData, computeMetric, gridItems, runQuery } from '@xihan-report/core'
+import { gridItems } from '@xihan-report/core'
 import { clampToGrid } from '@xihan-ui/designer-kit'
 import { measureLabel } from '../labels'
 import { renderChart } from './charts'
-import { computeView } from './compute'
 import { renderCrosstab } from './crosstab'
 import { ownPart } from './dom'
 import { renderGroupReport } from './group'
 import { renderMetric } from './metric'
 import { renderDetailTable } from './table'
 
-/** 一张卡片的计算结果。 */
-export type CardResult
-  = | { readonly kind: 'chart', readonly card: ChartCard, readonly dataset: DatasetSchema, readonly data: ChartData }
-    | { readonly kind: 'metric', readonly card: MetricCard, readonly dataset: DatasetSchema, readonly result: QueryResult, readonly metric: MetricResult }
-    | { readonly kind: 'table', readonly card: TableCard, readonly view: ViewResult }
-
-/** 一张卡片的状态。 */
+/** 一张卡片的状态：计算结果是 core 的 CardResult，值的形状由卡片种类定。 */
 export type CardState
   = | { readonly status: 'loading' }
     | { readonly status: 'error' }
     | { readonly status: 'ready', readonly result: CardResult }
-
-/** 卡片引用的数据集 id。 */
-export function cardDataset(card: DashboardCard): string {
-  return card.kind === 'table' ? card.view.dataset : card.dataset
-}
-
-/** 按卡片类型计算。 */
-export function computeCard(card: DashboardCard, dataset: DatasetSchema, data: DatasetData, options: ComputeOptions): CardResult {
-  switch (card.kind) {
-    case 'chart': {
-      const result = runQuery(card.query, dataset, data, options)
-      return { kind: 'chart', card, dataset, data: chartData(card.chart, card.query, result) }
-    }
-    case 'metric': {
-      const result = runQuery(card.query, dataset, data, options)
-      return { kind: 'metric', card, dataset, result, metric: computeMetric(card.metric, result) }
-    }
-    case 'table':
-      return { kind: 'table', card, view: computeView(card.view, dataset, data, options) }
-  }
-}
 
 /** 看板的骨架：网格与各卡片的外壳（指标卡片的标题由指标的标签承担，外壳不写标题），返回卡片 id 到内容区的对照。 */
 export function renderDashboardFrame(container: HTMLElement, dashboard: DashboardView): Map<string, { readonly card: HTMLElement, readonly body: HTMLElement }> {
@@ -139,24 +110,29 @@ export function renderCard(body: HTMLElement, state: CardState, ctx: RenderConte
     return undefined
   }
   section?.setAttribute('data-state', 'ready')
-  const result = state.result
-  switch (result.kind) {
+  const { card, dataset, value } = state.result
+  switch (card.kind) {
     case 'chart': {
-      const label = result.card.title ?? result.card.query.measures.map(measure => measureLabel(measure, result.dataset)).join(' / ')
+      const label = card.title ?? card.query.measures.map(measure => measureLabel(measure, dataset!)).join(' / ')
       const previous = body.firstElementChild
-      const rendered = renderChart(result.card.chart, result.data, result.card.query, result.dataset, ctx, label, previous)
+      const rendered = renderChart(card.chart, value as ChartData, card.query, dataset!, ctx, label, previous)
       if (rendered.element !== previous || body.childElementCount !== 1)
         body.replaceChildren(rendered.element)
       return rendered
     }
     case 'metric': {
       const previous = body.firstElementChild
-      const content = renderMetric(result.card, result.result, result.metric, result.dataset, ctx, previous)
+      const metric = value as MetricValue
+      const content = renderMetric(card, metric.result, metric.metric, dataset!, ctx, previous)
       if (content !== previous || body.childElementCount !== 1)
         body.replaceChildren(content)
       return undefined
     }
-    case 'table':
-      return keepTableFocus(body, () => renderView(body, result.view, ctx, tableLabel(result.card.title, result.view)))
+    case 'table': {
+      const view = value as ViewResult
+      return keepTableFocus(body, () => renderView(body, view, ctx, tableLabel(card.title, view)))
+    }
+    default:
+      throw new TypeError(`[report] no renderer for card kind ${card.kind}`)
   }
 }

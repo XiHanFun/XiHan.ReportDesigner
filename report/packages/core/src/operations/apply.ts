@@ -147,7 +147,8 @@ function keyAt(document: ReportDocument, base: JsonPath): string {
 }
 
 function requireDashboard(document: ReportDocument, operation: ReportOperation): void {
-  if (!isPlainObject(document.body) || document.body.type !== 'dashboard')
+  const body: unknown = document.body
+  if (!isPlainObject(body) || body.type !== 'dashboard')
     throw new ReportOperationError('not-dashboard', operation)
 }
 
@@ -161,34 +162,38 @@ function viewLists(type: unknown): readonly ItemList[] | undefined {
   return typeof type === 'string' && Object.hasOwn(VIEW_LISTS, type) ? VIEW_LISTS[type] : undefined
 }
 
-/** 视图的路径：card 缺省时是报表主体，否则是表格卡片的视图。 */
+/** 视图的路径：card 缺省时是报表主体（明细表、分组报表、交叉表或扩展视图），否则是卡片带的明细表、分组报表或交叉表。 */
 function viewPath(document: ReportDocument, card: string | undefined, operation: ReportOperation): JsonPath {
   if (card === undefined) {
-    if (!isPlainObject(document.body) || viewLists(document.body.type) === undefined)
+    const body: unknown = document.body
+    if (!isPlainObject(body) || typeof body.type !== 'string' || body.type === 'dashboard')
       throw new ReportOperationError('invalid-target', operation)
     return ['body']
   }
   const index = cardIndex(document, card, operation)
-  const found = getJsonAt(json(document), ['body', 'cards', index]) as { kind?: unknown, view?: { type?: unknown } }
-  if (found.kind !== 'table' || !isPlainObject(found.view) || viewLists(found.view.type) === undefined)
+  const found = getJsonAt(json(document), ['body', 'cards', index]) as { view?: { type?: unknown } }
+  if (!isPlainObject(found.view) || viewLists(found.view.type) === undefined)
     throw new ReportOperationError('invalid-target', operation)
   return ['body', 'cards', index, 'view']
 }
 
-/** 列表的路径：视图里的列表，图表与指标卡片查询里的 dimensions、measures，直角坐标图的 series。 */
+/** 列表的路径：视图里的列表，带查询的卡片或扩展视图查询里的 dimensions、measures，直角坐标图的 series。 */
 function listPath(document: ReportDocument, card: string | undefined, list: ItemList, operation: ReportOperation): JsonPath {
   let path: JsonPath | undefined
-  const found = card === undefined ? undefined : getJsonAt(json(document), ['body', 'cards', cardIndex(document, card, operation)]) as { kind?: unknown, chart?: { type?: unknown } }
-  if (found === undefined || found.kind === 'table') {
-    const view = viewPath(document, card, operation)
+  const base: JsonPath = card === undefined ? ['body'] : ['body', 'cards', cardIndex(document, card, operation)]
+  const found = getJsonAt(json(document), base) as { type?: unknown, kind?: unknown, view?: { type?: unknown }, query?: unknown, chart?: { type?: unknown } } | undefined
+  const view = card === undefined
+    ? viewLists(found?.type) === undefined ? undefined : base
+    : isPlainObject(found?.view) && viewLists(found.view.type) !== undefined ? [...base, 'view'] : undefined
+  if (view !== undefined) {
     if (viewLists(getJsonAt(json(document), [...view, 'type']))!.includes(list))
       path = [...view, list]
   }
-  else if (list === 'dimensions' || list === 'measures') {
-    path = ['body', 'cards', cardIndex(document, card!, operation), 'query', list]
+  else if ((list === 'dimensions' || list === 'measures') && isPlainObject(found?.query)) {
+    path = [...base, 'query', list]
   }
-  else if (list === 'series' && found.kind === 'chart' && found.chart?.type === 'cartesian') {
-    path = ['body', 'cards', cardIndex(document, card!, operation), 'chart', 'series']
+  else if (list === 'series' && card !== undefined && found?.kind === 'chart' && found.chart?.type === 'cartesian') {
+    path = [...base, 'chart', 'series']
   }
   if (path === undefined || arrayAt(document, path) === undefined)
     throw new ReportOperationError('invalid-target', operation)
