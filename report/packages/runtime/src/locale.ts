@@ -244,40 +244,147 @@ const LIST_LABELS: Readonly<Record<string, string>> = {
   tableColumns: '列',
 }
 
+const TYPE_NAMES: Readonly<Record<string, string>> = {
+  string: '文本',
+  number: '数值',
+  boolean: '布尔',
+  date: '日期',
+  datetime: '日期时间',
+  object: '对象',
+  array: '数组',
+}
+
+const OPERATOR_NAMES: Readonly<Record<string, string>> = {
+  eq: '等于',
+  neq: '不等于',
+  gt: '大于',
+  gte: '大于等于',
+  lt: '小于',
+  lte: '小于等于',
+  between: '介于',
+  in: '属于',
+  notIn: '不属于',
+  contains: '包含',
+  notContains: '不包含',
+  startsWith: '开头是',
+  endsWith: '结尾是',
+  isEmpty: '为空',
+  isNotEmpty: '不为空',
+}
+
+/** 问题参数里的名字写成「名字」，没有时为空串。 */
+function quoted(value: unknown): string {
+  return value === undefined || value === null ? '' : `「${String(value)}」`
+}
+
+/** 类型名：可以是 a|b 写法的几种之一。 */
+function typeName(value: unknown): string {
+  return String(value).split('|').map(item => TYPE_NAMES[item] ?? item).join('或')
+}
+
+/** 取值范围：min、max 与 exclusiveMin。 */
+function range(params: Readonly<Record<string, unknown>>): string {
+  const parts = [
+    params.min === undefined ? undefined : `不小于 ${String(params.min)}`,
+    params.exclusiveMin === undefined ? undefined : `大于 ${String(params.exclusiveMin)}`,
+    params.max === undefined ? undefined : `不大于 ${String(params.max)}`,
+  ].filter(part => part !== undefined)
+  return parts.length === 0 ? '' : `，应${parts.join('且')}`
+}
+
 function issueText(issue: ReportDesignerIssueDetails): string {
-  const key = issue.params?.key ?? issue.params?.field ?? issue.params?.card ?? issue.params?.dataset ?? issue.params?.parameter ?? issue.params?.series
-  const subject = key === undefined ? '' : `「${String(key)}」`
+  const params = issue.params ?? {}
   switch (issue.code) {
     case 'required':
       return '必须填写'
+    case 'invalid-type':
+      return params.expected === undefined ? '类型不对' : `类型不对，应为${typeName(params.expected)}`
+    case 'invalid-value':
+      if (params.min !== undefined && params.max !== undefined)
+        return params.min === params.max ? `取值无效，应有 ${String(params.min)} 项` : `取值无效，应有 ${String(params.min)}～${String(params.max)} 项`
+      return params.expected === undefined ? '取值无效' : `取值无效，应为 ${String(params.expected)}`
+    case 'out-of-range':
+      return `超出取值范围${range(params)}`
+    case 'not-integer':
+      return '应为整数'
+    case 'invalid-option':
+      return '不是可选的值'
+    case 'invalid-color':
+      return '不是有效的颜色'
     case 'empty':
       return '不能为空'
+    case 'unknown-key':
+      return `不认识的${quoted(params.key) || '键'}`
+    case 'unknown-control':
+      return '未知的编辑方式'
     case 'duplicate-key':
-      return '名字重复'
-    case 'unknown-dataset':
-      return `找不到数据集${subject}`
-    case 'unknown-field':
-      return `找不到字段${subject}`
-    case 'unknown-dimension':
-      return `找不到维度${subject}`
-    case 'unknown-measure':
-      return `找不到度量${subject}`
-    case 'unknown-card':
-      return `找不到卡片${subject}`
-    case 'unknown-parameter':
-      return `找不到参数${subject}`
-    case 'unknown-series':
-      return `找不到系列${subject}`
-    case 'layout-overlap':
-      return '卡片互相重叠'
-    case 'layout-out-of-bounds':
-      return '卡片超出了网格'
-    case 'formula-invalid':
-      return '公式无法解析'
-    case 'formula-cycle':
-      return '公式互相引用成环'
+      return `名字${quoted(params.key)}重复`
+    case 'duplicate-id':
+      return `标识${quoted(params.id)}重复`
+    case 'aggregate-type-mismatch':
+      return `「${OPTION_LABELS[String(params.aggregate)] ?? String(params.aggregate)}」只能用于数值字段，这个字段是${typeName(params.type)}`
+    case 'bucket-type-mismatch':
+      return `日期粒度只能用于日期字段，这个字段是${typeName(params.type)}`
+    case 'chart-reference-role':
+      return `${quoted(params.key)}应是${params.expected === 'dimension' ? '维度' : '度量'}`
     case 'format-invalid':
       return '格式不合格'
+    case 'formula-cycle':
+      return `公式互相引用成环：${String(params.names ?? '').split(',').join(' → ')}`
+    case 'formula-invalid':
+      return '公式无法解析'
+    case 'formula-unknown-reference':
+      return `公式引用了不存在的${quoted(params.name)}`
+    case 'layout-out-of-bounds':
+      return `卡片超出了 ${String(params.columns)} 列的网格`
+    case 'layout-overlap':
+      return `与卡片${quoted(params.card)}重叠`
+    case 'link-target-type-mismatch':
+      return `源维度按日期粒度取值，目标字段也应是日期，这个字段是${typeName(params.type)}`
+    case 'measure-definition':
+      return '度量要么写聚合方式，要么写公式，二者取一'
+    case 'operand-required':
+      return '缺少比较值'
+    case 'operand-shape':
+      if (params.operator === 'between')
+        return '「介于」要两个值'
+      if (params.operator === 'in' || params.operator === 'notIn')
+        return `「${OPERATOR_NAMES[String(params.operator)]}」要一组值`
+      return params.operator === undefined ? '这里只能填一个值' : `「${OPERATOR_NAMES[String(params.operator)] ?? String(params.operator)}」只要一个值`
+    case 'operand-type-mismatch':
+      return `比较值应为${typeName(params.expected)}`
+    case 'operator-type-mismatch':
+      return `「${OPERATOR_NAMES[String(params.operator)] ?? String(params.operator)}」不适用于${typeName(params.type)}字段`
+    case 'reserved-name':
+      return `${quoted(params.key)}以 $ 开头，这类名字留给公式里的报表参数`
+    case 'unknown-card':
+      return `找不到卡片${quoted(params.card)}`
+    case 'unknown-dataset':
+      return `找不到数据集${quoted(params.dataset)}`
+    case 'unknown-dataset-parameter':
+      return `数据集没有参数${quoted(params.parameter)}`
+    case 'unknown-dimension':
+      return `找不到维度${quoted(params.key)}`
+    case 'unknown-field':
+      return `找不到字段${quoted(params.field)}`
+    case 'unknown-kind':
+      return `种类${quoted(params.kind)}没有登记，装上登记它的扩展后才能显示`
+    case 'unknown-measure':
+      return `找不到度量${quoted(params.key)}`
+    case 'unknown-parameter':
+      return `找不到参数${quoted(params.parameter)}`
+    case 'unknown-series':
+      return `找不到系列${quoted(params.series)}`
+    case 'unsupported-schema-version':
+      return `不支持报表版本 ${String(params.version)}`
+    case 'parameter-required':
+      return '必须给这个参数取值'
+    case 'parameter-type-mismatch':
+      return '参数的取值类型不对'
+    case 'parameter-not-multiple':
+      return '这个参数只能取一个值'
+    case 'parameter-option-mismatch':
+      return '取值不在候选项里'
     default:
       return `问题：${issue.code}`
   }

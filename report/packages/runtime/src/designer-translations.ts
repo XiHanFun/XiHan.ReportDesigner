@@ -114,40 +114,153 @@ const CHART_TYPES: Readonly<Record<string, string>> = {
   'table.crosstab': 'Crosstab',
 }
 
+const TYPE_NAMES: Readonly<Record<string, string>> = {
+  string: 'text',
+  number: 'number',
+  boolean: 'boolean',
+  date: 'date',
+  datetime: 'date-time',
+  object: 'object',
+  array: 'array',
+}
+
+const OPERATOR_NAMES: Readonly<Record<string, string>> = {
+  eq: 'equals',
+  neq: 'does not equal',
+  gt: 'greater than',
+  gte: 'at least',
+  lt: 'less than',
+  lte: 'at most',
+  between: 'between',
+  in: 'is one of',
+  notIn: 'is not one of',
+  contains: 'contains',
+  notContains: 'does not contain',
+  startsWith: 'starts with',
+  endsWith: 'ends with',
+  isEmpty: 'is empty',
+  isNotEmpty: 'is not empty',
+}
+
+const AGGREGATE_NAMES: Readonly<Record<string, string>> = { sum: 'Sum', avg: 'Average' }
+
+/** 问题参数里的名字写成 "名字"，前面带一个空格；没有时为空串。 */
+function quoted(value: unknown): string {
+  return value === undefined || value === null ? '' : ` "${String(value)}"`
+}
+
+/** 类型名：可以是 a|b 写法的几种之一。 */
+function typeName(value: unknown): string {
+  return String(value).split('|').map(item => TYPE_NAMES[item] ?? item).join(' or ')
+}
+
+function operatorName(value: unknown): string {
+  return OPERATOR_NAMES[String(value)] ?? String(value)
+}
+
+/** 取值范围：min、max 与 exclusiveMin。 */
+function range(params: Readonly<Record<string, unknown>>): string {
+  const parts = [
+    params.min === undefined ? undefined : `at least ${String(params.min)}`,
+    params.exclusiveMin === undefined ? undefined : `greater than ${String(params.exclusiveMin)}`,
+    params.max === undefined ? undefined : `at most ${String(params.max)}`,
+  ].filter(part => part !== undefined)
+  return parts.length === 0 ? '' : `; it must be ${parts.join(' and ')}`
+}
+
 function issueText(issue: ReportDesignerIssueDetails): string {
-  const key = issue.params?.key ?? issue.params?.field ?? issue.params?.card ?? issue.params?.dataset ?? issue.params?.parameter ?? issue.params?.series
-  const subject = key === undefined ? '' : ` "${String(key)}"`
+  const params = issue.params ?? {}
   switch (issue.code) {
     case 'required':
       return 'This value is required'
+    case 'invalid-type':
+      return params.expected === undefined ? 'Wrong type' : `Wrong type; expected ${typeName(params.expected)}`
+    case 'invalid-value':
+      if (params.min !== undefined && params.max !== undefined)
+        return params.min === params.max ? `Invalid value; it needs ${String(params.min)} items` : `Invalid value; it needs ${String(params.min)} to ${String(params.max)} items`
+      return params.expected === undefined ? 'Invalid value' : `Invalid value; expected ${String(params.expected)}`
+    case 'out-of-range':
+      return `Out of range${range(params)}`
+    case 'not-integer':
+      return 'This must be a whole number'
+    case 'invalid-option':
+      return 'This is not one of the allowed values'
+    case 'invalid-color':
+      return 'This is not a valid color'
     case 'empty':
       return 'This value cannot be empty'
+    case 'unknown-key':
+      return params.key === undefined ? 'Unknown key' : `Unknown name${quoted(params.key)}`
+    case 'unknown-control':
+      return 'Unknown editor kind'
     case 'duplicate-key':
-      return 'Duplicate name'
-    case 'unknown-dataset':
-      return `Unknown dataset${subject}`
-    case 'unknown-field':
-      return `Unknown field${subject}`
-    case 'unknown-dimension':
-      return `Unknown dimension${subject}`
-    case 'unknown-measure':
-      return `Unknown measure${subject}`
-    case 'unknown-card':
-      return `Unknown card${subject}`
-    case 'unknown-parameter':
-      return `Unknown parameter${subject}`
-    case 'unknown-series':
-      return `Unknown series${subject}`
-    case 'layout-overlap':
-      return 'Cards overlap'
-    case 'layout-out-of-bounds':
-      return 'The card is outside the grid'
-    case 'formula-invalid':
-      return 'The formula cannot be parsed'
-    case 'formula-cycle':
-      return 'Formulas reference each other in a cycle'
+      return `Duplicate name${quoted(params.key)}`
+    case 'duplicate-id':
+      return `Duplicate id${quoted(params.id)}`
+    case 'aggregate-type-mismatch':
+      return `${AGGREGATE_NAMES[String(params.aggregate)] ?? String(params.aggregate)} works only on number fields; this field is ${typeName(params.type)}`
+    case 'bucket-type-mismatch':
+      return `Date grouping works only on date fields; this field is ${typeName(params.type)}`
+    case 'chart-reference-role':
+      return `"${String(params.key)}" must be a ${params.expected === 'dimension' ? 'dimension' : 'measure'}`
     case 'format-invalid':
       return 'The format is invalid'
+    case 'formula-cycle':
+      return `Formulas reference each other in a cycle: ${String(params.names ?? '').split(',').join(' → ')}`
+    case 'formula-invalid':
+      return 'The formula cannot be parsed'
+    case 'formula-unknown-reference':
+      return `The formula refers to an unknown name${quoted(params.name)}`
+    case 'layout-out-of-bounds':
+      return `The card is outside the ${String(params.columns)}-column grid`
+    case 'layout-overlap':
+      return `The card overlaps card${quoted(params.card)}`
+    case 'link-target-type-mismatch':
+      return `The source dimension is grouped by date, so the target field must be a date; this field is ${typeName(params.type)}`
+    case 'measure-definition':
+      return 'A measure needs either an aggregate or a formula, not both'
+    case 'operand-required':
+      return 'A value to compare with is missing'
+    case 'operand-shape':
+      if (params.operator === 'between')
+        return '"between" needs two values'
+      if (params.operator === 'in' || params.operator === 'notIn')
+        return `"${operatorName(params.operator)}" needs a list of values`
+      return params.operator === undefined ? 'Only one value is allowed here' : `"${operatorName(params.operator)}" needs a single value`
+    case 'operand-type-mismatch':
+      return `The value must be ${typeName(params.expected)}`
+    case 'operator-type-mismatch':
+      return `"${operatorName(params.operator)}" does not apply to ${typeName(params.type)} fields`
+    case 'reserved-name':
+      return `"${String(params.key)}" starts with $, which is reserved for report parameters in formulas`
+    case 'unknown-card':
+      return `Unknown card${quoted(params.card)}`
+    case 'unknown-dataset':
+      return `Unknown dataset${quoted(params.dataset)}`
+    case 'unknown-dataset-parameter':
+      return `The dataset has no parameter${quoted(params.parameter)}`
+    case 'unknown-dimension':
+      return `Unknown dimension${quoted(params.key)}`
+    case 'unknown-field':
+      return `Unknown field${quoted(params.field)}`
+    case 'unknown-kind':
+      return `The kind${quoted(params.kind)} is not registered; install the extension that registers it`
+    case 'unknown-measure':
+      return `Unknown measure${quoted(params.key)}`
+    case 'unknown-parameter':
+      return `Unknown parameter${quoted(params.parameter)}`
+    case 'unknown-series':
+      return `Unknown series${quoted(params.series)}`
+    case 'unsupported-schema-version':
+      return `Report version ${String(params.version)} is not supported`
+    case 'parameter-required':
+      return 'This parameter needs a value'
+    case 'parameter-type-mismatch':
+      return 'The parameter value has the wrong type'
+    case 'parameter-not-multiple':
+      return 'This parameter takes a single value'
+    case 'parameter-option-mismatch':
+      return 'The value is not one of the options'
     default:
       return `Problem: ${issue.code}`
   }
