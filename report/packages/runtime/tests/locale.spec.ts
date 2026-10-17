@@ -30,6 +30,6 @@ describe('reportZhCN', () => {
 
 describe('@xihan-report/runtime/design', () => {
   it('导出画布复用的计算与渲染', () => {
-    expect(Object.keys(design).sort()).toEqual(['createRenderContext', 'defineViewerElements', 'renderCard', 'renderDashboardFrame', 'renderParameterControl', 'renderView', 'tableLabel'])
+    expect(Object.keys(design).sort()).toEqual(['createRenderContext', 'dashboardScene', 'defineViewerElements', 'renderCard', 'renderDashboardFrame', 'renderOverlays', 'renderParameterControl', 'renderView', 'tableLabel'])
   })
 })

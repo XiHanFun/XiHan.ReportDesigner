@@ -5,7 +5,7 @@
  */
 
 import type { DatasetData, DatasetRequest, DatasetSchema, QueryResult, ReportDocument } from '@xihan-report/core'
-import type { ReportDataProvider, ReportRuntimeExtension, XhReportViewer } from '../src'
+import type { ReportDataProvider, ReportOverlayContext, ReportRuntimeExtension, ReportScene, XhReportViewer } from '../src'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { createReportRuntimeModel, defineReportViewer, REPORT_RUNTIME_EXTENSION } from '../src'
 
@@ -175,5 +175,56 @@ describe('xh-report-viewer：扩展', () => {
       viewer.extensions = [lanes, { ...lanes }]
     }).toThrow(expect.objectContaining({ code: 'designer.extension-conflict' }))
     expect(viewer.extensions).toBe(before)
+  })
+})
+
+describe('xh-report-viewer：叠加层', () => {
+  function overlay(id: string, layer: 'below' | 'above', calls: { scene: ReportScene, context: ReportOverlayContext }[] = []): ReportRuntimeExtension {
+    return {
+      id: id.slice(0, id.lastIndexOf('.')),
+      overlays: [{
+        id,
+        layer,
+        render: (container, scene, context) => {
+          calls.push({ scene, context })
+          container.textContent = `${layer}:${scene.cards.map(card => `${card.card.id}=${card.status}`).join(',')}`
+        },
+      }],
+    }
+  }
+
+  const settle = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 0))
+
+  it('below 的容器排在卡片之前、above 的在之后，场景给出卡片的网格位置、状态与结果', async () => {
+    const calls: { scene: ReportScene, context: ReportOverlayContext }[] = []
+    const viewer = await mount(dashboardSchema(), [lanes, overlay('@acme/frame.border', 'below'), overlay('@acme/badge.corner', 'above', calls)])
+    await settle()
+    const grid = viewer.querySelector('[data-part="dashboard"]')!
+    expect([...grid.children].map(child => (child as HTMLElement).dataset.overlay ?? (child as HTMLElement).dataset.card))
+      .toEqual(['@acme/frame.border', 'board', '@acme/badge.corner'])
+    expect(grid.lastElementChild?.getAttribute('data-layer')).toBe('above')
+    expect(grid.lastElementChild?.textContent).toBe('above:board=ready')
+    const last = calls.at(-1)!
+    expect(last.context.mode).toBe('viewer')
+    expect(last.scene.cards[0]).toMatchObject({ layout: { x: 0, y: 0, w: 6, h: 4 }, status: 'ready', result: { value: ['East', 'West'] } })
+  })
+
+  it('换掉扩展后撤下不再登记的叠加层，主体不是看板时不画', async () => {
+    const viewer = await mount(dashboardSchema(), [lanes, overlay('@acme/badge.corner', 'above')])
+    await settle()
+    viewer.extensions = [lanes]
+    await viewer.refresh()
+    await settle()
+    expect(viewer.querySelector('[data-part="overlay"]')).toBeNull()
+    viewer.extensions = [notes, overlay('@acme/badge.corner', 'above')]
+    viewer.schema = { schemaVersion: 1, id: 'notes', datasets: [dataset], body: { type: 'notes.page', text: '本月目标' } }
+    await viewer.refresh()
+    await settle()
+    expect(viewer.querySelector('[data-part="overlay"]')).toBeNull()
+  })
+
+  it('两个扩展登记同一个叠加层 id 时合并报冲突', () => {
+    expect(() => createReportRuntimeModel([overlay('@acme/badge.corner', 'above'), { ...overlay('@acme/badge.corner', 'below'), id: '@acme/other' }]))
+      .toThrow(expect.objectContaining({ code: 'designer.extension-conflict', space: 'overlay' }))
   })
 })

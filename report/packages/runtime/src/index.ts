@@ -8,7 +8,7 @@
 export { DEFAULT_REPORT_DESIGNER_TRANSLATIONS } from './designer-translations'
 export type { ReportDesignerCascade, ReportDesignerIssueDetails, ReportDesignerTranslations } from './designer-translations'
 export { createReportRuntimeModel, REPORT_RUNTIME_EXTENSION, REPORT_RUNTIME_EXTENSION_ID } from './extensions'
-export type { ReportCardRenderer, ReportDataMiddleware, ReportExportContext, ReportRendered, ReportResults, ReportRuntimeExtension, ReportRuntimeModel, ReportViewRenderer } from './extensions'
+export type { ReportCardRenderer, ReportDataMiddleware, ReportExportContext, ReportOverlay, ReportOverlayContext, ReportRendered, ReportResults, ReportRuntimeExtension, ReportRuntimeModel, ReportScene, ReportSceneCard, ReportViewRenderer } from './extensions'
 export { DEFAULT_REPORT_VIEWER_TRANSLATIONS } from './translations'
 export type { ReportViewerTranslations } from './translations'
 export type { RenderedChart } from './viewer/charts'

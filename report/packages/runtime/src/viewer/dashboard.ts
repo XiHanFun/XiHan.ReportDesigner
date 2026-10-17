@@ -3,10 +3,10 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 看板：卡片按网格位置排在 CSS grid 上；每张卡片单独计算与绘制，图表卡片可作联动源。
+// 看板：卡片按网格位置排在 CSS grid 上；每张卡片单独计算与绘制，图表卡片可作联动源。扩展的叠加层铺在网格上。
 
 import type { CardResult, ChartCard, ChartData, DashboardView, MetricCard, MetricValue, ViewResult } from '@xihan-report/core'
-import type { ReportCardRenderer, ReportRendered } from '../extensions'
+import type { ReportCardRenderer, ReportOverlay, ReportOverlayContext, ReportRendered, ReportScene, ReportSceneCard } from '../extensions'
 import type { RenderedChart } from './charts'
 import type { RenderContext } from './context'
 import type { RenderedTable } from './table'
@@ -142,4 +142,80 @@ export function renderCard(body: HTMLElement, state: CardState, ctx: RenderConte
   if (!render)
     throw new TypeError(`[report] no renderer for card kind ${state.result.card.kind}`)
   return render(body, state.result, ctx)
+}
+
+/** 叠加层场景里一张卡片的状态。 */
+export type SceneCardState
+  = | { readonly status: 'loading' | 'error' | 'placeholder' }
+    | { readonly status: 'ready', readonly result: CardResult }
+
+/**
+ * 量出叠加层的场景：各卡片的网格位置收进列数，外壳的像素矩形取相对看板的 offset（不受画布缩放影响）。
+ * 没有外壳的卡片不进场景；还没有状态的按 loading。
+ */
+export function dashboardScene(grid: HTMLElement, dashboard: DashboardView, frame: ReadonlyMap<string, { readonly card: HTMLElement }>, stateOf: (id: string) => SceneCardState | undefined): ReportScene {
+  const items = new Map(gridItems(dashboard).map(item => [item.id, clampToGrid(item, dashboard.grid.columns)]))
+  const cards = dashboard.cards.flatMap((card): ReportSceneCard[] => {
+    const section = frame.get(card.id)?.card
+    const item = items.get(card.id)
+    if (!section || !item)
+      return []
+    const state = stateOf(card.id) ?? { status: 'loading' }
+    return [{
+      card,
+      layout: { x: item.x, y: item.y, w: item.w, h: item.h },
+      rect: { x: section.offsetLeft, y: section.offsetTop, width: section.offsetWidth, height: section.offsetHeight },
+      status: state.status,
+      result: state.status === 'ready' ? state.result : undefined,
+    }]
+  })
+  return { dashboard, width: grid.offsetWidth, height: grid.offsetHeight, cards }
+}
+
+/**
+ * 把叠加层画进看板网格：每个叠加层一个铺满看板的容器，below 的排在卡片之前、above 的排在之后，同一层按登记顺序；
+ * 不再登记的叠加层撤掉容器。场景只在有叠加层时才量。
+ */
+export function renderOverlays(grid: HTMLElement, overlays: readonly ReportOverlay[], measure: () => ReportScene, context: ReportOverlayContext): void {
+  const existing = new Map<string, HTMLElement>()
+  for (const child of grid.children) {
+    if (child instanceof HTMLElement && child.dataset.part === 'overlay')
+      existing.set(child.dataset.overlay!, child)
+  }
+  if (overlays.length === 0 && existing.size === 0)
+    return
+  const ids = new Set(overlays.map(overlay => overlay.id))
+  for (const [id, container] of existing) {
+    if (!ids.has(id))
+      container.remove()
+  }
+  const containers = new Map(overlays.map((overlay) => {
+    let container = existing.get(overlay.id)
+    if (!container || container.dataset.layer !== overlay.layer) {
+      container?.remove()
+      container = ownPart('div', 'overlay')
+      container.dataset.overlay = overlay.id
+      container.dataset.layer = overlay.layer
+    }
+    return [overlay.id, container]
+  }))
+  let cursor: ChildNode | null = grid.firstChild
+  for (const overlay of overlays) {
+    if (overlay.layer !== 'below')
+      continue
+    const container = containers.get(overlay.id)!
+    if (container === cursor)
+      cursor = container.nextSibling
+    else
+      grid.insertBefore(container, cursor)
+  }
+  const above = overlays.filter(overlay => overlay.layer === 'above').map(overlay => containers.get(overlay.id)!)
+  const tail = [...grid.children].slice(grid.children.length - above.length)
+  if (above.some((container, index) => tail[index] !== container))
+    grid.append(...above)
+  if (overlays.length === 0)
+    return
+  const scene = measure()
+  for (const overlay of overlays)
+    overlay.render(containers.get(overlay.id)!, scene, context)
 }
