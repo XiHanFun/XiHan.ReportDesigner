@@ -3,7 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 校验 examples/reports/ 下的示例报表：每个文件导出 schema 与 rows，报表不能有校验问题，参数按缺省值要能取到值，
+// 校验 examples/reports/ 下的示例报表：每个文件导出 schema 与 rows（用到扩展卡片的另导出 core 层的 extensions），
+// 报表不能有校验问题，参数按缺省值要能取到值，
 // 再像查看器那样为报表主体或看板的每张卡片生成取数请求，把 rows 当明细行交回，算出结果。只检查能算出来，不核对数值。
 
 import { readdir } from 'node:fs/promises'
@@ -26,9 +27,9 @@ function describe(result) {
 const failures = []
 const files = (await readdir(reportsDir)).filter(name => name.endsWith('.ts')).sort()
 for (const name of files) {
-  const { schema, rows } = await import(new URL(name, reportsDir).href)
+  const { schema, rows, extensions = [] } = await import(new URL(name, reportsDir).href)
   const expressionEngine = createExpressionEngine()
-  const issues = validateDocument(schema, { expressionEngine })
+  const issues = validateDocument(schema, { expressionEngine, extensions })
   if (issues.length > 0) {
     failures.push(`${name}：校验问题 ${issues.map(issue => `${issue.code} @ ${issue.path.join('.')}`).join('，')}`)
     continue
@@ -38,7 +39,7 @@ for (const name of files) {
     failures.push(`${name}：参数 ${parameters.issues.map(issue => `${issue.code} @ ${issue.path.join('.')}`).join('，')}`)
     continue
   }
-  const options = { parameters: parameters.values, timeZone: 'Asia/Shanghai', expressionEngine }
+  const options = { parameters: parameters.values, timeZone: 'Asia/Shanghai', expressionEngine, extensions }
   const data = { kind: 'rows', rows }
   try {
     const body = schema.body

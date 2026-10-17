@@ -38,7 +38,7 @@ pnpm add @xihan-report/core @xihan-report/runtime @xihan-ui/styles
 
 <<< @/examples/demos/quickstart.ts#provider
 
-请求里带着数据集 id、参数取值、筛选、排序与聚合查询，宿主可以据此查库或在服务端聚合。
+请求里带着数据集 id、参数取值、筛选、排序与聚合查询，宿主可以据此查库或在服务端聚合，见[与宿主集成](./guide/host)。
 
 ## 显示出来
 

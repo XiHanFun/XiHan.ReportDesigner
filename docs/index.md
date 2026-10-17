@@ -35,6 +35,8 @@ features:
   - title: 数据由宿主提供
     icon: 🔌
     details: 组件不发网络请求。取数回调拿到算好的请求，交回明细行，或在服务端聚合后交回汇总行。
+    link: /guide/host
+    linkText: 了解取数回调
 
   - title: 明细、分组与交叉表
     icon: 📊
@@ -51,4 +53,6 @@ features:
   - title: 可视化设计器与扩展
     icon: 🎨
     details: 物料、字段栏、属性面板、问题列表、撤销重做与预览；按实例传入扩展，登记新的卡片与视图种类、渲染、导出器与面板。
+    link: /guide/designer
+    linkText: 了解设计器
 ---

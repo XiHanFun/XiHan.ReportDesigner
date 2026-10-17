@@ -64,7 +64,7 @@ aside: false
 
 ## 命令与菜单
 
-工具栏与右键菜单里的项都是命令。`commandLayout` 改写它们的排列：写了某个位置，那里就只显示列出的命令，内置的与扩展的命令 id 可以混排。
+工具栏与右键菜单里的项都是命令，扩展可以登记新的命令（见[扩展](./extensions)）。`commandLayout` 改写它们的排列：写了某个位置，那里就只显示列出的命令，内置的与扩展的命令 id 可以混排。
 
 <<< @/examples/snippets/designer-layout.ts#example
 

@@ -15,7 +15,7 @@
 | 属性 | 作用 |
 | --- | --- |
 | `schema` | 报表定义 |
-| `dataProvider` | 取数回调 |
+| `dataProvider` | 取数回调，见[与宿主集成](./host) |
 | `parameters` | 报表参数的取值；写了就是受控，参数栏的改动只派发 `parameters-change` |
 | `selections` | 看板联动的选中值；写了就是受控 |
 | `hideParameters`（`hide-parameters`） | 不显示参数栏 |
@@ -23,7 +23,7 @@
 | `formatter` | 换掉全部值的显示方式；缺省按格式说明写 |
 | `locale`、`timeZone`（`time-zone`） | 语言与时区；缺省取全局配置与运行环境所在的时区 |
 | `translations` | 这个元素自己的文案，压在全局配置之上 |
-| `extensions` | 扩展：新的卡片与视图种类、渲染、叠加层、导出器与取数中间件 |
+| `extensions` | 扩展：新的卡片与视图种类、渲染、叠加层、导出器与取数中间件，见[扩展](./extensions) |
 
 复杂数据都走属性，`schema`、`dataProvider`、`parameters`、`extensions` 或时区变了会重新取数；`selections` 变了只重算受影响的卡片；文案、语言或格式化器变了只重绘。
 
