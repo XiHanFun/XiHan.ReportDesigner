@@ -5,37 +5,52 @@
 
 // <xh-report-designer>：报表设计器元素。编辑模型（历史、选择、剪贴板、布局手势）在 createReportEditor 里，
 // 画布内容复用查看器的计算与渲染；整体版式用 @xihan-ui/designer-shell 的外框，panels 决定显示哪些区，面板用 designer-shell 的零件。
+// 卡片与视图种类、渲染、属性编辑器、命令、面板与物料都从 extensions 来，内置命令与物料也是一个扩展；
+// 工具栏与菜单的排列可由 commandLayout 改写。
 
-import type { DashboardCard, DashboardView, ExpressionEngine, ParameterValues, ReportCardType, ReportDocument, ReportOperation, ValidationIssue } from '@xihan-report/core'
+import type { DashboardCard, DashboardView, ExpressionEngine, ParameterValues, ReportDocument, ReportOperation, ValidationIssue } from '@xihan-report/core'
 import type { ReportDataProvider, ReportDesignerTranslations, ReportFormatter, ReportViewerTranslations, XhReportViewer } from '@xihan-report/runtime'
-import type { ExecuteOptions, GridRect, HistoryChangeKind, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
-import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
-import type { DesignerFrameRegion, DesignerPaletteEventMap, DesignerPropertyEditor, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
+import type { ExecuteOptions, ExtensionHost, GridRect, HistoryChangeKind, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
+import type { CommandToolbar, DesignerCommandLayout, DesignerFrameRegion, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelHost, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { DialogService } from '@xihan-ui/web-components/services'
-import type { ReportCommand } from './commands'
 import type { DataRemoval } from './data-editing'
 import type { DataAddKind } from './data-panel'
 import type { LayoutGesture, ReportAddCardInit, ReportClipboard, ReportDataRef, ReportEditor, ReportItemRef, ReportSelection } from './editor'
+import type { ReportCardTemplate, ReportDesignerContext, ReportDesignerExtension, ReportDesignerModel, ReportMenuSubject } from './extensions'
 import type { GridMetrics } from './grid-geometry'
-import { cardTemplate, planAddCard, planAddFieldItem, resolveParameters } from '@xihan-report/core'
+import { planAddCard, planAddFieldItem, resolveParameters } from '@xihan-report/core'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS, DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter, defineReportViewer } from '@xihan-report/runtime'
 import { createRenderContext } from '@xihan-report/runtime/design'
 import { getLocalTimeZone } from '@xihan-ui/core/date'
-import { createIdAllocator, selectInMarquee } from '@xihan-ui/designer-kit'
-import { defineDesignerShellElement, parseDesignerPanels, registerDropTarget, XhDesignerFrameElement, XhDesignerIssuesElement, XhDesignerPaletteElement, XhDesignerPropertiesElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
-import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, setText, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
+import { detectKbdPlatform } from '@xihan-ui/core/hotkey'
+import { commandForShortcut, createExtensionHost, createIdAllocator, selectInMarquee } from '@xihan-ui/designer-kit'
+import {
+  arrangeCommands,
+  createCommandToolbar,
+  createPanelHost,
+  defineDesignerShellElement,
+  parseDesignerPanels,
+  registerDropTarget,
+  renderCommandMenu,
+  runCommand,
+  XhDesignerFrameElement,
+  XhDesignerIssuesElement,
+  XhDesignerPaletteElement,
+  XhDesignerPropertiesElement,
+  XhDesignerTransformElement,
+} from '@xihan-ui/designer-shell'
+import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { defineXhElement, XhButtonElement, XhContextMenuElement, XhSortableElement, XhTagElement, XhToolbarElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import { createDialogService } from '@xihan-ui/web-components/services'
 import { CanvasContent } from './canvas'
 import { readReportClipboardData, writeReportClipboardData } from './clipboard'
-import { COMMAND_LABELS, isReportCommand, MENU_ENTRIES, TOOLBAR_GROUPS } from './commands'
 import { canEditData, cascadeCount, planDataAddition, planDataRemoval } from './data-editing'
 import { dataFieldPayload, DataPanel } from './data-panel'
 import { createReportEditor, writeReportClipboard } from './editor'
+import { createReportDesignerModel, REPORT_DESIGNER_EXTENSION, REPORT_MENU_LAYOUT, REPORT_TOOLBAR_LAYOUT } from './extensions'
 import { cellSize, cellToRect, centeredCell, clipCell, measureGrid, rectToCell } from './grid-geometry'
 import { IssuesPanel } from './issues-panel'
-import { paletteCardType, paletteGroups } from './palette'
 import { PropertiesPanel } from './properties-panel'
 import { fieldList, Wells, wellsOwner, withFilledBindings } from './wells'
 
@@ -48,9 +63,6 @@ export type ReportDesignerPanel = (typeof REPORT_DESIGNER_PANELS)[number]
 
 /** 设计或预览。 */
 export type ReportDesignerMode = 'design' | 'preview'
-
-/** 宿主的属性编辑器：按 designer-kit 的 resolvePropertyEditor 查找，压在内建之上。 */
-export type ReportPropertyEditor = DesignerPropertyEditor
 
 /** 数据集能改到什么程度：none 只读；fields 能改字段的标题、类型与计算字段公式，增删报表参数；full 另能增删数据集与字段。 */
 export type ReportDatasetEditing = 'none' | 'fields' | 'full'
@@ -87,8 +99,9 @@ const FRAME_REGIONS: readonly DesignerFrameRegion[] = [
 interface Layers {
   readonly frame: XhDesignerFrameElement
   readonly toolbar: HTMLElement
-  readonly toolbarRoot: HTMLElement
-  readonly commands: ReadonlyMap<ReportCommand, HTMLButtonElement>
+  readonly commandBar: CommandToolbar<ReportDesignerContext>
+  /** 扩展登记的面板。 */
+  readonly panels: DesignerPanelHost<ReportDesignerContext>
   /** 包着画布的 <xh-context-menu> 与它的菜单内容。 */
   readonly menu: HTMLElement
   readonly menuContent: HTMLElement
@@ -117,9 +130,9 @@ interface FieldDrop {
   readonly field: string
 }
 
-/** 物料拖到看板上的落点：卡片种类与请求的左上角格。 */
+/** 物料拖到看板上的落点：物料项 id 与请求的左上角格。 */
 interface CardDrop {
-  readonly type: ReportCardType
+  readonly item: string
   readonly x: number
   readonly y: number
 }
@@ -131,6 +144,8 @@ interface CardGesture {
 }
 
 const EMPTY_SELECTION: ReportSelection = { cards: [] }
+
+const NO_EXTENSIONS: readonly ReportDesignerExtension[] = []
 
 function sameCell(a: GridRect | undefined, b: GridRect): boolean {
   return a !== undefined && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h
@@ -147,7 +162,7 @@ export class XhReportDesigner extends XhReactiveElement {
     expressionEngine: { attribute: false },
     formatter: { attribute: false },
     parameters: { attribute: false },
-    editors: { attribute: false },
+    commandLayout: { attribute: false },
     translations: { attribute: false },
     locale: { attribute: 'locale' },
     timeZone: { attribute: 'time-zone' },
@@ -165,8 +180,8 @@ export class XhReportDesigner extends XhReactiveElement {
   declare formatter: ReportFormatter | undefined
   /** 预览与画布取数用的报表参数取值。 */
   declare parameters: ParameterValues | undefined
-  /** 自定义属性编辑器，压在内建之上。 */
-  declare editors: PropertyEditorTable<ReportPropertyEditor> | undefined
+  /** 工具栏与右键菜单（menu:card、menu:blank）的命令排列；写了某个位置就只显示列出的命令。 */
+  declare commandLayout: DesignerCommandLayout | undefined
   declare translations: Partial<ReportDesignerTranslations> | undefined
   declare locale: string | undefined
   declare timeZone: string | undefined
@@ -197,10 +212,47 @@ export class XhReportDesigner extends XhReactiveElement {
   #drop: CardDrop | undefined
   #fieldDrop: FieldDrop | undefined
   #paletteKey = ''
+  #platform: 'mac' | 'other' | undefined
+  #regionsKey = ''
+  #regionsModel: ReportDesignerModel | undefined
+  #regionList: readonly DesignerFrameRegion[] = FRAME_REGIONS
+  #extensions: readonly ReportDesignerExtension[] | undefined
+  /** 包好各扩展取数中间件的取数回调，扩展与 dataProvider 都没变时沿用。 */
+  #wrapped: { readonly model: ReportDesignerModel, readonly base: ReportDataProvider, readonly provider: ReportDataProvider } | undefined
+  #model: ReportDesignerModel = createReportDesignerModel(NO_EXTENSIONS)
+  readonly #host: ExtensionHost<ReportDesignerExtension> = createExtensionHost<ReportDesignerExtension, ReportDesignerContext>({
+    builtins: [REPORT_DESIGNER_EXTENSION],
+    context: () => this.#context(),
+  })
 
   constructor() {
     super()
     this.readonly = false
+  }
+
+  /**
+   * 扩展：卡片与视图种类、渲染、属性编辑器、命令、面板与物料都从这里来，内置扩展自动排在最前。
+   * 赋值时当场合并查重，冲突抛 DesignerExtensionError、什么都不变；各扩展的 setup 在元素连上文档时调用、断开时清理。
+   * 同一个扩展对象换了引用当作卸下再装上，宿主要保持引用稳定。去掉的扩展登记的种类在报表里原样保留，画布上画占位。
+   */
+  get extensions(): readonly ReportDesignerExtension[] | undefined {
+    return this.#extensions
+  }
+
+  set extensions(value: readonly ReportDesignerExtension[] | undefined) {
+    if (value === this.#extensions)
+      return
+    const model = createReportDesignerModel(value ?? NO_EXTENSIONS)
+    this.#ensureLayers().panels.assign(model.extensions, this.#context())
+    if (this.isConnected)
+      this.#host.assign(value ?? NO_EXTENSIONS)
+    const old = this.#extensions
+    this.#extensions = value
+    this.#model = model
+    this.#paletteKey = ''
+    this.#refreshIssues()
+    this.#fillMenu('blank')
+    this.requestUpdate('extensions', old)
   }
 
   get canUndo(): boolean {
@@ -219,6 +271,16 @@ export class XhReportDesigner extends XhReactiveElement {
   /** 编辑模型里留着可粘贴的内容。 */
   get canPaste(): boolean {
     return !this.readonly && (this.#editor?.hasClipboard ?? false)
+  }
+
+  /** deleteSelection() 此刻能删掉东西：选中了卡片、列表项或联动，或 datasetEditing 允许删的数据面板对象。 */
+  get canDelete(): boolean {
+    const selection = this.#editor?.selection
+    if (this.readonly || !selection)
+      return false
+    if (selection.data)
+      return this.#canRemoveData(selection.data)
+    return selection.cards.length > 0 || selection.item !== undefined || selection.link !== undefined
   }
 
   /** 执行一组操作并记为一步撤销；返回新文档。还没有报表时抛错。 */
@@ -247,6 +309,11 @@ export class XhReportDesigner extends XhReactiveElement {
 
   select(selection: Partial<ReportSelection>): void {
     this.#editor?.select(selection)
+  }
+
+  /** 选中看板上的全部卡片；主体不是看板时清空选择。 */
+  selectAll(): void {
+    this.#editor?.selectAll()
   }
 
   getSelection(): ReportSelection {
@@ -332,6 +399,7 @@ export class XhReportDesigner extends XhReactiveElement {
     doc.addEventListener('copy', this.#onClipboard)
     doc.addEventListener('cut', this.#onClipboard)
     doc.addEventListener('paste', this.#onClipboard)
+    this.#host.assign(this.#extensions ?? NO_EXTENSIONS)
   }
 
   override disconnectedCallback(): void {
@@ -345,6 +413,7 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#content?.dispose()
     this.#dialogs?.dispose()
     this.#dialogs = undefined
+    this.#host.dispose()
   }
 
   protected override update(changed: PropertyValues): void {
@@ -384,8 +453,35 @@ export class XhReportDesigner extends XhReactiveElement {
     return this.locale ?? this.#config.locale
   }
 
-  #validateOptions(): { expressionEngine?: ExpressionEngine } {
-    return this.expressionEngine ? { expressionEngine: this.expressionEngine } : {}
+  #validateOptions(): { readonly extensions: readonly ReportDesignerExtension[], readonly expressionEngine?: ExpressionEngine } {
+    const extensions = this.#model.list
+    return this.expressionEngine ? { extensions, expressionEngine: this.expressionEngine } : { extensions }
+  }
+
+  /** 交给命令、面板、物料与扩展 setup 的上下文。 */
+  #context(t: ReportDesignerTranslations = this.#translations()): ReportDesignerContext {
+    return { designer: this, translations: t }
+  }
+
+  /** 面板用的文案：问题的说明先问扩展，扩展不给时用设计器的文案。 */
+  #panelTranslations(t: ReportDesignerTranslations): ReportDesignerTranslations {
+    const issueText = this.#model.runtime.issueText
+    return { ...t, issue: issue => issueText(issue as ValidationIssue) ?? t.issue(issue) }
+  }
+
+  /** 画布用的取数回调：dataProvider 包上各扩展的中间件；没给 dataProvider 时为 undefined。 */
+  #provider(): ReportDataProvider | undefined {
+    const base = this.dataProvider
+    if (!base)
+      return undefined
+    if (this.#wrapped?.model !== this.#model || this.#wrapped.base !== base)
+      this.#wrapped = { model: this.#model, base, provider: this.#model.runtime.provider(base) }
+    return this.#wrapped.provider
+  }
+
+  #kbdPlatform(): 'mac' | 'other' {
+    this.#platform ??= detectKbdPlatform()
+    return this.#platform
   }
 
   #requireEditor(): ReportEditor {
@@ -479,21 +575,8 @@ export class XhReportDesigner extends XhReactiveElement {
     if (this.#layers?.frame.parentElement === this)
       return this.#layers
     const doc = this.ownerDocument
-    const commands = new Map<ReportCommand, HTMLButtonElement>()
-    const groups: HTMLElement[] = []
-    TOOLBAR_GROUPS.forEach((group, index) => {
-      if (index > 0)
-        groups.push(createAuthoredElement(doc, 'div', { 'data-xh-part': 'separator' }))
-      groups.push(createAuthoredElement(doc, 'div', { 'data-xh-part': 'group' }, group.map((command) => {
-        const item = createAuthoredElement(doc, 'button', { 'data-xh-part': 'item', 'type': 'button', 'value': command }) as HTMLButtonElement
-        commands.set(command, item)
-        return item
-      })))
-    })
-    groups.push(createAuthoredElement(doc, 'button', { 'data-xh-part': 'overflow-trigger', 'type': 'button' }))
-    const toolbarRoot = createAuthoredElement(doc, 'div', { 'data-xh-part': 'root' }, groups)
-    toolbarRoot.addEventListener('click', this.#onCommandClick)
-    const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'toolbar' }, [createAuthoredElement(doc, 'xh-toolbar', { size: 'sm' }, [toolbarRoot])])
+    const commandBar = createCommandToolbar<ReportDesignerContext>(doc)
+    const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'toolbar' }, [commandBar.element])
     const content = createAuthoredElement(doc, 'div', { 'data-part': 'content' })
     const empty = createAuthoredElement(doc, 'div', { 'data-part': 'empty', 'hidden': true })
     const dropPreview = createAuthoredElement(doc, 'div', { 'data-part': 'drop-preview', 'hidden': true })
@@ -546,7 +629,7 @@ export class XhReportDesigner extends XhReactiveElement {
       isReadonly: () => this.readonly,
       datasetEditing: () => this.#datasetEditing(),
       issues: () => this.#issues,
-      editors: () => this.editors,
+      model: () => this.#model,
       renderContext: () => createRenderContext(this.#viewerTranslations(), this.formatter ?? defaultFormatter, this.#locale(), this.#timeZone()),
       select: selection => this.#editor?.select(selection),
     })
@@ -562,6 +645,8 @@ export class XhReportDesigner extends XhReactiveElement {
     })
     const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, data.element, palette, workspace, wells.element, properties.element, issues.element]) as XhDesignerFrameElement
     this.replaceChildren(frame)
+    this.#layers?.panels.dispose()
+    const panels = createPanelHost<ReportDesignerContext>(frame, { regions: FRAME_REGIONS })
     canvas.addEventListener('pointerdown', this.#onPointerDown)
     canvas.addEventListener('pointermove', this.#onHover)
     canvas.addEventListener('pointerleave', this.#onHoverEnd)
@@ -580,8 +665,10 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#viewport = undefined
     this.#drop = undefined
     this.#paletteKey = ''
+    this.#regionsKey = ''
     this.#viewer = undefined
-    this.#layers = { frame, toolbar, toolbarRoot, commands, menu, menuContent, menuTrigger, canvas, scroller, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues }
+    this.#layers = { frame, toolbar, commandBar, panels, menu, menuContent, menuTrigger, canvas, scroller, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues }
+    panels.assign(this.#model.extensions, this.#context())
     this.#fillMenu('blank')
     return this.#layers
   }
@@ -599,14 +686,21 @@ export class XhReportDesigner extends XhReactiveElement {
     return shown === undefined || shown.has('toolbar') ? 'toolbar' : ''
   }
 
+  /** 外框的区：内置区的名称换成文案，供分隔条的无障碍名称使用，后面接扩展面板的区；文案与扩展都没变时不重设。 */
   #syncFrame(frame: XhDesignerFrameElement, t: ReportDesignerTranslations): void {
     frame.panels = this.#framePanels()
     const labels: Readonly<Record<string, string>> = { toolbar: t.toolbar, data: t.data, palette: t.palette, canvas: t.canvas, wells: t.wells, properties: t.properties, issues: t.issues }
-    const regions = FRAME_REGIONS.map(region => ({ ...region, label: labels[region.name] ?? region.name }))
-    const current = frame.regions
-    if (current?.length === regions.length && current.every((region, index) => region.label === regions[index]!.label))
-      return
-    frame.regions = regions
+    const key = JSON.stringify(labels)
+    if (key !== this.#regionsKey || this.#regionsModel !== this.#model) {
+      this.#regionsKey = key
+      this.#regionsModel = this.#model
+      this.#regionList = [
+        ...FRAME_REGIONS.map(region => ({ ...region, label: labels[region.name] ?? region.name })),
+        ...this.#model.extensions.flatMap(extension => (extension.panels ?? []).map(panel => panel.region)),
+      ]
+    }
+    if (frame.regions !== this.#regionList)
+      frame.regions = this.#regionList
   }
 
   /** 设计态画画布；预览态把当前报表交给查看器，画布不取数。 */
@@ -626,11 +720,14 @@ export class XhReportDesigner extends XhReactiveElement {
     const t = this.#translations()
     const values = resolveParameters(document.parameters, this.parameters ?? {}).values
     const context = createRenderContext(this.#viewerTranslations(), this.formatter ?? defaultFormatter, this.#locale(), this.#timeZone())
+    const runtime = this.#model.runtime
     this.#content.update({
       document,
-      provider: this.dataProvider,
+      provider: this.#provider(),
       values,
+      runtime,
       options: {
+        extensions: this.#model.list,
         parameters: values,
         timeZone: this.#timeZone(),
         collate: new Intl.Collator(this.#locale()).compare,
@@ -655,6 +752,7 @@ export class XhReportDesigner extends XhReactiveElement {
     }
     if (viewer.schema !== document)
       viewer.schema = document
+    viewer.extensions = this.#model.list
     viewer.dataProvider = this.dataProvider
     viewer.expressionEngine = this.expressionEngine
     viewer.formatter = this.formatter
@@ -836,15 +934,32 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#renderSelection()
   }
 
-  /** 物料面板：只读或报表主体不是看板时只能浏览；文案变了才重排分组。 */
+  /**
+   * 物料面板：分组与条目取合并后的物料，条目的 id 与 payload 都是物料项 id；只读或报表主体不是看板时只能浏览。
+   * 文案或扩展变了才重排分组。
+   */
   #syncPalette(palette: XhDesignerPaletteElement, t: ReportDesignerTranslations): void {
     palette.readonly = this.readonly || !this.#dashboard()
-    const key = JSON.stringify([t.palette, t.paletteGroups, t.cardTypes])
+    const context = this.#context(t)
+    const text = (label: string | ((context: ReportDesignerContext) => string)): string => typeof label === 'function' ? label(context) : label
+    const items = [...this.#model.palette.values()]
+    const groups: DesignerPaletteGroup[] = this.#model.paletteGroups.map(group => ({
+      id: group.id,
+      label: text(group.label),
+      items: items.filter(item => item.group === group.id).map(item => ({ id: item.id, label: text(item.label), payload: item.id })),
+    }))
+    const key = JSON.stringify([t.palette, groups])
     if (key === this.#paletteKey)
       return
     this.#paletteKey = key
     palette.translations = { title: t.palette }
-    palette.groups = paletteGroups(t)
+    palette.groups = groups
+  }
+
+  /** 物料面板拖出的物料项 id；不是物料面板的载荷或不是登记过的物料时为 undefined。 */
+  #paletteItem(payload: unknown): string | undefined {
+    const drag = payload as Partial<DesignerPaletteDragPayload> | undefined
+    return drag?.source === 'palette' && typeof drag.payload === 'string' && this.#model.palette.has(drag.payload) ? drag.payload : undefined
   }
 
   #datasetEditing(): ReportDatasetEditing {
@@ -899,99 +1014,20 @@ export class XhReportDesigner extends XhReactiveElement {
     if (!this.#layers || !editor)
       return
     const t = this.#translations()
+    const shown = this.#panelTranslations(t)
     this.#layers.data.update(editor.document, editor.selection.data, t)
     this.#layers.wells.update(editor.document, editor.selection, t)
-    this.#layers.properties.update(t)
-    this.#layers.issues.update(editor.document, this.#issues, t)
-    this.#renderToolbar(this.#layers, t)
+    this.#layers.properties.update(shown)
+    this.#layers.issues.update(editor.document, this.#issues, shown)
+    const context = this.#context(t)
+    const { commands } = this.#model
+    this.#layers.commandBar.update(arrangeCommands('toolbar', commands, REPORT_TOOLBAR_LAYOUT, this.commandLayout), commands, context, t.toolbar)
+    this.#layers.panels.update(context)
   }
 
-  /** 工具栏：按钮文字取文案，按当前状态禁用；设计、预览两个按钮写 aria-pressed。 */
-  #renderToolbar(layers: Layers, t: ReportDesignerTranslations): void {
-    layers.toolbarRoot.setAttribute('aria-label', t.toolbar)
-    for (const [command, item] of layers.commands) {
-      setText(item, t[COMMAND_LABELS[command]] as string)
-      const disabled = !this.#commandEnabled(command)
-      if (item.disabled !== disabled)
-        item.disabled = disabled
-      if (command === 'design' || command === 'preview')
-        item.setAttribute('aria-pressed', String(this.#mode() === command))
-    }
-  }
-
-  /** 命令此刻能否执行：编辑类命令只在设计态、非只读时可用，设计与预览总是可用。 */
-  #commandEnabled(command: ReportCommand): boolean {
-    const selection = this.#editor?.selection
-    const cards = selection?.cards.length ?? 0
-    const design = this.#mode() === 'design'
-    const editable = design && !this.readonly
-    switch (command) {
-      case 'undo':
-        return design && this.canUndo
-      case 'redo':
-        return design && this.canRedo
-      case 'cut':
-      case 'duplicate':
-        return editable && cards > 0
-      case 'copy':
-        return design && cards > 0
-      case 'paste':
-        return editable && this.canPaste && this.#dashboard() !== undefined
-      case 'delete':
-        return editable && (cards > 0 || selection?.item !== undefined || (selection?.data !== undefined && this.#canRemoveData(selection.data)))
-      case 'select-all':
-        return design && this.#dashboard() !== undefined
-      case 'design':
-      case 'preview':
-        return true
-    }
-  }
-
-  /** 执行命令；不可用时什么都不做。 */
-  #run(command: ReportCommand): void {
-    if (!this.#commandEnabled(command))
-      return
-    switch (command) {
-      case 'undo':
-        this.undo()
-        break
-      case 'redo':
-        this.redo()
-        break
-      case 'cut':
-        this.cut()
-        break
-      case 'copy':
-        this.copy()
-        break
-      case 'paste':
-        this.paste()
-        break
-      case 'duplicate':
-        this.duplicate()
-        break
-      case 'delete':
-        this.deleteSelection()
-        break
-      case 'select-all':
-        this.#editor?.selectAll()
-        break
-      case 'design':
-      case 'preview':
-        this.mode = command
-        break
-    }
-  }
-
-  readonly #onCommandClick = (event: MouseEvent): void => {
-    const item = (event.target as Element | null)?.closest<HTMLButtonElement>('button[value]')
-    if (item && !item.disabled && isReportCommand(item.value))
-      this.#run(item.value)
-  }
-
-  /** 新卡片的模板，取数用第一个数据集。 */
-  #template(type: ReportCardType): ReturnType<typeof cardTemplate> {
-    return cardTemplate(type, this.#editor?.document.datasets[0]?.id ?? '')
+  /** 物料项的新卡片模板，取数用第一个数据集。 */
+  #template(item: string): ReportCardTemplate {
+    return this.#model.palette.get(item)!.template(this.#editor?.document.datasets[0]?.id ?? '')
   }
 
   /** 新卡片画出来之后，不在可见区时滚动到它。 */
@@ -1001,32 +1037,32 @@ export class XhReportDesigner extends XhReactiveElement {
 
   /** 点物料：新卡片放到第一个空位并选中。 */
   readonly #onPaletteActivate = (event: Event): void => {
-    const type = (event as DesignerPaletteEventMap['item-activate']).detail.payload as ReportCardType
-    if (this.readonly || !this.#dashboard())
+    const item = (event as DesignerPaletteEventMap['item-activate']).detail.payload
+    if (this.readonly || !this.#dashboard() || typeof item !== 'string' || !this.#model.palette.has(item))
       return
-    this.#revealAdded(this.addCard(this.#template(type)))
+    this.#revealAdded(this.addCard(this.#template(item)))
   }
 
   /**
    * 物料拖到看板上：以指针为中心放新卡片，落点画出压实之后它实际所在的格；隐藏跟随指针的预览。
-   * 只读、不是看板或载荷不是卡片种类时不接受。
+   * 只读、不是看板或载荷不是登记过的物料时不接受。
    */
   #dropOver(point: Point, payload: unknown): DropOver {
     const field = dataFieldPayload(payload)
     if (field)
       return this.#fieldOver(point, field)
-    const type = paletteCardType(payload)
+    const item = this.#paletteItem(payload)
     const dashboard = this.#dashboard()
     const metrics = this.#gridMetrics()
     const layers = this.#layers
-    if (type === undefined || this.readonly || !dashboard || !metrics || !layers) {
+    if (item === undefined || this.readonly || !dashboard || !metrics || !layers) {
       this.#clearDrop()
       return { accept: false }
     }
-    const template = this.#template(type)
+    const template = this.#template(item)
     const origin = layers.surface.getBoundingClientRect()
     const cell = centeredCell({ x: point.x - origin.left, y: point.y - origin.top }, template.layout, metrics, dashboard.grid.columns)
-    this.#drop = { type, ...cell }
+    this.#drop = { item, ...cell }
     const id = createIdAllocator(template.kind, dashboard.cards.map(card => card.id)).next()
     const added = planAddCard(dashboard, { ...template, id, layout: { ...template.layout, ...cell } }).find(operation => operation.type === 'addCard')
     const landing = added?.type === 'addCard' ? added.card.layout : { ...template.layout, ...cell }
@@ -1045,9 +1081,9 @@ export class XhReportDesigner extends XhReactiveElement {
   #dropCard(): void {
     const drop = this.#drop
     this.#clearDrop()
-    if (!drop || this.readonly || !this.#dashboard())
+    if (!drop || this.readonly || !this.#dashboard() || !this.#model.palette.has(drop.item))
       return
-    const template = this.#template(drop.type)
+    const template = this.#template(drop.item)
     this.#revealAdded(this.addCard({ ...template, layout: { ...template.layout, x: drop.x, y: drop.y } }))
   }
 
@@ -1102,7 +1138,7 @@ export class XhReportDesigner extends XhReactiveElement {
     if (!owner || type === undefined)
       return
     const target = drop.card === undefined ? {} : { card: drop.card }
-    editor.execute(withFilledBindings(document, target, planAddFieldItem(document, target, fieldList(owner.source, type), drop.field)))
+    editor.execute(withFilledBindings(document, target, planAddFieldItem(document, target, fieldList(owner, type), drop.field)))
     if (drop.card !== undefined)
       editor.select({ cards: [drop.card] })
   }
@@ -1129,18 +1165,14 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#fillMenu(id === undefined ? 'blank' : 'card')
   }
 
-  /** 内建右键菜单的条目：不可用的命令写 aria-disabled。 */
-  #fillMenu(subject: 'card' | 'blank'): void {
+  /** 内建右键菜单的条目：按 commandLayout 的 menu:<对象> 或缺省排列，条目的可用状态取此刻设计器的状态。 */
+  #fillMenu(subject: ReportMenuSubject): void {
     const layers = this.#layers
     if (!layers)
       return
-    const t = this.#translations()
-    const doc = this.ownerDocument
-    layers.menuContent.replaceChildren(...MENU_ENTRIES[subject].map(entry => entry === '|'
-      ? createAuthoredElement(doc, 'div', { 'data-xh-part': 'separator' })
-      : createAuthoredElement(doc, 'div', { 'data-xh-part': 'item', 'value': entry, 'aria-disabled': this.#commandEnabled(entry) ? undefined : 'true' }, [
-          createAuthoredElement(doc, 'span', { 'data-xh-part': 'item-text' }, [t[COMMAND_LABELS[entry]] as string]),
-        ])))
+    const { commands } = this.#model
+    const groups = arrangeCommands(`menu:${subject}`, commands, REPORT_MENU_LAYOUT[subject], this.commandLayout)
+    renderCommandMenu(layers.menuContent, groups, commands, this.#context(), { platform: this.#kbdPlatform() })
   }
 
   /** 焦点在画布上，或在关闭菜单后接住焦点的菜单触发区上。 */
@@ -1151,36 +1183,34 @@ export class XhReportDesigner extends XhReactiveElement {
 
   readonly #onMenuSelect = (event: Event): void => {
     const { value } = (event as CustomEvent<{ value: string }>).detail
-    if (isReportCommand(value))
-      this.#run(value)
+    runCommand(this.#model.commands, value, this.#context())
   }
 
+  /**
+   * 画布上的按键：先找快捷键命中、此刻可用的命令；没有命令占用时，Ctrl / ⌘ + S 派发 save，Ctrl / ⌘ + Y 重做，
+   * Backspace 删除选中的对象，Escape 清空选择，方向键挪动或改大小卡片。
+   */
   readonly #onKeyDown = (event: KeyboardEvent): void => {
     const editor = this.#editor
     if (!editor || !this.#isCanvasFocus(event.target) || this.#gesture)
       return
+    const context = this.#context()
+    const hit = commandForShortcut(this.#model.commands.values(), event, context, this.#kbdPlatform())
+    if (hit) {
+      hit.run(context)
+      event.preventDefault()
+      return
+    }
     const command = event.ctrlKey || event.metaKey
     let handled = true
     const key = event.key.toLowerCase()
     if (command && key === 's') {
       emitEvent(this, 'save', {})
     }
-    else if (command && key === 'z') {
-      if (event.shiftKey)
-        this.redo()
-      else
-        this.undo()
-    }
     else if (command && key === 'y') {
       this.redo()
     }
-    else if (command && key === 'a') {
-      editor.selectAll()
-    }
-    else if (command && key === 'd') {
-      this.duplicate()
-    }
-    else if (!command && (event.key === 'Delete' || event.key === 'Backspace')) {
+    else if (!command && event.key === 'Backspace') {
       this.deleteSelection()
     }
     else if (!command && event.key === 'Escape') {

@@ -23,14 +23,15 @@ describe('字段栏的辅助函数', () => {
     expect(wellsOwner(board, { cards: [] })).toBeUndefined()
     expect(wellsOwner(board, { cards: ['pie'] })).toMatchObject({ card: 'pie', dataset: 'sales' })
     const crosstab: ReportDocument = { ...board, body: { type: 'crosstab', dataset: 'sales', rows: [], columns: [], measures: [] } }
-    expect(wellsOwner(crosstab, { cards: [] })).toMatchObject({ dataset: 'sales', source: { type: 'crosstab' } })
+    expect(wellsOwner(crosstab, { cards: [] })).toMatchObject({ dataset: 'sales', view: { type: 'crosstab' } })
   })
 
   it('字段直接拖到对象上时进的列表：数值进度量，其余进维度或交叉表的行，明细表与分组报表进列', () => {
     const owner = wellsOwner(board, { cards: ['pie'] })!
-    expect([fieldList(owner.source, 'number'), fieldList(owner.source, 'date')]).toEqual(['measures', 'dimensions'])
-    expect([fieldList({ type: 'crosstab', dataset: 'sales', rows: [], columns: [], measures: [] }, 'number'), fieldList({ type: 'crosstab', dataset: 'sales', rows: [], columns: [], measures: [] }, 'string')]).toEqual(['measures', 'rows'])
-    expect(fieldList({ type: 'table', dataset: 'sales', columns: [] }, 'number')).toBe('columns')
+    const crosstabView = { type: 'crosstab', dataset: 'sales', rows: [], columns: [], measures: [] } as const
+    expect([fieldList(owner, 'number'), fieldList(owner, 'date')]).toEqual(['measures', 'dimensions'])
+    expect([fieldList({ dataset: 'sales', view: crosstabView }, 'number'), fieldList({ dataset: 'sales', view: crosstabView }, 'string')]).toEqual(['measures', 'rows'])
+    expect(fieldList({ dataset: 'sales', view: { type: 'table', dataset: 'sales', columns: [] } }, 'number')).toBe('columns')
   })
 
   it('加项之后补全卡片的必填绑定，合为一组操作；主体的视图不补', () => {

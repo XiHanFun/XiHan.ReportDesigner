@@ -10,6 +10,7 @@ import type { ItemList, ReportDocument, ValidationIssue } from '@xihan-report/co
 import type { ReportDesignerTranslations } from '@xihan-report/runtime'
 import type { DesignerIssueItem, DesignerIssuesEventMap, XhDesignerIssuesElement } from '@xihan-ui/designer-shell'
 import type { ReportSelection } from './editor'
+import { bodyQuery, cardQuery, cardView, isDataView } from '@xihan-report/core'
 import { createGeneratedElement } from '@xihan-ui/web-components/authoring'
 
 const ITEM_LISTS: readonly ItemList[] = ['columns', 'groups', 'rows', 'measures', 'dimensions', 'series']
@@ -44,8 +45,10 @@ export function issueSelection(document: ReportDocument, issue: ValidationIssue)
     return { cards: [] }
   const body = document.body
   if (body.type !== 'dashboard') {
-    const id = isItemList(rest[0]) ? idAt((body as unknown as Record<string, unknown>)[rest[0]], rest[1]) : undefined
-    return id !== undefined && isItemList(rest[0]) ? { cards: [], item: { list: rest[0], id } } : { cards: [] }
+    const [list, index] = isDataView(body) ? rest : rest[0] === 'query' ? rest.slice(1) : []
+    const owner = isDataView(body) ? body : bodyQuery(body)?.query
+    const id = owner && isItemList(list) ? idAt((owner as unknown as Record<string, unknown>)[list], index) : undefined
+    return id !== undefined && isItemList(list) ? { cards: [], item: { list, id } } : { cards: [] }
   }
   if (rest[0] === 'links') {
     const link = body.links?.[rest[1] as number]
@@ -57,9 +60,9 @@ export function issueSelection(document: ReportDocument, issue: ValidationIssue)
   if (!card)
     return { cards: [] }
   const [container, list, index] = rest.slice(2)
-  const owner = card.kind === 'table'
-    ? container === 'view' ? card.view : undefined
-    : container === 'query' ? card.query : container === 'chart' && list === 'series' && card.kind === 'chart' ? card.chart : undefined
+  const owner = container === 'view'
+    ? cardView(card)
+    : container === 'query' ? cardQuery(card)?.query : container === 'chart' && list === 'series' && card.kind === 'chart' ? card.chart : undefined
   const id = owner && isItemList(list) ? idAt((owner as unknown as Record<string, unknown>)[list], index) : undefined
   return id !== undefined && isItemList(list) ? { cards: [card.id], item: { card: card.id, list, id } } : { cards: [card.id] }
 }
