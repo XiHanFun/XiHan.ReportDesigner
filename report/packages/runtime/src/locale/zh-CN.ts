@@ -180,6 +180,9 @@ const designer: ReportDesignerLocale = {
   issuesHelp: '报表的校验问题。点一条选中出问题的对象。',
   insertToolbar: '插入卡片',
   insertCard: label => `添加「${label}」`,
+  statusDocument: (datasets, cards) => `${datasets} 个数据集${cards === undefined ? '' : ` · ${cards} 张卡片`}`,
+  statusCell: (column, row, width, height) => `第 ${column} 列第 ${row} 行 · ${width} × ${height} 格`,
+  statusZoom: '缩放',
   issueTexts: {
     'required': () => '必须填写',
     'invalid-type': p => p.expected === undefined ? '类型不对' : `类型不对，应为${typeName(p.expected)}`,

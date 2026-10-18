@@ -180,6 +180,9 @@ const designer: ReportDesignerLocale = {
   issuesHelp: 'レポートの検証で見つかった問題です。クリックすると問題のあるオブジェクトが選択されます。',
   insertToolbar: 'カードを挿入',
   insertCard: label => `「${label}」を追加`,
+  statusDocument: (datasets, cards) => `データセット ${datasets} 件${cards === undefined ? '' : ` · カード ${cards} 枚`}`,
+  statusCell: (column, row, width, height) => `${column} 列目・${row} 行目 · ${width} × ${height} マス`,
+  statusZoom: 'ズーム',
   issueTexts: {
     'required': () => '必須です',
     'invalid-type': p => p.expected === undefined ? '型が正しくありません' : `型が正しくありません。${typeName(p.expected)}である必要があります`,

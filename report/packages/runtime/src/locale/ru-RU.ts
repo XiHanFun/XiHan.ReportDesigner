@@ -191,6 +191,9 @@ const designer: ReportDesignerLocale = {
   issuesHelp: 'Ошибки проверки отчёта. Выберите одну, чтобы выделить объект, к которому она относится.',
   insertToolbar: 'Вставка карточек',
   insertCard: label => `Добавить «${label}»`,
+  statusDocument: (datasets, cards) => `${datasets} ${plural(datasets, 'набор данных', 'набора данных', 'наборов данных')}${cards === undefined ? '' : ` · ${cards} ${plural(cards, 'карточка', 'карточки', 'карточек')}`}`,
+  statusCell: (column, row, width, height) => `Столбец ${column}, строка ${row} · ${width} × ${height}`,
+  statusZoom: 'Масштаб',
   issueTexts: {
     'required': () => 'Значение обязательно',
     'invalid-type': p => p.expected === undefined ? 'Неверный тип' : `Неверный тип: ожидается ${typeName(p.expected)}`,

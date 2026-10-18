@@ -180,6 +180,9 @@ const designer: ReportDesignerLocale = {
   issuesHelp: '보고서 검증에서 발견된 문제입니다. 클릭하면 문제가 있는 개체가 선택됩니다.',
   insertToolbar: '카드 삽입',
   insertCard: label => `${label} 추가`,
+  statusDocument: (datasets, cards) => `데이터 세트 ${datasets}개${cards === undefined ? '' : ` · 카드 ${cards}장`}`,
+  statusCell: (column, row, width, height) => `${column}열 ${row}행 · ${width} × ${height}칸`,
+  statusZoom: '확대/축소',
   issueTexts: {
     'required': () => '필수 항목입니다',
     'invalid-type': p => p.expected === undefined ? '유형이 올바르지 않습니다' : `유형이 올바르지 않습니다. ${typeName(p.expected)} 유형이어야 합니다`,
