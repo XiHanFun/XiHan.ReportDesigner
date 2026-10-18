@@ -22,7 +22,7 @@ aside: false
 
 <<< @/examples/demos/designer.ts#save
 
-<ReportDemo name="designer" />
+<ReportDemo name="designer" fullscreen />
 
 没给取数回调时，画布上取数的卡片画占位，说明给了取数回调后会显示示例数据。用到计算字段或公式度量时还要给 `expressionEngine`，校验公式也用它。
 

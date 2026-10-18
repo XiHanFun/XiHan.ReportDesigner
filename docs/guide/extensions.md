@@ -87,7 +87,7 @@ aside: false
 
 <<< @/examples/extensions/goal-designer.ts#command
 
-<ReportDemo name="extensions-designer" />
+<ReportDemo name="extensions-designer" fullscreen />
 
 物料面板最下面多出「目标」一组；右键点一张目标进度卡片，菜单里有「目标提高一成」，执行后目标变成原来的 1.1 倍，可以撤销。
 

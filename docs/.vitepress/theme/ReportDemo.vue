@@ -7,10 +7,11 @@
 // 示例舞台：在浏览器里载入 examples/demos/<name>.ts 或 <name>.vue。.ts 示例导出 mount，挂到舞台上，卸载时调用它返回的清理函数；
 // .vue 示例是一个组件，直接渲染在舞台里。
 // 舞台里的看板查看器按网格的范围定行高：整块看板高过一屏时，换一份行高小一些的报表给它，各张卡片一屏看完；
-// 只在示例里换，示例报表本身不改。
+// 只在示例里换，示例报表本身不改。写了 fullscreen 的示例可以全屏，全屏时舞台里的设计器长到屏幕底。
 
 import type { ReportDocument } from '@xihan-report/core'
 import type { Component } from 'vue'
+import { XhFullscreen } from '@xihanfun/vitepress-theme'
 import { markRaw, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 
 interface DemoModule {
@@ -18,7 +19,7 @@ interface DemoModule {
   default?: Component
 }
 
-const props = defineProps<{ name: string }>()
+const props = defineProps<{ name: string, fullscreen?: boolean }>()
 
 /** 看板行高的下限（px）：再矮，卡片标题与指标都挤不下。 */
 const MIN_ROW_HEIGHT = 24
@@ -102,6 +103,11 @@ onBeforeUnmount(() => {
     <p v-if="missing" class="report-demo__missing">
       找不到示例 {{ props.name }}
     </p>
+    <XhFullscreen v-else-if="props.fullscreen">
+      <div ref="stage" class="report-demo__stage">
+        <component :is="component" v-if="component" />
+      </div>
+    </XhFullscreen>
     <div v-else ref="stage" class="report-demo__stage">
       <component :is="component" v-if="component" />
     </div>
