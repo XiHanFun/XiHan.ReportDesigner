@@ -51,6 +51,7 @@
 | `redo(): boolean` | 重做一步；只读或没有可重做的时返回 false。 |
 | `markSaved(): void` | 把当前位置记为保存点。 |
 | `addCard(init: ReportAddCardInit, options?: ExecuteOptions): DashboardCard` | 新增卡片并选中它；报表主体不是看板时抛错。 |
+| `addPaletteItem(id: string): DashboardCard \| undefined` | 照点物料的做法新建一张卡片：放到第一个空位、选中它并滚到看得见的地方，返回新卡片；只读、主体不是看板或没有这个物料项时什么都不做，返回 undefined。顶栏的插入钮调它。 |
 | `select(selection: Partial<ReportSelection>): void` | 换成给出的选择：给了 data 只选数据面板里的对象，否则选 cards，再带 item 或 link 之一。 |
 | `selectAll(): void` | 选中看板上的全部卡片；主体不是看板时清空选择。 |
 | `getSelection(): ReportSelection` | 当前的选择。 |
@@ -232,6 +233,8 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `wellsHelp` | `string` | 字段栏卡片的帮助。 | 选中卡片的维度、度量、系列与列。把字段拖进来，拖动换序，点叉移除。 |
 | `propertiesHelp` | `string` | 属性卡片的帮助。 | 选中对象的属性。选中多张卡片时只列它们共有的属性。 |
 | `issuesHelp` | `string` | 问题卡片的帮助。 | 报表的校验问题。点一条选中出问题的对象。 |
+| `insertToolbar` | `string` | 顶栏那一条插入钮的名字。 | 插入卡片 |
+| `insertCard` | `(label: string): string` | 顶栏插入钮的名字与提示，label 是物料名。 | （按参数生成） |
 | `paletteGroups` | `Readonly<Record<string, string>>` | 物料分组：charts、metrics、tables。 | （按键对照） |
 | `cardTypes` | `Readonly<Record<string, string>>` | 物料与卡片种类：chart.&lt;图表类型&gt;、metric、table.&lt;视图类型&gt;。 | （按键对照） |
 | `objectKinds` | `Readonly<Record<string, string>>` | 属性面板标题下的对象种类。 | （按键对照） |

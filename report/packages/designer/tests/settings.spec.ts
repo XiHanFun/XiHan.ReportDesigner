@@ -151,7 +151,7 @@ describe('设置', () => {
 
   it('工具栏显示方式取设置里的 general.toolbarDisplay，缺省只显示图标；换显示方式不重铺按钮', async () => {
     const designer = await mount()
-    const shell = (): Element => designer.querySelector('xh-tooltip[data-scope="designer-commands"]')!
+    const shell = (): Element => designer.querySelector('[data-region="toolbar"] xh-tooltip[data-scope="designer-commands"]')!
     const undo = designer.querySelector('[data-region="toolbar"] button[value="undo"]')
     expect(shell().getAttribute('data-display')).toBe('icon')
     designer.settings = { [DESIGNER_SETTING_KEYS.toolbarDisplay]: 'both' }

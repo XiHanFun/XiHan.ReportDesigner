@@ -30,6 +30,7 @@ aside: false
 
 | 区域 | 位置 | 作用 |
 | --- | --- | --- |
+| 顶栏 `header` | 最上方 | 常用物料的插入钮：柱线图、饼图、指标卡、明细表与交叉表，点一下新建卡片；`commandLayout` 的 `header` 写空就没有顶栏 |
 | 工具栏 `toolbar` | 上方 | 撤销重做、剪贴板、删除、设计与预览的切换，扩展登记的命令，末组是设置与帮助 |
 | 数据集 `datasets` | 左上 | 数据集与字段，下面是新增数据集与新增字段 |
 | 报表参数 `parameters` | 左侧中间 | 报表参数，下面是新增参数；没有参数又不能新增时收起 |
@@ -110,4 +111,4 @@ aside: false
 
 <<< @/examples/snippets/designer-api.ts#remove
 
-另有 `addCard`、`select` 与 `getSelection`、`selectAll`、`copy`、`cut`、`paste`、`duplicate`、`deleteSelection`、`undo`、`redo`、`validate`，以及让卡片露出来的 `revealCard`，和 `canUndo`、`canRedo`、`canPaste`、`canDelete` 这几个只读状态。
+另有 `addCard`、照点物料的做法新建卡片的 `addPaletteItem`、`select` 与 `getSelection`、`selectAll`、`copy`、`cut`、`paste`、`duplicate`、`deleteSelection`、`undo`、`redo`、`validate`，以及让卡片露出来的 `revealCard`，和 `canUndo`、`canRedo`、`canPaste`、`canDelete` 这几个只读状态。

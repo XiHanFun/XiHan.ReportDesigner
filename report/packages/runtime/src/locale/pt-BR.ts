@@ -178,6 +178,8 @@ const designer: ReportDesignerLocale = {
   wellsHelp: 'Dimensões, medidas, séries e colunas do cartão selecionado. Arraste campos para cá, arraste para reordenar e remova com o x.',
   propertiesHelp: 'Propriedades do objeto selecionado. Com vários cartões selecionados, só aparecem as propriedades em comum.',
   issuesHelp: 'Problemas de validação do relatório. Selecione um para selecionar o objeto envolvido.',
+  insertToolbar: 'Inserir cartões',
+  insertCard: label => `Adicionar ${label}`,
   issueTexts: {
     'required': () => 'Este valor é obrigatório',
     'invalid-type': p => p.expected === undefined ? 'Tipo incorreto' : `Tipo incorreto; deve ser do tipo ${typeName(p.expected)}`,

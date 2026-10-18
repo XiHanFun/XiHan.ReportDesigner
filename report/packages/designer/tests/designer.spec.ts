@@ -712,6 +712,28 @@ describe('<xh-report-designer>：编辑', () => {
     expect(open).toHaveBeenCalledWith(REPORT_DESIGNER_HELP_URL, '_blank', 'noopener,noreferrer')
   })
 
+  it('顶栏中段是常用物料的插入钮：图标在上、物料名在下，点一下照点物料的做法新建并选中卡片；只读时不可用，commandLayout 的 header 写空就没有顶栏', async () => {
+    const designer = await mount()
+    const t = DEFAULT_REPORT_DESIGNER_TRANSLATIONS
+    const shell = designer.querySelector('[data-region="header"] xh-tooltip[data-scope="designer-commands"]')!
+    expect(shell.getAttribute('data-display')).toBe('stacked')
+    const buttons = (): HTMLButtonElement[] => [...designer.querySelectorAll<HTMLButtonElement>('[data-region="header"] button[value]')]
+    expect(buttons().map(button => button.value)).toEqual(['insert:chart.cartesian', 'insert:chart.pie', 'insert:metric', 'insert:table.table', 'insert:table.crosstab'])
+    expect(buttons().map(button => button.getAttribute('aria-label'))).toEqual(['chart.cartesian', 'chart.pie', 'metric', 'table.table', 'table.crosstab'].map(type => t.insertCard(t.cardTypes[type]!)))
+    expect(buttons()[2]!.querySelector('[data-part="label"]')!.textContent).toBe(t.cardTypes.metric)
+    expect(buttons().every(button => button.hasAttribute('data-icon'))).toBe(true)
+    const before = cards(designer).length
+    buttons()[2]!.click()
+    expect(cards(designer)).toHaveLength(before + 1)
+    expect(designer.getSelection().cards).toEqual([cards(designer).at(-1)!.id])
+    designer.readonly = true
+    await designer.updateComplete
+    expect(buttons().every(button => button.disabled)).toBe(true)
+    designer.commandLayout = { header: [] }
+    await designer.updateComplete
+    expect(designer.querySelector('[data-region="header"] button[value]')).toBeNull()
+  })
+
   it('工具栏的容器部件叫 command-bar：设计器自己不再有 toolbar 部件，变换覆盖层的上下文工具条不会被它的样式连带命中', async () => {
     const designer = await mount()
     expect(designer.querySelector('[data-region="toolbar"] > [data-part="command-bar"]')).not.toBeNull()

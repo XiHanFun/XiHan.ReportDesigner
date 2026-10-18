@@ -130,6 +130,8 @@ interface Layers {
   readonly frame: XhDesignerFrameElement
   readonly toolbar: HTMLElement
   readonly commandBar: CommandToolbar<ReportDesignerContext>
+  /** 顶栏中段的插入钮：图标在上、短文字在下；没有 header 命令时不放进外框。 */
+  readonly headerBar: CommandToolbar<ReportDesignerContext>
   /** 扩展登记的面板。 */
   readonly panels: DesignerPanelHost<ReportDesignerContext>
   /** 包着画布的 <xh-context-menu> 与它的菜单内容。 */
@@ -371,6 +373,18 @@ export class XhReportDesigner extends XhReactiveElement {
   /** 新增卡片并选中它；报表主体不是看板时抛错。 */
   addCard(init: ReportAddCardInit, options?: ExecuteOptions): DashboardCard {
     return this.#requireEditor().addCard(init, options)
+  }
+
+  /**
+   * 照点物料的做法新建一张卡片：放到第一个空位、选中它并滚到看得见的地方，返回新卡片；只读、主体不是看板或没有这个物料项时
+   * 什么都不做，返回 undefined。顶栏的插入钮调它。
+   */
+  addPaletteItem(id: string): DashboardCard | undefined {
+    if (this.readonly || !this.#dashboard() || !this.#model.palette.has(id))
+      return undefined
+    const card = this.addCard(this.#template(id))
+    this.#revealAdded(card)
+    return card
   }
 
   /** 换成给出的选择：给了 data 只选数据面板里的对象，否则选 cards，再带 item 或 link 之一。 */
@@ -651,6 +665,8 @@ export class XhReportDesigner extends XhReactiveElement {
       return this.#layers
     const doc = this.ownerDocument
     const commandBar = createCommandToolbar<ReportDesignerContext>(doc, { platform: this.#kbdPlatform() })
+    const headerBar = createCommandToolbar<ReportDesignerContext>(doc, { display: 'stacked', platform: this.#kbdPlatform() })
+    headerBar.element.slot = 'header-center'
     const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'command-bar' }, [commandBar.element])
     const content = createAuthoredElement(doc, 'div', { 'data-part': 'content' })
     const empty = createAuthoredElement(doc, 'div', { 'data-part': 'empty', 'hidden': true })
@@ -753,7 +769,7 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#regionsKey = ''
     this.#viewer = undefined
     this.#settingsDialogKey = ''
-    this.#layers = { frame, toolbar, commandBar, panels, menu, menuContent, menuTrigger, canvas, scroller, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, settings }
+    this.#layers = { frame, toolbar, commandBar, headerBar, panels, menu, menuContent, menuTrigger, canvas, scroller, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, settings }
     panels.assign(this.#model.extensions, this.#context())
     this.#fillMenu('blank')
     return this.#layers
@@ -1205,6 +1221,16 @@ export class XhReportDesigner extends XhReactiveElement {
       const { commands } = this.#model
       layers.commandBar.setDisplay(toolbarDisplayOf(this.#resolvedSettings))
       layers.commandBar.update(arrangeCommands('toolbar', commands, REPORT_TOOLBAR_LAYOUT, this.commandLayout), commands, context, context.commands.toolbar)
+      // 顶栏：有 header 命令才放进外框，没有时拿出来，顶栏随之收起
+      const header = arrangeCommands('header', commands, [], this.commandLayout)
+      if (header.length > 0) {
+        layers.headerBar.update(header, commands, context, t.insertToolbar)
+        if (!layers.headerBar.element.isConnected)
+          layers.frame.append(layers.headerBar.element)
+      }
+      else {
+        layers.headerBar.element.remove()
+      }
       layers.panels.update(context)
     }
     this.#syncFrame(layers.frame, t)
@@ -1223,9 +1249,8 @@ export class XhReportDesigner extends XhReactiveElement {
   /** 点物料：新卡片放到第一个空位并选中。 */
   readonly #onPaletteActivate = (event: Event): void => {
     const item = (event as DesignerPaletteEventMap['item-activate']).detail.payload
-    if (this.readonly || !this.#dashboard() || typeof item !== 'string' || !this.#model.palette.has(item))
-      return
-    this.#revealAdded(this.addCard(this.#template(item)))
+    if (typeof item === 'string')
+      this.addPaletteItem(item)
   }
 
   /**

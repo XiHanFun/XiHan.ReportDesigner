@@ -178,6 +178,8 @@ const designer: ReportDesignerLocale = {
   wellsHelp: '選取卡片的維度、量值、數列與欄。把欄位拖曳進來，拖曳調整順序，點叉移除。',
   propertiesHelp: '選取物件的屬性。選取多張卡片時只列出它們共有的屬性。',
   issuesHelp: '報表的驗證問題。點一條選取出問題的物件。',
+  insertToolbar: '插入卡片',
+  insertCard: label => `新增「${label}」`,
   issueTexts: {
     'required': () => '必須填寫',
     'invalid-type': p => p.expected === undefined ? '類型不正確' : `類型不正確，應為${typeName(p.expected)}`,
