@@ -53,6 +53,10 @@ export interface ReportDesignerTranslations {
   readonly propertiesHelp: string
   /** 问题卡片的帮助。 */
   readonly issuesHelp: string
+  /** 顶栏那一条插入钮的名字。 */
+  readonly insertToolbar: string
+  /** 顶栏插入钮的名字与提示，label 是物料名。 */
+  readonly insertCard: (label: string) => string
   /** 物料分组：charts、metrics、tables。 */
   readonly paletteGroups: Readonly<Record<string, string>>
   /** 物料与卡片种类：chart.<图表类型>、metric、table.<视图类型>。 */
@@ -550,6 +554,8 @@ export const REPORT_DESIGNER_EN_US: ReportDesignerLocale = {
   wellsHelp: 'Dimensions, measures, series and columns of the selected card. Drag fields in, drag to reorder, and use the cross to remove.',
   propertiesHelp: 'Properties of the selected object. With several cards selected, only the properties they share are listed.',
   issuesHelp: 'Validation problems in the report. Select one to select the object it is about.',
+  insertToolbar: 'Insert cards',
+  insertCard: label => `Add ${label}`,
   paletteGroups: PALETTE_GROUPS,
   cardTypes: CARD_TYPES,
   objectKinds: OBJECT_KINDS,

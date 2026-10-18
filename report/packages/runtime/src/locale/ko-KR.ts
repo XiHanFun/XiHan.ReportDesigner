@@ -178,6 +178,8 @@ const designer: ReportDesignerLocale = {
   wellsHelp: '선택한 카드의 차원, 측정값, 계열, 열입니다. 필드를 끌어 넣고, 끌어서 순서를 바꾸고, ×로 제거합니다.',
   propertiesHelp: '선택한 개체의 속성입니다. 카드를 여러 장 선택하면 공통 속성만 표시됩니다.',
   issuesHelp: '보고서 검증에서 발견된 문제입니다. 클릭하면 문제가 있는 개체가 선택됩니다.',
+  insertToolbar: '카드 삽입',
+  insertCard: label => `${label} 추가`,
   issueTexts: {
     'required': () => '필수 항목입니다',
     'invalid-type': p => p.expected === undefined ? '유형이 올바르지 않습니다' : `유형이 올바르지 않습니다. ${typeName(p.expected)} 유형이어야 합니다`,

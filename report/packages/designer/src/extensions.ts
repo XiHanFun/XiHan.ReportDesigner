@@ -7,6 +7,7 @@
 
 import type { ReportCardType, ReportDocument, ReportRuleContext } from '@xihan-report/core'
 import type { ReportDesignerTranslations, ReportRuntimeExtension, ReportRuntimeModel } from '@xihan-report/runtime'
+import type { IconRecord } from '@xihan-ui/core'
 import type { DesignerCommand, DesignerExtensionCore, ExtensionKeySpaces } from '@xihan-ui/designer-kit'
 import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension } from '@xihan-ui/designer-shell'
 import type { ReportAddCardInit } from './editor'
@@ -15,7 +16,7 @@ import { cardTemplate, REPORT_CARD_TYPES } from '@xihan-report/core'
 import { createReportRuntimeModel } from '@xihan-report/runtime'
 import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
 import { collectSettingsSections, designerShellCommands } from '@xihan-ui/designer-shell'
-import { CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EyeIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TrashIcon, UndoIcon } from '@xihan-ui/icons'
+import { ChartBarIcon, ChartPieIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EyeIcon, GridIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TableIcon, TrashIcon, TrendingUpIcon, UndoIcon } from '@xihan-ui/icons'
 
 /** 命令、面板、物料与扩展装上时拿到的上下文。 */
 export interface ReportDesignerContext {
@@ -88,6 +89,26 @@ function isDashboard(designer: XhReportDesigner): boolean {
   return designer.schema?.body.type === 'dashboard'
 }
 
+/** 顶栏插入钮的常用物料，按钮依次排开；钮上写物料名，图标取这张表的。 */
+const QUICK_INSERT: readonly (readonly [ReportCardType, IconRecord])[] = [
+  ['chart.cartesian', ChartBarIcon],
+  ['chart.pie', ChartPieIcon],
+  ['metric', TrendingUpIcon],
+  ['table.table', TableIcon],
+  ['table.crosstab', GridIcon],
+]
+
+/** 顶栏的插入命令：点一下照点物料的做法新建卡片；只读、预览态或主体不是看板时不可用。 */
+const QUICK_INSERT_COMMANDS: readonly ReportDesignerCommand[] = QUICK_INSERT.map(([type, icon]): ReportDesignerCommand => ({
+  id: `insert:${type}`,
+  label: ({ translations }) => translations.insertCard(translations.cardTypes[type] ?? type),
+  shortLabel: ({ translations }) => translations.cardTypes[type] ?? type,
+  icon,
+  placement: ['header'],
+  enabled: editable(isDashboard),
+  run: ({ designer }) => void designer.addPaletteItem(type),
+}))
+
 /** 内置命令 help 打开的帮助页：报表文档站的设计器一页。 */
 export const REPORT_DESIGNER_HELP_URL = 'https://report.docs.xihanfun.com/guide/designer'
 
@@ -113,6 +134,7 @@ const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
     helpUrl: () => REPORT_DESIGNER_HELP_URL,
     icons: { settings: SettingsIcon, help: CircleHelpIcon },
   }),
+  ...QUICK_INSERT_COMMANDS,
 ]
 
 const BUILTIN_GROUPS = ['charts', 'metrics', 'tables'] as const

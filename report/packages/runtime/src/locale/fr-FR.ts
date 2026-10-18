@@ -178,6 +178,8 @@ const designer: ReportDesignerLocale = {
   wellsHelp: 'Dimensions, mesures, séries et colonnes de la carte sélectionnée. Faites glisser des champs ici, faites-les glisser pour les réordonner et retirez-les avec la croix.',
   propertiesHelp: 'Propriétés de l’objet sélectionné. Si plusieurs cartes sont sélectionnées, seules leurs propriétés communes sont listées.',
   issuesHelp: 'Problèmes de validation du rapport. Sélectionnez-en un pour sélectionner l’objet concerné.',
+  insertToolbar: 'Insérer des cartes',
+  insertCard: label => `Ajouter ${label}`,
   issueTexts: {
     'required': () => 'Cette valeur est obligatoire',
     'invalid-type': p => p.expected === undefined ? 'Type incorrect' : `Type incorrect, type attendu : ${typeName(p.expected)}`,

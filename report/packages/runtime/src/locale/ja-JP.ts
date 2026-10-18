@@ -178,6 +178,8 @@ const designer: ReportDesignerLocale = {
   wellsHelp: '選択したカードのディメンション、メジャー、系列、列です。フィールドをドラッグして追加し、ドラッグで並べ替え、×で削除します。',
   propertiesHelp: '選択したオブジェクトのプロパティです。複数のカードを選択すると、共通のプロパティだけが表示されます。',
   issuesHelp: 'レポートの検証で見つかった問題です。クリックすると問題のあるオブジェクトが選択されます。',
+  insertToolbar: 'カードを挿入',
+  insertCard: label => `「${label}」を追加`,
   issueTexts: {
     'required': () => '必須です',
     'invalid-type': p => p.expected === undefined ? '型が正しくありません' : `型が正しくありません。${typeName(p.expected)}である必要があります`,
