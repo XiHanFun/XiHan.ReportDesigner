@@ -172,8 +172,8 @@ export class Wells {
     this.element = createGeneratedElement(doc, 'div', { 'data-part': 'wells', 'slot': 'wells' }, [this.#hint, this.#lists, this.#links])
   }
 
-  /** 按文档与选择重排：编辑对象或列表的结构变了才重建该列表的标记；选中的项带 data-selected。 */
-  update(document: ReportDocument, selection: ReportSelection, t: ReportDesignerTranslations): void {
+  /** 按文档与选择重排：编辑对象或列表的结构变了才重建该列表的标记；选中的项带 data-selected。deleteLabel 是移除钮名字前的「删除」。 */
+  update(document: ReportDocument, selection: ReportSelection, t: ReportDesignerTranslations, deleteLabel: string): void {
     const owner = wellsOwner(document, selection)
     this.#owner = owner
     setText(this.#hint, t.wellsEmpty)
@@ -188,17 +188,17 @@ export class Wells {
     }
     const readonly = this.#host.isReadonly()
     for (const list of lists)
-      this.#renderWell(this.#wells.get(list.list)!, list, t, readonly)
+      this.#renderWell(this.#wells.get(list.list)!, list, t, readonly, deleteLabel)
     const chosen = selection.item && owner && selection.item.card === owner.card ? selection.item : undefined
     for (const [list, well] of this.#wells) {
       for (const [id, item] of well.items)
         item.toggleAttribute('data-selected', chosen?.list === list && chosen.id === id)
     }
-    this.#renderLinks(document, owner, selection, t, readonly)
+    this.#renderLinks(document, owner, selection, t, readonly, deleteLabel)
   }
 
   /** 联动一段：只在编辑对象是看板卡片时显示；结构或文案变了才重建标签，选中的那条带 data-selected。 */
-  #renderLinks(document: ReportDocument, owner: WellsOwner | undefined, selection: ReportSelection, t: ReportDesignerTranslations, readonly: boolean): void {
+  #renderLinks(document: ReportDocument, owner: WellsOwner | undefined, selection: ReportSelection, t: ReportDesignerTranslations, readonly: boolean, deleteLabel: string): void {
     const body = document.body
     const card = owner?.card
     this.#links.hidden = card === undefined || body.type !== 'dashboard'
@@ -207,7 +207,7 @@ export class Wells {
     const source = body.cards.find(item => item.id === card)
     const dimensions = new Map(linkSources(source).map(item => [item.id, item.label]))
     const links = (body.links ?? []).filter(link => link.card === card).map(link => ({ id: link.id, label: t.linkLabel(dimensions.get(link.dimension) ?? link.dimension, link.targets.length) }))
-    const key = JSON.stringify([card, links, readonly, t.links, t.addLink, t.delete])
+    const key = JSON.stringify([card, links, readonly, t.links, t.addLink, deleteLabel])
     if (key !== this.#linksKey) {
       this.#linksKey = key
       const doc = this.#host.ownerDocument
@@ -222,7 +222,7 @@ export class Wells {
           ]),
         ]) as XhTagElement
         tag.setAttribute('open', '')
-        tag.translations = { close: `${t.delete} ${link.label}` }
+        tag.translations = { close: `${deleteLabel} ${link.label}` }
         tag.addEventListener('open-change', (event) => {
           if ((event as CustomEvent<{ open: boolean }>).detail.open === false && !this.#host.isReadonly())
             this.#host.execute([{ type: 'removeLink', id: link.id }])
@@ -279,8 +279,8 @@ export class Wells {
     return well
   }
 
-  #renderWell(well: RenderedWell, list: WellList, t: ReportDesignerTranslations, readonly: boolean): void {
-    const key = JSON.stringify([list.label, list.items, readonly, t.delete, t.emptyList])
+  #renderWell(well: RenderedWell, list: WellList, t: ReportDesignerTranslations, readonly: boolean, deleteLabel: string): void {
+    const key = JSON.stringify([list.label, list.items, readonly, deleteLabel, t.emptyList])
     if (key === well.key)
       return
     well.key = key
@@ -300,7 +300,7 @@ export class Wells {
         ]),
       ]) as XhTagElement
       tag.setAttribute('open', '')
-      tag.translations = { close: `${t.delete} ${entry.label}` }
+      tag.translations = { close: `${deleteLabel} ${entry.label}` }
       tag.addEventListener('open-change', (event) => {
         if ((event as CustomEvent<{ open: boolean }>).detail.open === false)
           this.#execute(owner => planRemoveItem(this.#host.document()!, owner, list.list, entry.id), true)

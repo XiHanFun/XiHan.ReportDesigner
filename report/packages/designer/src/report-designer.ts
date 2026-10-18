@@ -11,7 +11,7 @@
 import type { DashboardCard, DashboardView, ExpressionEngine, ParameterValues, ReportDocument, ReportOperation, ValidationIssue } from '@xihan-report/core'
 import type { ReportDataProvider, ReportDesignerTranslations, ReportFormatter, ReportViewerTranslations, XhReportViewer } from '@xihan-report/runtime'
 import type { ExecuteOptions, ExtensionHost, GridRect, HistoryChangeKind, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
-import type { CommandToolbar, DesignerCommandLayout, DesignerFrameRegion, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelHost, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
+import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFrameRegion, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelHost, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { DialogService } from '@xihan-ui/web-components/services'
 import type { DataRemoval } from './data-editing'
@@ -30,6 +30,7 @@ import {
   createCommandToolbar,
   createPanelHost,
   defineDesignerShellElement,
+  DESIGNER_COMMANDS_EN_US,
   parseDesignerPanels,
   registerDropTarget,
   renderCommandMenu,
@@ -458,6 +459,10 @@ export class XhReportDesigner extends XhReactiveElement {
     return this.#config.translations<ReportDesignerTranslations>('xh-report-designer', DEFAULT_REPORT_DESIGNER_TRANSLATIONS, this.translations)
   }
 
+  #commandTranslations(): DesignerCommandsTranslations {
+    return this.#config.translations<DesignerCommandsTranslations>('xh-designer-commands', DESIGNER_COMMANDS_EN_US, undefined)
+  }
+
   #viewerTranslations(): ReportViewerTranslations {
     return this.#config.translations<ReportViewerTranslations>('xh-report-viewer', DEFAULT_REPORT_VIEWER_TRANSLATIONS, undefined)
   }
@@ -477,7 +482,7 @@ export class XhReportDesigner extends XhReactiveElement {
 
   /** 交给命令、面板、物料与扩展 setup 的上下文。 */
   #context(t: ReportDesignerTranslations = this.#translations()): ReportDesignerContext {
-    return { designer: this, translations: t }
+    return { designer: this, translations: t, commands: this.#commandTranslations() }
   }
 
   /** 面板用的文案：问题的说明先问扩展，扩展不给时用设计器的文案。 */
@@ -592,7 +597,7 @@ export class XhReportDesigner extends XhReactiveElement {
     if (this.#layers?.frame.parentElement === this)
       return this.#layers
     const doc = this.ownerDocument
-    const commandBar = createCommandToolbar<ReportDesignerContext>(doc)
+    const commandBar = createCommandToolbar<ReportDesignerContext>(doc, { platform: this.#kbdPlatform() })
     const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'toolbar' }, [commandBar.element])
     const content = createAuthoredElement(doc, 'div', { 'data-part': 'content' })
     const empty = createAuthoredElement(doc, 'div', { 'data-part': 'empty', 'hidden': true })
@@ -707,7 +712,7 @@ export class XhReportDesigner extends XhReactiveElement {
   /** 外框的区：内置区的名称换成文案，供分隔条的无障碍名称使用，后面接扩展面板的区；文案与扩展都没变时不重设。 */
   #syncFrame(frame: XhDesignerFrameElement, t: ReportDesignerTranslations): void {
     frame.panels = this.#framePanels()
-    const labels: Readonly<Record<string, string>> = { toolbar: t.toolbar, data: t.data, palette: t.palette, canvas: t.canvas, wells: t.wells, properties: t.properties, issues: t.issues }
+    const labels: Readonly<Record<string, string>> = { toolbar: this.#commandTranslations().toolbar, data: t.data, palette: t.palette, canvas: t.canvas, wells: t.wells, properties: t.properties, issues: t.issues }
     const key = JSON.stringify(labels)
     if (key !== this.#regionsKey || this.#regionsModel !== this.#model) {
       this.#regionsKey = key
@@ -1034,12 +1039,12 @@ export class XhReportDesigner extends XhReactiveElement {
     const t = this.#translations()
     const shown = this.#panelTranslations(t)
     this.#layers.data.update(editor.document, editor.selection.data, t)
-    this.#layers.wells.update(editor.document, editor.selection, t)
+    const context = this.#context(t)
+    this.#layers.wells.update(editor.document, editor.selection, t, context.commands.delete)
     this.#layers.properties.update(shown)
     this.#layers.issues.update(editor.document, this.#issues, shown)
-    const context = this.#context(t)
     const { commands } = this.#model
-    this.#layers.commandBar.update(arrangeCommands('toolbar', commands, REPORT_TOOLBAR_LAYOUT, this.commandLayout), commands, context, t.toolbar)
+    this.#layers.commandBar.update(arrangeCommands('toolbar', commands, REPORT_TOOLBAR_LAYOUT, this.commandLayout), commands, context, context.commands.toolbar)
     this.#layers.panels.update(context)
   }
 

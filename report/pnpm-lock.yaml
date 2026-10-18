@@ -39,6 +39,7 @@ overrides:
   '@xihan-ui/designer-kit': link:../../XiHan.UI/ui/packages/features/designer-kit
   '@xihan-ui/designer-shell': link:../../XiHan.UI/ui/packages/features/designer-shell
   '@xihan-ui/expression': link:../../XiHan.UI/ui/packages/engine/expression
+  '@xihan-ui/icons': link:../../XiHan.UI/ui/packages/design/icons
   '@xihan-ui/styles': link:../../XiHan.UI/ui/packages/design/styles
   '@xihan-ui/viz': link:../../XiHan.UI/ui/packages/engine/viz
   '@xihan-ui/web-components': link:../../XiHan.UI/ui/packages/adapters/web-components
@@ -102,6 +103,9 @@ importers:
       '@xihan-ui/designer-shell':
         specifier: link:../../../../XiHan.UI/ui/packages/features/designer-shell
         version: link:../../../../XiHan.UI/ui/packages/features/designer-shell
+      '@xihan-ui/icons':
+        specifier: link:../../../../XiHan.UI/ui/packages/design/icons
+        version: link:../../../../XiHan.UI/ui/packages/design/icons
       '@xihan-ui/web-components':
         specifier: link:../../../../XiHan.UI/ui/packages/adapters/web-components
         version: link:../../../../XiHan.UI/ui/packages/adapters/web-components

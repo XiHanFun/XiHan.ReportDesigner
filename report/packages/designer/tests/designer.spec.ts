@@ -8,7 +8,9 @@ import type { DashboardView, DatasetRequest, ReportDocument } from '@xihan-repor
 import type { XhReportViewer } from '@xihan-report/runtime'
 import type { XhSortableElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import type { XhReportDesigner } from '../src'
+import { reportZhCN } from '@xihan-report/runtime/locale'
 import { formatJsonPath } from '@xihan-ui/core/json'
+import { setXhConfig } from '@xihan-ui/web-components'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineReportDesigner } from '../src'
 
@@ -647,6 +649,27 @@ describe('<xh-report-designer>：编辑', () => {
     expect([button('delete').disabled, button('copy').disabled, button('preview').disabled]).toEqual([true, false, false])
   })
 
+  it('工具栏缺省只显示图标：内置命令都带图标，名字与快捷键写在按钮上，删除按危险语气；共用命令的文案取 designer-shell 的命令文案', async () => {
+    const designer = await mount()
+    const buttons = (): HTMLButtonElement[] => [...designer.querySelectorAll<HTMLButtonElement>('[data-region="toolbar"] button[value]')]
+    const button = (command: string): HTMLButtonElement => buttons().find(item => item.value === command)!
+    expect(designer.querySelector('[data-region="toolbar"] [data-display]')!.getAttribute('data-display')).toBe('icon')
+    expect(buttons().filter(item => !item.hasAttribute('data-icon')).map(item => item.value)).toEqual([])
+    expect(buttons().filter(item => item.dataset.tone === 'danger').map(item => item.value)).toEqual(['delete'])
+    expect([button('undo').getAttribute('aria-label'), button('redo').getAttribute('aria-keyshortcuts')]).toEqual(['Undo', expect.stringMatching(/^(?:Control|Meta)\+Shift\+Z$/)])
+    try {
+      setXhConfig(reportZhCN)
+      designer.requestUpdate()
+      await designer.updateComplete
+      expect(buttons().map(item => item.getAttribute('aria-label'))).toEqual(['撤销', '重做', '剪切', '复制', '粘贴', '创建副本', '删除', '设计', '预览'])
+      expect(designer.querySelector('[data-region="toolbar"] [aria-label="设计器操作"]')).not.toBeNull()
+      expect(designer.querySelector('xh-designer-frame')!.regions?.find(region => region.name === 'toolbar')?.label).toBe('设计器操作')
+    }
+    finally {
+      setXhConfig({})
+    }
+  })
+
   it('内建菜单建好时填空白处的条目；右键事件不取消时按落点重填：卡片上与空白处各一套，不可用的写 aria-disabled，选中条目执行命令', async () => {
     const designer = await mount()
     const content = designer.querySelector('xh-context-menu [data-xh-part="positioner"] > [data-xh-part="content"]')!
@@ -656,6 +679,8 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.getSelection()).toEqual({ cards: ['a'] })
     expect(entries()).toEqual([['cut', false], ['copy', false], ['paste', true], ['duplicate', false], ['delete', false]])
     expect(content.querySelector('[data-xh-part="item"][value="cut"]')!.textContent).toBe('Cut')
+    expect([...content.querySelectorAll('[data-xh-part="item"]')].filter(item => !item.querySelector('[data-xh-part="item-icon"] xh-icon')).map(item => item.getAttribute('value'))).toEqual([])
+    expect(content.querySelector('[data-xh-part="item"][value="delete"]')!.getAttribute('data-tone')).toBe('danger')
     designer.querySelector('xh-context-menu')!.dispatchEvent(new CustomEvent('select', { detail: { value: 'delete' } }))
     expect(cards(designer).map(item => item.id)).toEqual(['pie', 'b'])
     designer.querySelector('[data-part="surface"]')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
