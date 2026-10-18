@@ -349,7 +349,8 @@
 | `required` | 必填 | 数据 | 布尔 | 可省 |
 | `multiple` | 多选 | 数据 | 布尔 | 可省 |
 | `defaultValue` | 缺省值 | 数据 | 按参数的类型与是否多选取值 | 可省 |
-| `options` | 候选项 | 数据 | [ParameterOption](./schema#parameteroption) 的数组 | 可省 |
+| `options` | 候选项 | 数据 | [ParameterOption](./schema#parameteroption) 的数组，在设计器里是逐行编辑的选项表（值、文字与禁用），值不能重复；「类型」为 `string`、`date`、`datetime` 之一时显示 | 可省 |
+| `options` | 候选项 | 数据 | [ParameterOption](./schema#parameteroption) 的数组；「类型」为 `number`、`boolean` 之一时显示 | 可省 |
 
 ## 联动 {#link}
 

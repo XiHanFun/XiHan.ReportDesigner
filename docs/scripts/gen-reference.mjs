@@ -649,6 +649,8 @@ function describeControl(control, key) {
       return `[值格式](./schema#formatspec)${control.kinds === undefined ? '' : `，限${control.kinds.map(kind => FORMAT_KIND_NAMES[kind] ?? kind).join('、')}`}`
     case 'filter':
       return '[筛选条件树](./schema#filtergroup)'
+    case 'options':
+      return `[ParameterOption](./schema#parameteroption) 的数组，在设计器里是逐行编辑的选项表（值、文字与禁用），值不能重复${control.requireLabel ? '，每项要写文字' : ''}`
     case 'json':
       if (JSON_SHAPES[key] === undefined)
         throw new Error(`[gen-reference] no shape for json property ${key}`)

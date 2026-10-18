@@ -39,6 +39,16 @@ function visible(descriptors: readonly ReportPropertyDescriptor[], target: unkno
 const dashboard = dashboardDocument.body as DashboardView
 
 describe('属性描述', () => {
+  it('报表参数的固定候选项：取值是文字的参数用内建的选项表，数值与布尔的仍写成 JSON；选项表查得出重复的取值', () => {
+    const kinds = (type: string): string[] => parameterProperties()
+      .filter(descriptor => descriptor.path[0] === 'options' && isPropertyVisible(descriptor, { name: 'p', type }))
+      .map(descriptor => descriptor.control.kind)
+    expect(['string', 'date', 'datetime', 'number', 'boolean'].map(kinds)).toEqual([['options'], ['options'], ['options'], ['json'], ['json']])
+    expect(issues(parameterProperties(), { name: 'region', type: 'string', options: [{ value: 'East' }, { value: 'East', label: '东' }] }))
+      .toEqual([expect.objectContaining({ code: 'duplicate-value', path: ['options', 1, 'value'] })])
+    expect(issues(parameterProperties(), { name: 'year', type: 'number', options: [{ value: 2025 }, { value: 2026 }] })).toEqual([])
+  })
+
   it('合法的示例文档逐个对象检查都没有问题', () => {
     const check = (document: ReportDocument): void => {
       expect(issues(documentProperties(), document)).toEqual([])

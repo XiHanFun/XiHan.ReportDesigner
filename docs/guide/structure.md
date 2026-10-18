@@ -46,6 +46,7 @@
 
 <<< @/examples/reports/regional.ts#parameters
 
+- `options` 是固定的候选项，每项 `{ value, label?, disabled? }`：`value` 的类型要与参数一致，同一个参数里不能重复；`label` 不写按取值显示；写了 `disabled` 的照样列出，但不能选。
 - `defaultValue` 是没给值时的取值；`required` 的参数没有值时查看器不取数，显示「报表参数缺少或取值不合格」。
 - 筛选条件的操作数写 `{ parameter: '名字' }` 就引用参数；参数没有值时这个条件不参与筛选，所以上面的「区域」不选就是全部区域。
 - 公式里用 `$名字` 引用参数。

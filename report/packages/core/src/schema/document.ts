@@ -18,6 +18,8 @@ export interface ParameterOption {
   readonly value: ScalarValue
   /** 显示的文字；不写按取值显示。 */
   readonly label?: string
+  /** 在参数栏里列出但不能选；宿主或缺省值给了这个取值照样认。 */
+  readonly disabled?: boolean
 }
 
 /** 报表参数：报表使用者填写，经绑定传给数据集参数或筛选条件。 */

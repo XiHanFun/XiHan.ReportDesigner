@@ -166,4 +166,10 @@ describe('renderParameterControl', () => {
       tag({ name: 'f', type: 'string' }),
     ]).toEqual(['xh-select', 'xh-switch', 'xh-date-field', 'xh-tags-input', 'xh-number-field', 'xh-text-field'])
   })
+
+  it('写了 disabled 的候选项照样列出，条目写 aria-disabled，不能选', () => {
+    const ctx = createRenderContext(DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter, 'zh-CN', 'UTC')
+    const control = renderParameterControl({ name: 'region', type: 'string', options: [{ value: 'East', label: '东区' }, { value: 'West', label: '西区', disabled: true }] }, undefined, ctx, { change: () => {} })
+    expect([...control.querySelectorAll('[data-xh-part="item"]')].map(item => [item.textContent, item.getAttribute('aria-disabled')])).toEqual([['东区', null], ['西区', 'true']])
+  })
 })
