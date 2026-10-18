@@ -5,6 +5,8 @@
 
 import { defineXiHanTheme } from '@xihanfun/vitepress-theme'
 import ReportDemo from './ReportDemo.vue'
+// 舞台的正文复位排在主题之后、组件皮肤之前，见 demo-reset.css
+import './demo-reset.css'
 // 组件皮肤用无层版本：VitePress 自带无层的元素重置，无层声明胜过任何有层声明。
 import '@xihan-ui/styles/index.unlayered.css'
 import '@xihan-ui/designer-shell/style.css'
