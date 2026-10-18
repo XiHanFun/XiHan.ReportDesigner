@@ -22,7 +22,7 @@
 | `locale` | `locale` | `string \| undefined` | BCP 47 语言标记；缺省取全局配置。 |
 | `timeZone` | `time-zone` | `string \| undefined` | IANA 时区；缺省取运行环境所在的时区。 |
 | `translations` | — | `Partial<ReportViewerTranslations> \| undefined` | 元素自己的文案，压在全局配置之上。 |
-| `hideParameters` | `hide-parameters` | `boolean \| undefined` | 不显示参数栏。 |
+| `hideParameters` | `hide-parameters` | `boolean \| undefined` | 不显示参数栏；缺省显示。attribute 写 "false" 是显示，其余写法是不显示。 |
 
 ### 存取器
 

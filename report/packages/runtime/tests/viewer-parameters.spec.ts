@@ -127,6 +127,27 @@ describe('<xh-report-viewer>：参数栏', () => {
     const viewer = await mount([], { hidden: true })
     expect(viewer.querySelector('[data-part="parameters"]')).toBeNull()
   })
+
+  it('hide-parameters 按三态读：没写显示，写 "false" 也显示，空串与别的写法不显示，移除后回到显示', async () => {
+    const viewer = await mount([])
+    const states: [string | null, boolean | undefined, boolean][] = [
+      [null, undefined, true],
+      ['false', false, true],
+      ['', true, false],
+      ['true', true, false],
+      ['hide-parameters', true, false],
+      [null, undefined, true],
+    ]
+    for (const [attribute, property, shown] of states) {
+      if (attribute === null)
+        viewer.removeAttribute('hide-parameters')
+      else
+        viewer.setAttribute('hide-parameters', attribute)
+      await viewer.updateComplete
+      expect(viewer.hideParameters, String(attribute)).toBe(property)
+      expect(viewer.querySelector('[data-part="parameters"]') !== null, String(attribute)).toBe(shown)
+    }
+  })
 })
 
 describe('renderParameterControl', () => {
