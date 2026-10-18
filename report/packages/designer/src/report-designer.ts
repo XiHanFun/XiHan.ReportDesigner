@@ -650,7 +650,7 @@ export class XhReportDesigner extends XhReactiveElement {
       return this.#layers
     const doc = this.ownerDocument
     const commandBar = createCommandToolbar<ReportDesignerContext>(doc, { platform: this.#kbdPlatform() })
-    const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'toolbar' }, [commandBar.element])
+    const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'command-bar' }, [commandBar.element])
     const content = createAuthoredElement(doc, 'div', { 'data-part': 'content' })
     const empty = createAuthoredElement(doc, 'div', { 'data-part': 'empty', 'hidden': true })
     const dropPreview = createAuthoredElement(doc, 'div', { 'data-part': 'drop-preview', 'hidden': true })
