@@ -156,18 +156,7 @@ function range(params: Readonly<Record<string, unknown>>): string {
 
 const designer: ReportDesignerLocale = {
   label: '报表设计器',
-  toolbar: '设计器操作',
   canvas: '画布',
-  undo: '撤销',
-  redo: '重做',
-  delete: '删除',
-  copy: '复制',
-  cut: '剪切',
-  paste: '粘贴',
-  duplicate: '再制',
-  selectAll: '全选',
-  design: '设计',
-  preview: '预览',
   data: '数据',
   datasets: '数据集',
   parameters: '报表参数',

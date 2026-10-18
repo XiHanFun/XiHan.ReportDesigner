@@ -156,18 +156,7 @@ function range(params: Readonly<Record<string, unknown>>): string {
 
 const designer: ReportDesignerLocale = {
   label: 'Concepteur de rapports',
-  toolbar: 'Actions du concepteur',
   canvas: 'Canevas',
-  undo: 'Annuler',
-  redo: 'Rétablir',
-  delete: 'Supprimer',
-  copy: 'Copier',
-  cut: 'Couper',
-  paste: 'Coller',
-  duplicate: 'Dupliquer',
-  selectAll: 'Tout sélectionner',
-  design: 'Conception',
-  preview: 'Aperçu',
   data: 'Données',
   datasets: 'Jeux de données',
   parameters: 'Paramètres',

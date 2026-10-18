@@ -167,18 +167,7 @@ function range(params: Readonly<Record<string, unknown>>): string {
 
 const designer: ReportDesignerLocale = {
   label: 'Конструктор отчётов',
-  toolbar: 'Действия конструктора',
   canvas: 'Холст',
-  undo: 'Отменить',
-  redo: 'Повторить',
-  delete: 'Удалить',
-  copy: 'Копировать',
-  cut: 'Вырезать',
-  paste: 'Вставить',
-  duplicate: 'Дублировать',
-  selectAll: 'Выбрать все',
-  design: 'Конструктор',
-  preview: 'Предпросмотр',
   data: 'Данные',
   datasets: 'Наборы данных',
   parameters: 'Параметры отчёта',

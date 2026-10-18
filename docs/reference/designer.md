@@ -209,18 +209,7 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | 键 | 类型 | 说明 | 中文 |
 | --- | --- | --- | --- |
 | `label` | `string` | 设计器的可及名。 | 报表设计器 |
-| `toolbar` | `string` |  | 设计器操作 |
 | `canvas` | `string` |  | 画布 |
-| `undo` | `string` |  | 撤销 |
-| `redo` | `string` |  | 重做 |
-| `delete` | `string` |  | 删除 |
-| `copy` | `string` |  | 复制 |
-| `cut` | `string` |  | 剪切 |
-| `paste` | `string` |  | 粘贴 |
-| `duplicate` | `string` |  | 再制 |
-| `selectAll` | `string` |  | 全选 |
-| `design` | `string` |  | 设计 |
-| `preview` | `string` |  | 预览 |
 | `data` | `string` | 数据面板的标题与分组。 | 数据 |
 | `datasets` | `string` |  | 数据集 |
 | `parameters` | `string` |  | 报表参数 |

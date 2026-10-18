@@ -156,18 +156,7 @@ function range(params: Readonly<Record<string, unknown>>): string {
 
 const designer: ReportDesignerLocale = {
   label: '보고서 디자이너',
-  toolbar: '디자이너 작업',
   canvas: '캔버스',
-  undo: '실행 취소',
-  redo: '다시 실행',
-  delete: '삭제',
-  copy: '복사',
-  cut: '잘라내기',
-  paste: '붙여넣기',
-  duplicate: '복제',
-  selectAll: '모두 선택',
-  design: '디자인',
-  preview: '미리 보기',
   data: '데이터',
   datasets: '데이터 세트',
   parameters: '보고서 매개변수',

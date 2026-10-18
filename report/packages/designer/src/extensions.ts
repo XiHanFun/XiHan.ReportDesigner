@@ -8,12 +8,13 @@
 import type { ReportCardType, ReportDocument, ReportRuleContext } from '@xihan-report/core'
 import type { ReportDesignerTranslations, ReportRuntimeExtension, ReportRuntimeModel } from '@xihan-report/runtime'
 import type { DesignerCommand, DesignerExtensionCore, ExtensionKeySpaces } from '@xihan-ui/designer-kit'
-import type { DesignerCommandTable, DesignerPropertyEditor, DesignerShellExtension } from '@xihan-ui/designer-shell'
+import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerPropertyEditor, DesignerShellExtension } from '@xihan-ui/designer-shell'
 import type { ReportAddCardInit } from './editor'
 import type { XhReportDesigner } from './report-designer'
 import { cardTemplate, REPORT_CARD_TYPES } from '@xihan-report/core'
 import { createReportRuntimeModel } from '@xihan-report/runtime'
 import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
+import { ClipboardIcon, CopyIcon, CopyPlusIcon, EyeIcon, PencilIcon, RedoIcon, ScissorsIcon, SquareDashedIcon, TrashIcon, UndoIcon } from '@xihan-ui/icons'
 
 /** 命令、面板、物料与扩展装上时拿到的上下文。 */
 export interface ReportDesignerContext {
@@ -21,6 +22,8 @@ export interface ReportDesignerContext {
   readonly designer: XhReportDesigner
   /** 此刻生效的设计器文案。 */
   readonly translations: ReportDesignerTranslations
+  /** 四款设计器共用的命令文案，取 designer-shell 语言包的 xh-designer-commands。 */
+  readonly commands: DesignerCommandsTranslations
 }
 
 /** 设计器的命令。 */
@@ -61,10 +64,8 @@ export interface ReportDesignerExtension extends ReportRuntimeExtension, Omit<De
 }
 
 /** 取值是字符串的文案键。 */
-type TextKey = { [K in keyof ReportDesignerTranslations]: ReportDesignerTranslations[K] extends string ? K : never }[keyof ReportDesignerTranslations]
-
-function text(key: TextKey): (context: ReportDesignerContext) => string {
-  return context => context.translations[key]
+function shared(key: keyof DesignerCommandsTranslations): (context: ReportDesignerContext) => string {
+  return context => context.commands[key]
 }
 
 function designing({ designer }: ReportDesignerContext): boolean {
@@ -86,18 +87,18 @@ function isDashboard(designer: XhReportDesigner): boolean {
 
 /** 内置命令：撤销重做、剪贴板与删除、全选，以及设计与预览的切换。 */
 const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
-  { id: 'undo', label: text('undo'), shortcut: ['Mod', 'Z'], enabled: context => designing(context) && context.designer.canUndo, run: ({ designer }) => designer.undo() },
-  { id: 'redo', label: text('redo'), shortcut: ['Mod', 'Shift', 'Z'], enabled: context => designing(context) && context.designer.canRedo, run: ({ designer }) => designer.redo() },
-  { id: 'cut', label: text('cut'), enabled: editable(d => selectedCards(d) > 0), run: ({ designer }) => designer.cut() },
-  { id: 'copy', label: text('copy'), enabled: context => designing(context) && selectedCards(context.designer) > 0, run: ({ designer }) => designer.copy() },
-  { id: 'paste', label: text('paste'), enabled: editable(d => d.canPaste && isDashboard(d)), run: ({ designer }) => designer.paste() },
-  { id: 'duplicate', label: text('duplicate'), shortcut: ['Mod', 'D'], enabled: editable(d => selectedCards(d) > 0), run: ({ designer }) => designer.duplicate() },
-  { id: 'delete', label: text('delete'), shortcut: ['Delete'], enabled: editable(d => d.canDelete), run: ({ designer }) => designer.deleteSelection() },
-  { id: 'select-all', label: text('selectAll'), shortcut: ['Mod', 'A'], enabled: context => designing(context) && isDashboard(context.designer), run: ({ designer }) => designer.selectAll() },
-  { id: 'design', label: text('design'), checked: ({ designer }) => designer.mode !== 'preview', run: (context) => {
+  { id: 'undo', label: shared('undo'), icon: UndoIcon, shortcut: ['Mod', 'Z'], enabled: context => designing(context) && context.designer.canUndo, run: ({ designer }) => designer.undo() },
+  { id: 'redo', label: shared('redo'), icon: RedoIcon, shortcut: ['Mod', 'Shift', 'Z'], enabled: context => designing(context) && context.designer.canRedo, run: ({ designer }) => designer.redo() },
+  { id: 'cut', label: shared('cut'), icon: ScissorsIcon, enabled: editable(d => selectedCards(d) > 0), run: ({ designer }) => designer.cut() },
+  { id: 'copy', label: shared('copy'), icon: CopyIcon, enabled: context => designing(context) && selectedCards(context.designer) > 0, run: ({ designer }) => designer.copy() },
+  { id: 'paste', label: shared('paste'), icon: ClipboardIcon, enabled: editable(d => d.canPaste && isDashboard(d)), run: ({ designer }) => designer.paste() },
+  { id: 'duplicate', label: shared('duplicate'), icon: CopyPlusIcon, shortcut: ['Mod', 'D'], enabled: editable(d => selectedCards(d) > 0), run: ({ designer }) => designer.duplicate() },
+  { id: 'delete', label: shared('delete'), icon: TrashIcon, tone: 'danger', shortcut: ['Delete'], enabled: editable(d => d.canDelete), run: ({ designer }) => designer.deleteSelection() },
+  { id: 'select-all', label: shared('selectAll'), icon: SquareDashedIcon, shortcut: ['Mod', 'A'], enabled: context => designing(context) && isDashboard(context.designer), run: ({ designer }) => designer.selectAll() },
+  { id: 'design', label: shared('design'), icon: PencilIcon, checked: ({ designer }) => designer.mode !== 'preview', run: (context) => {
     context.designer.mode = 'design'
   } },
-  { id: 'preview', label: text('preview'), checked: ({ designer }) => designer.mode === 'preview', run: (context) => {
+  { id: 'preview', label: shared('preview'), icon: EyeIcon, checked: ({ designer }) => designer.mode === 'preview', run: (context) => {
     context.designer.mode = 'preview'
   } },
 ]

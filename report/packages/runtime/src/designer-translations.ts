@@ -27,18 +27,7 @@ export interface ReportDesignerIssueDetails {
 export interface ReportDesignerTranslations {
   /** 设计器的可及名。 */
   readonly label: string
-  readonly toolbar: string
   readonly canvas: string
-  readonly undo: string
-  readonly redo: string
-  readonly delete: string
-  readonly copy: string
-  readonly cut: string
-  readonly paste: string
-  readonly duplicate: string
-  readonly selectAll: string
-  readonly design: string
-  readonly preview: string
   /** 数据面板的标题与分组。 */
   readonly data: string
   readonly datasets: string
@@ -536,18 +525,7 @@ const ISSUE_TEXTS: ReportDesignerLocale['issueTexts'] = {
 /** 设计器的英文文案，各语言包按它对键。 */
 export const REPORT_DESIGNER_EN_US: ReportDesignerLocale = {
   label: 'Report designer',
-  toolbar: 'Designer actions',
   canvas: 'Canvas',
-  undo: 'Undo',
-  redo: 'Redo',
-  delete: 'Delete',
-  copy: 'Copy',
-  cut: 'Cut',
-  paste: 'Paste',
-  duplicate: 'Duplicate',
-  selectAll: 'Select all',
-  design: 'Design',
-  preview: 'Preview',
   data: 'Data',
   datasets: 'Datasets',
   parameters: 'Parameters',

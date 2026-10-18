@@ -350,6 +350,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | `panels?` | `readonly DesignerPanel<ReportDesignerContext>[]` | 面板：各占外框的一个命名区，同一位置按扩展顺序上下排。 |
 | `properties?` | `Readonly<Partial<Record<ReportPropertyTarget, readonly ReportPropertyDescriptor[]>>>` | 追加在内置之后的属性，path 相对那类对象本身。 |
 | `rules?` | `readonly SchemaRule<ReportDocument, ReportRuleContext>[]` | 校验规则，问题与内置校验的一起进问题列表；问题码以 id 的末段加点开头。 |
+| `settings?` | `readonly DesignerSettingsSection[]` | 设置分区：放进设置对话框，分区 id 不能与内置的 general 或别的扩展的重名，见 collectSettingsSections。 |
 | `viewRenderers?` | `Readonly<Record<string, ReportViewRenderer>>` | 作主体的扩展视图的渲染，键是视图种类名。 |
 | `views?` | `Readonly<Record<string, ReportViewKind<never, unknown>>>` | 主体视图种类：键是种类名，规则同卡片。 |
 
@@ -364,6 +365,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 
 | 属性 | 类型 | 说明 |
 | --- | --- | --- |
+| `icon?` | `IconRecord` | 按钮与菜单项上的图标，图标集见 @xihan-ui/icons；工具栏按图标显示时，没有图标的命令退回显示文字。 |
 | `id` | `string` | 全局唯一；扩展的命令用扩展 id 加点加名字，如 @xihan-flow-pro/simulation.run。 |
 | `label` | `string \| ((context: ReportDesignerContext) => string)` | 按钮与菜单项上的文字；给函数时每次刷新现取，随语言变。 |
 | `placement?` | `readonly DesignerCommandPlacement[]` | 缺省排列里出现在哪些位置；不给即只经快捷键或 commandLayout 出现。 |
@@ -384,6 +386,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | --- | --- | --- |
 | `designer` | `XhReportDesigner` | 所在的设计器元素。 |
 | `translations` | `ReportDesignerTranslations` | 此刻生效的设计器文案。 |
+| `commands` | `DesignerCommandsTranslations` | 四款设计器共用的命令文案，取 designer-shell 语言包的 xh-designer-commands。 |
 
 ### ReportMenuSubject {#reportmenusubject}
 
