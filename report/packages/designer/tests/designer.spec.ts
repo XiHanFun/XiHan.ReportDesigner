@@ -13,7 +13,7 @@ import { reportZhCN } from '@xihan-report/runtime/locale'
 import { formatJsonPath } from '@xihan-ui/core/json'
 import { setXhConfig } from '@xihan-ui/web-components'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineReportDesigner } from '../src'
+import { defineReportDesigner, REPORT_DESIGNER_HELP_URL } from '../src'
 
 function metric(id: string, x: number): DashboardView['cards'][number] {
   return {
@@ -679,7 +679,7 @@ describe('<xh-report-designer>：编辑', () => {
   it('工具栏：按钮随选择与历史启用，点按钮执行命令，设计与预览两个按钮切换模式；只读时编辑类命令不可用', async () => {
     const designer = await mount()
     const button = (command: string): HTMLButtonElement => designer.querySelector(`[data-region="toolbar"] button[value="${command}"]`)!
-    expect([...designer.querySelectorAll('[data-region="toolbar"] button[value]')].map(item => item.textContent)).toEqual(['Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Duplicate', 'Delete', 'Design', 'Preview'])
+    expect([...designer.querySelectorAll('[data-region="toolbar"] button[value]')].map(item => item.textContent)).toEqual(['Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Duplicate', 'Delete', 'Design', 'Preview', 'Settings', 'Help'])
     expect([button('undo').disabled, button('delete').disabled]).toEqual([true, true])
     designer.select({ cards: ['a'] })
     await designer.updateComplete
@@ -700,6 +700,18 @@ describe('<xh-report-designer>：编辑', () => {
     expect([button('delete').disabled, button('copy').disabled, button('preview').disabled]).toEqual([true, false, false])
   })
 
+  it('工具栏末组是 designer-shell 内置的设置与帮助：设置打开设置对话框，帮助在新窗口打开文档站的设计器一页', async () => {
+    const designer = await mount()
+    const groups = Array.from(designer.querySelectorAll('[data-part="command-bar"] [data-xh-part="group"]'), group => Array.from(group.querySelectorAll('button'), button => button.value))
+    expect(groups.at(-1)).toEqual(['settings', 'help'])
+    designer.querySelector<HTMLButtonElement>('[data-region="toolbar"] button[value="settings"]')!.click()
+    await designer.updateComplete
+    expect(designer.querySelector<HTMLElement & { open?: boolean }>('xh-designer-settings')!.open).toBe(true)
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    designer.querySelector<HTMLButtonElement>('[data-region="toolbar"] button[value="help"]')!.click()
+    expect(open).toHaveBeenCalledWith(REPORT_DESIGNER_HELP_URL, '_blank', 'noopener,noreferrer')
+  })
+
   it('工具栏的容器部件叫 command-bar：设计器自己不再有 toolbar 部件，变换覆盖层的上下文工具条不会被它的样式连带命中', async () => {
     const designer = await mount()
     expect(designer.querySelector('[data-region="toolbar"] > [data-part="command-bar"]')).not.toBeNull()
@@ -718,7 +730,7 @@ describe('<xh-report-designer>：编辑', () => {
       setXhConfig(reportZhCN)
       designer.requestUpdate()
       await designer.updateComplete
-      expect(buttons().map(item => item.getAttribute('aria-label'))).toEqual(['撤销', '重做', '剪切', '复制', '粘贴', '创建副本', '删除', '设计', '预览'])
+      expect(buttons().map(item => item.getAttribute('aria-label'))).toEqual(['撤销', '重做', '剪切', '复制', '粘贴', '创建副本', '删除', '设计', '预览', '设置', '帮助'])
       expect(designer.querySelector('[data-region="toolbar"] [aria-label="设计器操作"]')).not.toBeNull()
       expect(designer.querySelector('xh-designer-frame')!.regions?.find(region => region.name === 'toolbar')?.label).toBe('设计器操作')
     }
