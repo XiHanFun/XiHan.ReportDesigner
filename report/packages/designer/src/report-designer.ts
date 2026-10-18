@@ -42,6 +42,7 @@ import {
   renderCommandMenu,
   resolveSettings,
   runCommand,
+  toolbarDisplayOf,
   XhDesignerFrameElement,
   XhDesignerIssuesElement,
   XhDesignerPaletteElement,
@@ -1202,6 +1203,7 @@ export class XhReportDesigner extends XhReactiveElement {
       layers.properties.update(shown)
       layers.issues.update(editor.document, this.#issues, shown)
       const { commands } = this.#model
+      layers.commandBar.setDisplay(toolbarDisplayOf(this.#resolvedSettings))
       layers.commandBar.update(arrangeCommands('toolbar', commands, REPORT_TOOLBAR_LAYOUT, this.commandLayout), commands, context, context.commands.toolbar)
       layers.panels.update(context)
     }
