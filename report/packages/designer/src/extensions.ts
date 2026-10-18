@@ -16,7 +16,7 @@ import { cardTemplate, REPORT_CARD_TYPES } from '@xihan-report/core'
 import { createReportRuntimeModel } from '@xihan-report/runtime'
 import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
 import { collectSettingsSections, designerShellCommands } from '@xihan-ui/designer-shell'
-import { ChartBarIcon, ChartPieIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EyeIcon, GridIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TableIcon, TrashIcon, TrendingUpIcon, UndoIcon } from '@xihan-ui/icons'
+import { ChartBarIcon, ChartPieIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EyeIcon, GridIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TableIcon, TrashIcon, TrendingUpIcon, UndoIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 
 /** 命令、面板、物料与扩展装上时拿到的上下文。 */
 export interface ReportDesignerContext {
@@ -114,7 +114,7 @@ const QUICK_INSERT_COMMANDS: readonly ReportDesignerCommand[] = QUICK_INSERT.map
 /** 内置命令 help 打开的帮助页：报表文档站的设计器一页。 */
 export const REPORT_DESIGNER_HELP_URL = 'https://report.docs.xihanfun.com/guide/designer'
 
-/** 内置命令：撤销重做、剪贴板、创建副本与删除、全选、设计与预览，以及 designer-shell 内置的面板、设置与帮助，各带图标。 */
+/** 内置命令：撤销重做、剪贴板、创建副本与删除、全选、缩放、设计与预览，以及 designer-shell 内置的面板、设置与帮助，各带图标。 */
 const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
   { id: 'undo', label: shared('undo'), icon: UndoIcon, shortcut: ['Mod', 'Z'], enabled: context => designing(context) && context.designer.canUndo, run: ({ designer }) => designer.undo() },
   { id: 'redo', label: shared('redo'), icon: RedoIcon, shortcut: ['Mod', 'Shift', 'Z'], enabled: context => designing(context) && context.designer.canRedo, run: ({ designer }) => designer.redo() },
@@ -124,6 +124,10 @@ const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
   { id: 'duplicate', label: shared('duplicate'), icon: CopyPlusIcon, shortcut: ['Mod', 'D'], enabled: editable(d => selectedCards(d) > 0), run: ({ designer }) => designer.duplicate() },
   { id: 'delete', label: shared('delete'), icon: TrashIcon, tone: 'danger', shortcut: ['Delete'], enabled: editable(d => d.canDelete), run: ({ designer }) => designer.deleteSelection() },
   { id: 'select-all', label: shared('selectAll'), icon: SquareDashedIcon, shortcut: ['Mod', 'A'], enabled: context => designing(context) && isDashboard(context.designer), run: ({ designer }) => designer.selectAll() },
+  { id: 'zoom-out', label: shared('zoomOut'), icon: ZoomOutIcon, shortcut: ['-'], enabled: designing, run: ({ designer }) => designer.zoomOut() },
+  { id: 'zoom-in', label: shared('zoomIn'), icon: ZoomInIcon, shortcut: ['+'], enabled: designing, run: ({ designer }) => designer.zoomIn() },
+  { id: 'zoom-to-fit', label: shared('zoomToFit'), icon: MaximizeIcon, shortcut: ['0'], enabled: designing, run: ({ designer }) => designer.zoomToFit() },
+  { id: 'zoom-to-actual', label: shared('zoomToActual'), icon: ZoomResetIcon, enabled: designing, run: ({ designer }) => designer.zoomToActual() },
   { id: 'design', label: shared('design'), icon: PencilIcon, checked: ({ designer }) => designer.mode !== 'preview', run: (context) => {
     context.designer.mode = 'design'
   } },
@@ -166,6 +170,7 @@ export const REPORT_DESIGNER_EXTENSION: ReportDesignerExtension = {
 export const REPORT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['undo', 'redo'],
   ['cut', 'copy', 'paste', 'duplicate', 'delete'],
+  ['zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual'],
   ['design', 'preview'],
   ['panels', 'settings', 'help'],
 ]
@@ -176,7 +181,7 @@ export type ReportMenuSubject = 'card' | 'blank'
 /** 右键菜单的缺省排列。 */
 export const REPORT_MENU_LAYOUT: Readonly<Record<ReportMenuSubject, readonly (readonly string[])[]>> = {
   card: [['cut', 'copy', 'paste', 'duplicate'], ['delete']],
-  blank: [['paste'], ['select-all']],
+  blank: [['paste'], ['select-all'], ['zoom-to-fit']],
 }
 
 const DESIGNER_SPACES: ExtensionKeySpaces<ReportDesignerExtension> = {

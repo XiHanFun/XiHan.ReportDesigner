@@ -65,6 +65,12 @@
 | `scrollToCard(id: string): void` | 滚动到卡片。 |
 | `revealCard(id: string): void` | 卡片不在画布的可见区时才滚动到它。 |
 | `revealItem(ref: ReportItemRef): void` | 选中列表项所在的卡片并让它可见。 |
+| `getViewport(): Viewport` | 视口：屏幕坐标（画布可见区的左上角为原点）= 画布坐标 × zoom + (x, y)；画布坐标是实际尺寸下画布里的像素，zoom 为 1 时是实际尺寸。画布还没有布局时 x、y 为 0。 |
+| `setViewport(viewport: Viewport): void` | 设置视口：缩放夹进 10%–400%，平移落在画布能滚到的范围里；此后尺寸变化不再自动适配。 |
+| `zoomToFit(): void` | 缩放到整块内容的高度落进可见区，宽度总是铺满可见区，不放大到实际尺寸以上；此后画布或内容的尺寸变了就重新适配，直到改了缩放、设置视口或在画布上按下指针。 |
+| `zoomIn(): void` | 以可见区中心放大一档。 |
+| `zoomOut(): void` | 以可见区中心缩小一档。 |
+| `zoomToActual(): void` | 以可见区中心缩放到实际尺寸。 |
 | `openSettings(section?: string): void` | 打开设置对话框，给了分区 id 就显示那一页：基础是 general，扩展的是它登记的分区 id。 |
 
 ### 事件
@@ -85,6 +91,7 @@
 | `panels-change` | `{ panels: string }` | 点了面板头的关闭钮，设计器已收起这块面板：panels 是收起之后要显示的面板（空格分隔），设计器的 panels 已换成它。 |
 | `settings-change` | `{ key: string, value: JsonValue \| undefined, settings: DesignerSettings }` | 在设置对话框里改了一条设置：设计器已换成新的 settings 并生效（主题、主题色与扩展读的值）；value 为 undefined 表示删掉这个键、回到缺省值。宿主存起来，下次赋回 settings。 |
 | `settings-storage-error` | `VisualEnvironmentStorageError` | 读写 settingsStorageKey 指的本机存储失败（内容不是对象、无痕窗口、配额满）；设置留在内存里。 |
+| `viewport-change` | `{ viewport: Viewport }` | 视口变了：缩放、适合窗口、setViewport 与滚动画布都会派发。 |
 
 ## 函数
 

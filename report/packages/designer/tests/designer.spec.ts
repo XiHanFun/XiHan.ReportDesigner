@@ -6,11 +6,13 @@
 
 import type { DashboardView, DatasetRequest, ReportDocument } from '@xihan-report/core'
 import type { XhReportViewer } from '@xihan-report/runtime'
+import type { DesignerPaletteDragPayload } from '@xihan-ui/designer-shell'
 import type { XhSortableElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import type { XhReportDesigner } from '../src'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS } from '@xihan-report/runtime'
 import { reportZhCN } from '@xihan-report/runtime/locale'
 import { formatJsonPath } from '@xihan-ui/core/json'
+import { startDrag } from '@xihan-ui/designer-shell'
 import { setXhConfig } from '@xihan-ui/web-components'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineReportDesigner, REPORT_DESIGNER_HELP_URL } from '../src'
@@ -84,6 +86,7 @@ beforeEach(() => {
 afterEach(() => {
   document.body.replaceChildren()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 function events(element: HTMLElement, name: string): unknown[] {
@@ -125,13 +128,16 @@ function stub(element: Element, { x, y, width, height }: Box): void {
   element.getBoundingClientRect = () => ({ x, y, left: x, top: y, width, height, right: x + width, bottom: y + height, toJSON: () => ({}) })
 }
 
-/** 画布原点在 (0, 0)，网格宽 1200、无间隙：一列 100、一行 40；卡片按定义的格坐标摆好。 */
-function placeGrid(designer: XhReportDesigner): void {
-  stub(designer.querySelector('[data-part="surface"]')!, { x: 0, y: 0, width: 1200, height: 800 })
-  stub(designer.querySelector('[data-part="dashboard"]')!, { x: 0, y: 0, width: 1200, height: 800 })
+/**
+ * 画布原点在 (0, 0)，网格宽 1200、无间隙：实际尺寸下一列 100、一行 40；卡片按定义的格坐标摆好。
+ * zoom 是画布的缩放倍数：屏幕上的位置与大小都乘以它。
+ */
+function placeGrid(designer: XhReportDesigner, zoom = 1): void {
+  stub(designer.querySelector('[data-part="surface"]')!, { x: 0, y: 0, width: 1200 * zoom, height: 800 * zoom })
+  stub(designer.querySelector('[data-part="dashboard"]')!, { x: 0, y: 0, width: 1200 * zoom, height: 800 * zoom })
   for (const item of cards(designer)) {
     const { x, y, w, h } = item.layout
-    stub(card(designer, item.id), { x: x * 100, y: y * 40, width: w * 100, height: h * 40 })
+    stub(card(designer, item.id), { x: x * 100 * zoom, y: y * 40 * zoom, width: w * 100 * zoom, height: h * 40 * zoom })
   }
 }
 
@@ -679,7 +685,7 @@ describe('<xh-report-designer>：编辑', () => {
   it('工具栏：按钮随选择与历史启用，点按钮执行命令，设计与预览两个按钮切换模式；只读时编辑类命令不可用', async () => {
     const designer = await mount()
     const button = (command: string): HTMLButtonElement => designer.querySelector(`[data-region="toolbar"] button[value="${command}"]`)!
-    expect([...designer.querySelectorAll('[data-region="toolbar"] button[value]')].map(item => item.textContent)).toEqual(['Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Duplicate', 'Delete', 'Design', 'Preview', 'Panels', 'Settings', 'Help'])
+    expect([...designer.querySelectorAll('[data-region="toolbar"] button[value]')].map(item => item.textContent)).toEqual(['Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Duplicate', 'Delete', 'Zoom out', 'Zoom in', 'Zoom to fit', 'Actual size', 'Design', 'Preview', 'Panels', 'Settings', 'Help'])
     expect([button('undo').disabled, button('delete').disabled]).toEqual([true, true])
     designer.select({ cards: ['a'] })
     await designer.updateComplete
@@ -780,7 +786,7 @@ describe('<xh-report-designer>：编辑', () => {
       setXhConfig(reportZhCN)
       designer.requestUpdate()
       await designer.updateComplete
-      expect(buttons().map(item => item.getAttribute('aria-label'))).toEqual(['撤销', '重做', '剪切', '复制', '粘贴', '创建副本', '删除', '设计', '预览', '面板', '设置', '帮助'])
+      expect(buttons().map(item => item.getAttribute('aria-label'))).toEqual(['撤销', '重做', '剪切', '复制', '粘贴', '创建副本', '删除', '缩小', '放大', '适合窗口', '实际大小', '设计', '预览', '面板', '设置', '帮助'])
       expect(designer.querySelector('[data-region="toolbar"] [aria-label="设计器操作"]')).not.toBeNull()
       expect(designer.querySelector('xh-designer-frame')!.regions?.find(region => region.name === 'toolbar')?.label).toBe('设计器操作')
     }
@@ -793,7 +799,7 @@ describe('<xh-report-designer>：编辑', () => {
     const designer = await mount()
     const content = designer.querySelector('xh-context-menu [data-xh-part="positioner"] > [data-xh-part="content"]')!
     const entries = (): [string | null, boolean][] => [...content.querySelectorAll('[data-xh-part="item"]')].map(item => [item.getAttribute('value'), item.getAttribute('aria-disabled') === 'true'])
-    expect(entries()).toEqual([['paste', true], ['select-all', false]])
+    expect(entries()).toEqual([['paste', true], ['select-all', false], ['zoom-to-fit', false]])
     card(designer, 'a').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
     expect(designer.getSelection()).toEqual({ cards: ['a'] })
     expect(entries()).toEqual([['cut', false], ['copy', false], ['paste', true], ['duplicate', false], ['delete', false]])
@@ -803,10 +809,10 @@ describe('<xh-report-designer>：编辑', () => {
     designer.querySelector('xh-context-menu')!.dispatchEvent(new CustomEvent('select', { detail: { value: 'delete' } }))
     expect(cards(designer).map(item => item.id)).toEqual(['pie', 'b'])
     designer.querySelector('[data-part="surface"]')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
-    expect(entries()).toEqual([['paste', true], ['select-all', false]])
+    expect(entries()).toEqual([['paste', true], ['select-all', false], ['zoom-to-fit', false]])
     designer.addEventListener('card-contextmenu', event => event.preventDefault())
     card(designer, 'b').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
-    expect(entries()).toEqual([['paste', true], ['select-all', false]])
+    expect(entries()).toEqual([['paste', true], ['select-all', false], ['zoom-to-fit', false]])
   })
 
   it('字段栏的联动一段：新增以选中卡片为源的联动并选中它，属性面板编辑源维度与目标，点叉删除', async () => {
@@ -881,5 +887,184 @@ describe('<xh-report-designer>：编辑', () => {
     card(designer, 'a').dispatchEvent(menu)
     expect(menu.defaultPrevented).toBe(true)
     expect(designer.getSelection()).toEqual({ cards: ['a'] })
+  })
+})
+
+describe('<xh-report-designer>：缩放', () => {
+  function toolbarButton(designer: XhReportDesigner, command: string): HTMLButtonElement {
+    return designer.querySelector(`[data-region="toolbar"] button[value="${command}"]`)!
+  }
+
+  function zoom(designer: XhReportDesigner): number {
+    return designer.getViewport().zoom
+  }
+
+  /** 可见区 800 × 600 在 (0, 0)；surface 的屏幕位置随滚动走。 */
+  function placeViewport(designer: XhReportDesigner): HTMLElement {
+    const scroller = designer.querySelector<HTMLElement>('[data-part="scroller"]')!
+    stub(designer.querySelector('xh-designer-transform')!, { x: 0, y: 0, width: 800, height: 600 })
+    designer.querySelector('[data-part="surface"]')!.getBoundingClientRect = () => {
+      const x = -scroller.scrollLeft
+      const y = -scroller.scrollTop
+      return { x, y, left: x, top: y, width: 800, height: 600, right: x + 800, bottom: y + 600, toJSON: () => ({}) }
+    }
+    return scroller
+  }
+
+  it('工具栏的缩放一组：放大、缩小按 1.2 倍一档，实际大小回到 1，夹在 10%–400%；倍数落到 surface 上，派发 viewport-change，不进报表；预览态不可用', async () => {
+    const designer = await mount()
+    const viewports = events(designer, 'viewport-change') as { viewport: { zoom: number } }[]
+    const schemaChanges = events(designer, 'schema-change')
+    const groups = Array.from(designer.querySelectorAll('[data-part="command-bar"] [data-xh-part="group"]'), group => Array.from(group.querySelectorAll('button'), button => button.value))
+    expect(groups).toContainEqual(['zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual'])
+    expect(['zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual'].map(command => toolbarButton(designer, command).hasAttribute('data-icon'))).toEqual([true, true, true, true])
+    toolbarButton(designer, 'zoom-in').click()
+    expect(zoom(designer)).toBe(1.2)
+    expect(designer.style.getPropertyValue('--xh-report-designer-zoom')).toBe('1.2')
+    toolbarButton(designer, 'zoom-out').click()
+    toolbarButton(designer, 'zoom-out').click()
+    expect(zoom(designer)).toBeCloseTo(1 / 1.2)
+    toolbarButton(designer, 'zoom-to-actual').click()
+    expect(zoom(designer)).toBe(1)
+    for (let index = 0; index < 30; index++)
+      designer.zoomOut()
+    expect(zoom(designer)).toBe(0.1)
+    for (let index = 0; index < 30; index++)
+      designer.zoomIn()
+    expect(zoom(designer)).toBe(4)
+    expect(viewports.at(-1)!.viewport.zoom).toBe(4)
+    expect([schemaChanges, designer.dirty, designer.canUndo]).toEqual([[], false, false])
+    expect(designer.schema).toEqual(board)
+    designer.mode = 'preview'
+    await designer.updateComplete
+    expect(['zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual'].map(command => toolbarButton(designer, command).disabled)).toEqual([true, true, true, true])
+  })
+
+  it('放大、缩小以可见区中心为锚：中心对着的画布点缩放前后都在中心', async () => {
+    const designer = await mount()
+    const scroller = placeViewport(designer)
+    designer.zoomIn()
+    expect(scroller.scrollTop).toBeCloseTo(60)
+    const { y, zoom: scale } = designer.getViewport()
+    expect(300 * scale + y).toBeCloseTo(300)
+    designer.zoomToActual()
+    expect(zoom(designer)).toBe(1)
+    expect(scroller.scrollTop).toBeCloseTo(0)
+  })
+
+  it('快捷键：+ 与 = 放大，- 缩小；Ctrl / ⌘ 加滚轮以指针为中心缩放，不带修饰键的滚轮照常滚动画布', async () => {
+    const designer = await mount()
+    const scroller = placeViewport(designer)
+    key(designer, '+')
+    expect(zoom(designer)).toBe(1.2)
+    key(designer, '=')
+    key(designer, '+', { shiftKey: true })
+    expect(zoom(designer)).toBeCloseTo(1.728)
+    key(designer, '-')
+    key(designer, '-')
+    key(designer, '-')
+    expect(zoom(designer)).toBeCloseTo(1)
+    designer.zoomToActual()
+    const canvas = designer.querySelector('[data-part="canvas"]')!
+    const plain = new WheelEvent('wheel', { deltaY: 100, clientX: 200, clientY: 100, bubbles: true, cancelable: true })
+    canvas.dispatchEvent(plain)
+    expect([plain.defaultPrevented, zoom(designer)]).toEqual([false, 1])
+    const pinch = new WheelEvent('wheel', { deltaY: -100, ctrlKey: true, clientX: 200, clientY: 100, bubbles: true, cancelable: true })
+    canvas.dispatchEvent(pinch)
+    expect(pinch.defaultPrevented).toBe(true)
+    expect(zoom(designer)).toBeCloseTo(Math.exp(0.2))
+    const viewport = designer.getViewport()
+    expect(100 * viewport.zoom + viewport.y).toBeCloseTo(100)
+    expect(scroller.scrollTop).toBeCloseTo(100 * (Math.exp(0.2) - 1))
+  })
+
+  it('适合窗口：内容的高度落进可见区、不放大到实际尺寸以上，滚回左上角；此后尺寸变了重新适配，直到改了缩放或在画布上按下指针', async () => {
+    const observers: (() => void)[] = []
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: () => void) {
+        observers.push(callback)
+      }
+
+      observe(): void {}
+      disconnect(): void {}
+    })
+    const designer = await mount()
+    const scroller = designer.querySelector<HTMLElement>('[data-part="scroller"]')!
+    const content = designer.querySelector<HTMLElement>('[data-part="surface"] > [data-part="content"]')!
+    let height = 1000
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, get: () => 500 })
+    Object.defineProperty(content, 'offsetHeight', { configurable: true, get: () => height })
+    const resized = (): void => observers.forEach(callback => callback())
+    scroller.scrollTop = 120
+    toolbarButton(designer, 'zoom-to-fit').click()
+    expect([zoom(designer), scroller.scrollTop]).toEqual([0.5, 0])
+    height = 2000
+    resized()
+    expect(zoom(designer)).toBe(0.25)
+    height = 300
+    resized()
+    expect(zoom(designer)).toBe(1)
+    designer.zoomIn()
+    height = 1000
+    resized()
+    expect(zoom(designer)).toBe(1.2)
+    key(designer, '0')
+    expect(zoom(designer)).toBe(0.5)
+    press(card(designer, 'a'))
+    height = 2000
+    resized()
+    expect(zoom(designer)).toBe(0.5)
+  })
+
+  it('缩放之后覆盖层的移动、改大小手势照样换成格坐标：屏幕上量出的网格除以缩放倍数', async () => {
+    const designer = await mount()
+    designer.setViewport({ x: 0, y: 0, zoom: 0.5 })
+    placeGrid(designer, 0.5)
+    transform(designer, 'start', 'move', 'a', { x: 400, y: 0, width: 400, height: 80 })
+    transform(designer, 'move', 'move', 'a', { x: 10, y: 170, width: 400, height: 80 })
+    transform(designer, 'end', 'move', 'a', { x: 10, y: 170, width: 400, height: 80 })
+    expect(cards(designer).find(item => item.id === 'a')!.layout).toEqual({ x: 0, y: 4, w: 4, h: 2 })
+    transform(designer, 'start', 'resize', 'b', { x: 800, y: 0, width: 400, height: 80 })
+    transform(designer, 'move', 'resize', 'b', { x: 700, y: 0, width: 650, height: 160 })
+    transform(designer, 'end', 'resize', 'b', { x: 700, y: 0, width: 650, height: 160 })
+    expect(cards(designer).find(item => item.id === 'b')!.layout).toEqual({ x: 7, y: 0, w: 5, h: 4 })
+  })
+
+  it('缩放之后覆盖层的视口带上倍数，选中框、悬停框与框选都按实际尺寸下的画布像素', async () => {
+    const designer = await mount()
+    designer.setViewport({ x: 0, y: 0, zoom: 0.5 })
+    placeGrid(designer, 0.5)
+    designer.select({ cards: ['a'] })
+    await designer.updateComplete
+    const overlay = designer.querySelector('xh-designer-transform')!
+    expect(overlay.viewport).toEqual({ x: 0, y: 0, zoom: 0.5 })
+    expect(overlay.items).toEqual([{ id: 'a', rect: { x: 400, y: 0, width: 400, height: 80 }, minSize: { width: 100, height: 40 } }])
+    card(designer, 'b').dispatchEvent(new MouseEvent('pointermove', { bubbles: true }))
+    expect(overlay.hover).toEqual({ x: 800, y: 0, width: 400, height: 80 })
+    overlay.dispatchEvent(new CustomEvent('marquee', { detail: { phase: 'end', rect: { x: 350, y: -10, width: 900, height: 120 }, mode: 'contain', additive: false } }))
+    expect(designer.getSelection()).toEqual({ cards: ['a', 'b'] })
+  })
+
+  it('缩放之后从物料面板拖进来的卡片以指针对着的画布点为中心落格，落点预览是实际尺寸下的画布像素', async () => {
+    const designer = await mount()
+    designer.setViewport({ x: 0, y: 0, zoom: 0.5 })
+    placeGrid(designer, 0.5)
+    const scroller = designer.querySelector<HTMLElement>('[data-part="scroller"]')!
+    stub(scroller, { x: 0, y: 0, width: 600, height: 400 })
+    document.elementFromPoint = () => scroller
+    const source = document.createElement('button')
+    document.body.append(source)
+    source.addEventListener('pointerdown', event => startDrag(event, { payload: { source: 'palette', id: 'metric', payload: 'metric' } satisfies DesignerPaletteDragPayload }))
+    const pointer = (target: EventTarget, type: string, x: number, y: number): void => {
+      target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, button: 0, pointerId: 1, isPrimary: true, pointerType: 'mouse', clientX: x, clientY: y }))
+    }
+    pointer(source, 'pointerdown', 10, 10)
+    pointer(document, 'pointermove', 475, 70)
+    const preview = designer.querySelector<HTMLElement>('[data-part="drop-preview"]')!
+    expect(preview.hidden).toBe(false)
+    expect([preview.style.insetInlineStart, preview.style.insetBlockStart, preview.style.inlineSize, preview.style.blockSize]).toEqual(['800px', '80px', '300px', '120px'])
+    pointer(document, 'pointerup', 475, 70)
+    expect(cards(designer).at(-1)).toMatchObject({ id: 'metric1', layout: { x: 8, y: 2, w: 3, h: 3 } })
+    expect(preview.hidden).toBe(true)
   })
 })

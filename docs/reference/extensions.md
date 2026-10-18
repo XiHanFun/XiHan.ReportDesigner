@@ -365,12 +365,12 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 
 | 属性 | 类型 | 说明 |
 | --- | --- | --- |
-| `icon?` | `IconRecord` | 按钮与菜单项上的图标，图标集见 @xihan-ui/icons；工具栏按图标显示时，没有图标的命令退回显示文字。 |
+| `icon?` | `IconRecord` | 按钮与菜单项上的图标，图标集见 @xihan-ui/icons；工具栏按图标显示时，没有图标的命令退回显示短文字。 |
 | `id` | `string` | 全局唯一；扩展的命令用扩展 id 加点加名字，如 @xihan-flow-pro/simulation.run。 |
 | `label` | `string \| ((context: ReportDesignerContext) => string)` | 按钮与菜单项上的文字；给函数时每次刷新现取，随语言变。 |
 | `placement?` | `readonly DesignerCommandPlacement[]` | 缺省排列里出现在哪些位置；不给即只经快捷键或 commandLayout 出现。 |
 | `shortcut?` | `readonly string[]` | 快捷键，写法同 xh-kbd 的 keys：['Mod', 'Shift', 'P']，Mod 在 macOS 上是 ⌘，其余平台是 Ctrl。 |
-| `shortLabel?` | `string \| ((context: ReportDesignerContext) => string)` | 顶栏按钮图标下的短文字；不给用 label。名字（读屏与提示）仍取 label。 |
+| `shortLabel?` | `string \| ((context: ReportDesignerContext) => string)` | 按钮上看得见的短文字：顶栏按钮图标下的那一行，工具栏只显示图标时没有图标的按钮上也写它；不给用 label。名字（读屏与提示）仍取 label，所以短文字要出现在 label 里（不分大小写），开发期不在时报一条告警。 |
 | `tone?` | `Tone` | 语气：按钮与菜单项按这族色显示，破坏性命令写 danger。不给即不带语气。 |
 
 | 方法 | 说明 |
@@ -441,6 +441,7 @@ type ReportCardTemplate = ReportAddCardInit & { readonly id?: never }
 const REPORT_TOOLBAR_LAYOUT = [
   ['undo', 'redo'],
   ['cut', 'copy', 'paste', 'duplicate', 'delete'],
+  ['zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual'],
   ['design', 'preview'],
   ['panels', 'settings', 'help'],
 ]
@@ -453,7 +454,7 @@ const REPORT_TOOLBAR_LAYOUT = [
 ```ts
 const REPORT_MENU_LAYOUT = {
   card: [['cut', 'copy', 'paste', 'duplicate'], ['delete']],
-  blank: [['paste'], ['select-all']],
+  blank: [['paste'], ['select-all'], ['zoom-to-fit']],
 }
 ```
 

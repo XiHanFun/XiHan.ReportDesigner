@@ -28,7 +28,7 @@ import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS, DEFAULT_REPORT_VIEWER_TRANSLATION
 import { createRenderContext } from '@xihan-report/runtime/design'
 import { getLocalTimeZone } from '@xihan-ui/core/date'
 import { detectKbdPlatform } from '@xihan-ui/core/hotkey'
-import { commandForShortcut, createExtensionHost, createIdAllocator, selectInMarquee } from '@xihan-ui/designer-kit'
+import { clampZoom, commandForShortcut, createExtensionHost, createIdAllocator, DEFAULT_ZOOM_LIMITS, selectInMarquee, wheelZoomFactor, zoomBy, zoomTo } from '@xihan-ui/designer-kit'
 import {
   arrangeCommands,
   createCommandToolbar,
@@ -111,7 +111,18 @@ export interface ReportDesignerEventMap {
   'settings-change': CustomEvent<{ key: string, value: JsonValue | undefined, settings: DesignerSettings }>
   /** 读写 settingsStorageKey 指的本机存储失败（内容不是对象、无痕窗口、配额满）；设置留在内存里。 */
   'settings-storage-error': CustomEvent<VisualEnvironmentStorageError>
+  /** 视口变了：缩放、适合窗口、setViewport 与滚动画布都会派发。 */
+  'viewport-change': CustomEvent<{ viewport: Viewport }>
 }
+
+/** 放大、缩小一档的倍数。 */
+const ZOOM_STEP = 1.2
+
+/** 缩放的上下限：10%–400%。 */
+const ZOOM_LIMITS = DEFAULT_ZOOM_LIMITS
+
+/** 缩放倍数差不到这么多时当作没变。 */
+const ZOOM_EPSILON = 1e-3
 
 /**
  * 外框的命名区：照外框的缺省区表，左侧在物料上面叠数据集与报表参数，右侧在属性上面叠字段栏。
@@ -141,6 +152,8 @@ interface Layers {
   readonly menuTrigger: HTMLElement
   readonly canvas: HTMLElement
   readonly scroller: HTMLElement
+  /** 包着 surface、取 surface 缩放之后的大小，滚动范围随它走。 */
+  readonly sizer: HTMLElement
   readonly surface: HTMLElement
   readonly content: HTMLElement
   readonly overlay: XhDesignerTransformElement
@@ -270,6 +283,10 @@ export class XhReportDesigner extends XhReactiveElement {
   #gesture: CardGesture | undefined
   #hoverId: string | undefined
   #viewport: Viewport | undefined
+  /** 画布的缩放倍数，1 为实际尺寸；是视图状态，不进报表。 */
+  #zoom = 1
+  /** 适合窗口之后画布或内容的尺寸变了就重新适配，直到改了缩放、设置视口或在画布上按下指针。 */
+  #autoFit = false
   #lastMode: ReportDesignerMode = 'design'
   #dialogs: DialogService | undefined
   #viewer: XhReportViewer | undefined
@@ -476,6 +493,44 @@ export class XhReportDesigner extends XhReactiveElement {
       this.revealCard(ref.card)
   }
 
+  /**
+   * 视口：屏幕坐标（画布可见区的左上角为原点）= 画布坐标 × zoom + (x, y)；画布坐标是实际尺寸下画布里的像素，
+   * zoom 为 1 时是实际尺寸。画布还没有布局时 x、y 为 0。
+   */
+  getViewport(): Viewport {
+    return this.#measureViewport() ?? { x: 0, y: 0, zoom: this.#zoom }
+  }
+
+  /** 设置视口：缩放夹进 10%–400%，平移落在画布能滚到的范围里；此后尺寸变化不再自动适配。 */
+  setViewport(viewport: Viewport): void {
+    this.#autoFit = false
+    this.#moveTo(viewport)
+  }
+
+  /**
+   * 缩放到整块内容的高度落进可见区，宽度总是铺满可见区，不放大到实际尺寸以上；此后画布或内容的尺寸变了就重新适配，
+   * 直到改了缩放、设置视口或在画布上按下指针。
+   */
+  zoomToFit(): void {
+    this.#autoFit = true
+    this.#fit()
+  }
+
+  /** 以可见区中心放大一档。 */
+  zoomIn(): void {
+    this.#zoomAtCenter(this.#zoom * ZOOM_STEP)
+  }
+
+  /** 以可见区中心缩小一档。 */
+  zoomOut(): void {
+    this.#zoomAtCenter(this.#zoom / ZOOM_STEP)
+  }
+
+  /** 以可见区中心缩放到实际尺寸。 */
+  zoomToActual(): void {
+    this.#zoomAtCenter(1)
+  }
+
   override connectedCallback(): void {
     super.connectedCallback()
     const doc = this.ownerDocument
@@ -672,7 +727,8 @@ export class XhReportDesigner extends XhReactiveElement {
     const empty = createAuthoredElement(doc, 'div', { 'data-part': 'empty', 'hidden': true })
     const dropPreview = createAuthoredElement(doc, 'div', { 'data-part': 'drop-preview', 'hidden': true })
     const surface = createAuthoredElement(doc, 'div', { 'data-part': 'surface' }, [content, empty, dropPreview])
-    const scroller = createAuthoredElement(doc, 'div', { 'data-part': 'scroller' }, [surface])
+    const sizer = createAuthoredElement(doc, 'div', { 'data-part': 'sizer' }, [surface])
+    const scroller = createAuthoredElement(doc, 'div', { 'data-part': 'scroller' }, [sizer])
     const overlay = createAuthoredElement(doc, 'xh-designer-transform', { 'data-part': 'overlay' }) as XhDesignerTransformElement
     overlay.addEventListener('transform', this.#onTransform)
     overlay.addEventListener('marquee', this.#onMarquee)
@@ -753,11 +809,18 @@ export class XhReportDesigner extends XhReactiveElement {
     canvas.addEventListener('pointerleave', this.#onHoverEnd)
     canvas.addEventListener('dblclick', this.#onDoubleClick)
     canvas.addEventListener('contextmenu', this.#onContextMenu)
+    canvas.addEventListener('wheel', this.#onWheel, { passive: false })
     menuTrigger.addEventListener('keydown', this.#onKeyDown)
     scroller.addEventListener('scroll', () => this.#renderSelection(), { passive: true })
     this.#resize?.disconnect()
     if (typeof ResizeObserver === 'function') {
-      this.#resize = new ResizeObserver(() => this.#renderSelection())
+      this.#resize = new ResizeObserver(() => {
+        this.#layoutZoom()
+        if (this.#autoFit)
+          this.#fit()
+        else
+          this.#renderSelection()
+      })
       this.#resize.observe(surface)
       this.#resize.observe(scroller)
     }
@@ -769,7 +832,7 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#regionsKey = ''
     this.#viewer = undefined
     this.#settingsDialogKey = ''
-    this.#layers = { frame, toolbar, commandBar, headerBar, panels, menu, menuContent, menuTrigger, canvas, scroller, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, settings }
+    this.#layers = { frame, toolbar, commandBar, headerBar, panels, menu, menuContent, menuTrigger, canvas, scroller, sizer, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, settings }
     panels.assign(this.#model.extensions, this.#context())
     this.#fillMenu('blank')
     return this.#layers
@@ -957,7 +1020,7 @@ export class XhReportDesigner extends XhReactiveElement {
     viewer.timeZone = this.timeZone
   }
 
-  /** 卡片在 surface 里的位置与大小（画布像素，即世界坐标）。 */
+  /** 卡片在 surface 里的位置与大小（实际尺寸下的画布像素，即世界坐标）：屏幕上量出的偏移与尺寸除以缩放倍数。 */
   #cardRect(id: string): Rect | undefined {
     const card = this.#content?.cardElement(id)
     const surface = this.#layers?.surface
@@ -965,7 +1028,8 @@ export class XhReportDesigner extends XhReactiveElement {
       return undefined
     const box = card.getBoundingClientRect()
     const origin = surface.getBoundingClientRect()
-    return { x: box.left - origin.left, y: box.top - origin.top, width: box.width, height: box.height }
+    const zoom = this.#zoom
+    return { x: (box.left - origin.left) / zoom, y: (box.top - origin.top) / zoom, width: box.width / zoom, height: box.height / zoom }
   }
 
   /** 看板网格的几何；不是看板或网格还没有布局时为 undefined。 */
@@ -975,23 +1039,123 @@ export class XhReportDesigner extends XhReactiveElement {
     const surface = this.#layers?.surface
     if (!dashboard || !grid || !surface)
       return undefined
-    return measureGrid(grid, surface, dashboard.grid.columns, dashboard.grid.rowHeight)
+    return measureGrid(grid, surface, dashboard.grid.columns, dashboard.grid.rowHeight, this.#zoom)
+  }
+
+  /** surface 的原点相对覆盖层（画布可见区）的屏幕偏移与缩放倍数；还没建出画布时为 undefined。 */
+  #measureViewport(): Viewport | undefined {
+    const layers = this.#layers
+    if (!layers)
+      return undefined
+    const origin = layers.surface.getBoundingClientRect()
+    const screen = layers.overlay.getBoundingClientRect()
+    return { x: origin.left - screen.left, y: origin.top - screen.top, zoom: this.#zoom }
+  }
+
+  /** 可见区的大小（覆盖层的屏幕像素）；还没布局时为 undefined。 */
+  #size(): { readonly width: number, readonly height: number } | undefined {
+    const box = this.#layers?.overlay.getBoundingClientRect()
+    return box && box.width > 0 && box.height > 0 ? { width: box.width, height: box.height } : undefined
+  }
+
+  /** 缩放倍数落到 surface 上：surface 按倍数缩放，宽除以倍数，缩放之后仍铺满可见区的宽；再按新的倍数排一次画布的高。 */
+  #applyZoom(zoom: number): void {
+    this.#zoom = zoom
+    this.style.setProperty('--xh-report-designer-zoom', String(zoom))
+    this.#layoutZoom()
+  }
+
+  /** 滚动区的内容区（去掉内边距）的高；还没布局时为 0。 */
+  #visibleHeight(): number {
+    const scroller = this.#layers?.scroller
+    if (!scroller)
+      return 0
+    const style = getComputedStyle(scroller)
+    return scroller.clientHeight - (Number.parseFloat(style.paddingTop) || 0) - (Number.parseFloat(style.paddingBottom) || 0)
   }
 
   /**
-   * 覆盖层叠在画布的可见区上，世界坐标是 surface 里的画布像素：视口的位移就是 surface 相对覆盖层的偏移，随滚动变化。
+   * 画布的高：surface 的最小高是可见区的高除以倍数，缩放之后铺满可见区；sizer 的高是 surface 缩放之后的高，
+   * 缩放前的布局盒被 sizer 裁掉，不撑大滚动范围。还没布局时都不写。
+   */
+  #layoutZoom(): void {
+    const layers = this.#layers
+    if (!layers)
+      return
+    const { sizer, surface } = layers
+    const visible = this.#visibleHeight()
+    if (!(visible > 0)) {
+      surface.style.removeProperty('min-block-size')
+      sizer.style.removeProperty('block-size')
+      return
+    }
+    surface.style.minBlockSize = `${visible / this.#zoom}px`
+    sizer.style.blockSize = `${surface.getBoundingClientRect().height}px`
+  }
+
+  /**
+   * 换到给定的视口：先落缩放倍数，再按缩放之后量出的偏移滚动画布，让 surface 的原点落在 (x, y)；
+   * 滚动越出画布能滚到的范围时停在边上。
+   */
+  #moveTo(target: Viewport): void {
+    this.#applyZoom(clampZoom(target.zoom, ZOOM_LIMITS))
+    const layers = this.#layers
+    const now = this.#measureViewport()
+    if (layers && now) {
+      layers.scroller.scrollLeft += now.x - target.x
+      layers.scroller.scrollTop += now.y - target.y
+    }
+    this.#renderSelection()
+  }
+
+  /** 以可见区中心缩放到 zoom，中心对着的画布点不动；此后尺寸变化不再自动适配。 */
+  #zoomAtCenter(zoom: number): void {
+    this.#autoFit = false
+    const size = this.#size()
+    const viewport = this.#measureViewport() ?? { x: 0, y: 0, zoom: this.#zoom }
+    this.#moveTo(zoomTo(viewport, zoom, size ? { x: size.width / 2, y: size.height / 2 } : { x: 0, y: 0 }, ZOOM_LIMITS))
+  }
+
+  /**
+   * 适合窗口：缩放倍数 = 可见区的内容高度 ÷ 实际尺寸下的内容高度，不超过 1；内容高度随宽度变化时再量几次直到稳定。
+   * 适配之后滚回左上角。
+   */
+  #fit(): void {
+    const layers = this.#layers
+    if (!layers || this.#mode() === 'preview')
+      return
+    const scroller = layers.scroller
+    const available = this.#visibleHeight()
+    if (!(available > 0))
+      return
+    for (let pass = 0; pass < 3; pass++) {
+      const height = layers.content.offsetHeight
+      const zoom = clampZoom(height > 0 ? Math.min(1, available / height) : 1, ZOOM_LIMITS)
+      if (Math.abs(zoom - this.#zoom) < ZOOM_EPSILON)
+        break
+      this.#applyZoom(zoom)
+    }
+    scroller.scrollLeft = 0
+    scroller.scrollTop = 0
+    this.#renderSelection()
+  }
+
+  /**
+   * 覆盖层叠在画布的可见区上，世界坐标是 surface 里实际尺寸下的画布像素：视口的位移是 surface 相对覆盖层的偏移，
+   * 随滚动变化，倍数是画布的缩放倍数；视口变了派发 viewport-change。
    * 选中的卡片交给覆盖层画选中框与控制柄，最小尺寸为一格；指针下没选中的卡片画悬停框。
    */
   #renderSelection(): void {
     const layers = this.#layers
-    if (!layers)
+    const viewport = this.#measureViewport()
+    if (!layers || !viewport)
       return
-    const origin = layers.surface.getBoundingClientRect()
-    const screen = layers.overlay.getBoundingClientRect()
-    const viewport: Viewport = { x: origin.left - screen.left, y: origin.top - screen.top, zoom: 1 }
-    if (this.#viewport?.x !== viewport.x || this.#viewport.y !== viewport.y) {
+    const previous = this.#viewport
+    if (previous?.x !== viewport.x || previous.y !== viewport.y || previous.zoom !== viewport.zoom) {
       this.#viewport = viewport
       layers.overlay.viewport = viewport
+      if (previous)
+        emitEvent(this, 'viewport-change', { viewport })
     }
     const selected = this.#editor?.selection.cards ?? []
     const metrics = this.#gridMetrics()
@@ -1034,6 +1198,7 @@ export class XhReportDesigner extends XhReactiveElement {
     if (event.target === scroller && (event.offsetX >= scroller.clientWidth || event.offsetY >= scroller.clientHeight))
       return
     layers.canvas.focus({ preventScroll: true })
+    this.#autoFit = false
     const id = this.#cardAt(event.target)
     const additive = event.shiftKey || event.ctrlKey || event.metaKey
     if (id === undefined) {
@@ -1111,6 +1276,18 @@ export class XhReportDesigner extends XhReactiveElement {
     const { dx, dy } = (event as CustomEvent<PanRequestDetail>).detail
     this.#layers?.scroller.scrollBy({ left: dx, top: dy })
     this.#renderSelection()
+  }
+
+  /** Ctrl / ⌘ 加滚轮以指针为中心缩放；不带修饰键时照常滚动画布。此后尺寸变化不再自动适配。 */
+  readonly #onWheel = (event: WheelEvent): void => {
+    const layers = this.#layers
+    const viewport = this.#measureViewport()
+    if (!(event.ctrlKey || event.metaKey) || !layers || !viewport)
+      return
+    event.preventDefault()
+    this.#autoFit = false
+    const box = layers.overlay.getBoundingClientRect()
+    this.#moveTo(zoomBy(viewport, wheelZoomFactor(event.deltaY, event.deltaMode), { x: event.clientX - box.left, y: event.clientY - box.top }, ZOOM_LIMITS))
   }
 
   readonly #onHover = (event: PointerEvent): void => {
@@ -1271,7 +1448,8 @@ export class XhReportDesigner extends XhReactiveElement {
     }
     const template = this.#template(item)
     const origin = layers.surface.getBoundingClientRect()
-    const cell = centeredCell({ x: point.x - origin.left, y: point.y - origin.top }, template.layout, metrics, dashboard.grid.columns)
+    const zoom = this.#zoom
+    const cell = centeredCell({ x: (point.x - origin.left) / zoom, y: (point.y - origin.top) / zoom }, template.layout, metrics, dashboard.grid.columns)
     this.#drop = { item, ...cell }
     const id = createIdAllocator(template.kind, dashboard.cards.map(card => card.id)).next()
     const added = planAddCard(dashboard, { ...template, id, layout: { ...template.layout, ...cell } }).find(operation => operation.type === 'addCard')
@@ -1398,7 +1576,7 @@ export class XhReportDesigner extends XhReactiveElement {
 
   /**
    * 画布上的按键：先找快捷键命中、此刻可用的命令；没有命令占用时，Ctrl / ⌘ + S 派发 save，Ctrl / ⌘ + Y 重做，
-   * Backspace 删除选中的对象，Escape 清空选择，方向键挪动或改大小卡片。
+   * Backspace 删除选中的对象，= 与按着 Shift 的 + 放大，Escape 清空选择，方向键挪动或改大小卡片。
    */
   readonly #onKeyDown = (event: KeyboardEvent): void => {
     const editor = this.#editor
@@ -1422,6 +1600,9 @@ export class XhReportDesigner extends XhReactiveElement {
     }
     else if (!command && event.key === 'Backspace') {
       this.deleteSelection()
+    }
+    else if (!command && (event.key === '+' || event.key === '=')) {
+      this.zoomIn()
     }
     else if (!command && event.key === 'Escape') {
       editor.clearSelection()

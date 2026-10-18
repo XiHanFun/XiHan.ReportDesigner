@@ -52,7 +52,11 @@ xh-report-designer [data-report-canvas-menu][hidden] {
   display: none;
 }
 
-/* 画布：可聚焦的外壳里是滚动区 scroller 与叠在可见区上的覆盖层；滚动区里的 surface 是世界坐标的原点 */
+/*
+ * 画布：可聚焦的外壳里是滚动区 scroller 与叠在可见区上的覆盖层；滚动区里的 surface 是世界坐标的原点。
+ * surface 按 --xh-report-designer-zoom 从左上角缩放，宽除以倍数，缩放之后仍铺满可见区的宽；最小高与外面 sizer 的高由设计器
+ * 按可见区与缩放之后的大小写上，sizer 裁掉缩放前的布局盒，滚动范围只随缩放之后的画布走。
+ */
 xh-report-designer [data-part='canvas'] {
   position: relative;
   display: flex;
@@ -77,10 +81,16 @@ xh-report-designer [data-part='scroller'] {
   padding: var(--xh-space-4);
 }
 
+xh-report-designer [data-part='sizer'] {
+  overflow: clip;
+}
+
 xh-report-designer [data-part='surface'] {
   position: relative;
-  min-block-size: 100%;
+  inline-size: calc(100% / var(--xh-report-designer-zoom, 1));
   contain: inline-size;
+  transform: scale(var(--xh-report-designer-zoom, 1));
+  transform-origin: 0 0;
 }
 
 xh-report-designer [data-part='surface'] [data-part='card'] {
