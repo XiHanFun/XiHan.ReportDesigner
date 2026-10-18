@@ -107,6 +107,11 @@ xh-report-viewer > [data-part='body'] {
   min-block-size: 0;
 }
 
+/* 卡片里的表格按卡片正文的高度限高，放不下的行在表格自己里面滚动 */
+:is(xh-report-viewer, xh-report-designer) [data-part='card-body'] > xh-table {
+  --xh-table-max-h: 100%;
+}
+
 :is(xh-report-viewer, xh-report-designer) [data-part='card-status'] {
   color: var(--xh-fg-muted);
   font-size: var(--xh-text-secondary-size);

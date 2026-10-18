@@ -98,7 +98,44 @@ export function keepTableFocus(body: HTMLElement, render: () => RenderedTable): 
   return rendered
 }
 
-/** 内置图表卡片的渲染：上一轮画的是同种图表时复用元素，只换数据，刷新与联动不重放入场动效。 */
+/** 卡片正文与盯着它（和它里面的图表根）的尺寸观察器。 */
+const chartFits = new WeakMap<HTMLElement, { readonly observer: ResizeObserver, readonly watched: WeakSet<Element> }>()
+
+/**
+ * 让卡片里的图表按卡片正文的高度画：视口的高度 = 正文高度 − 图表里视口之外的部分（标题、图例），写进 UI 图表公开的
+ * --xh-chart-height。正文或图表根的大小变了就重算（改卡片大小、换宽度、图例折行）；视口自己变高变矮不改变「之外的部分」，
+ * 算出的值不变。正文量不出高度（没有排版的环境）时不写；正文离开文档时停止观察。
+ */
+export function fitChartToCard(body: HTMLElement): void {
+  const fit = (): void => {
+    const host = body.firstElementChild as HTMLElement | null
+    const root = host?.querySelector<HTMLElement>('[data-xh-chart-part="root"]')
+    const viewport = root?.querySelector<HTMLElement>('[data-xh-chart-part="viewport"]')
+    const entry = chartFits.get(body)
+    if (entry && !body.isConnected) {
+      entry.observer.disconnect()
+      chartFits.delete(body)
+      return
+    }
+    if (!host || !root || !viewport || body.clientHeight === 0)
+      return
+    if (entry && !entry.watched.has(root)) {
+      entry.watched.add(root)
+      entry.observer.observe(root)
+    }
+    const value = `${Math.max(0, Math.floor(body.clientHeight - (root.offsetHeight - viewport.offsetHeight)))}px`
+    if (host.style.getPropertyValue('--xh-chart-height') !== value)
+      host.style.setProperty('--xh-chart-height', value)
+  }
+  if (!chartFits.has(body) && typeof ResizeObserver === 'function') {
+    const observer = new ResizeObserver(fit)
+    observer.observe(body)
+    chartFits.set(body, { observer, watched: new WeakSet() })
+  }
+  fit()
+}
+
+/** 内置图表卡片的渲染：上一轮画的是同种图表时复用元素，只换数据，刷新与联动不重放入场动效；图表按卡片正文的高度画。 */
 export function renderChartCard(body: HTMLElement, result: CardResult, ctx: RenderContext): RenderedChart {
   const card = result.card as ChartCard
   const dataset = result.dataset!
@@ -107,6 +144,7 @@ export function renderChartCard(body: HTMLElement, result: CardResult, ctx: Rend
   const rendered = renderChart(card.chart, result.value as ChartData, card.query, dataset, ctx, label, previous)
   if (rendered.element !== previous || body.childElementCount !== 1)
     body.replaceChildren(rendered.element)
+  fitChartToCard(body)
   return rendered
 }
 
