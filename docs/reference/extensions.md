@@ -370,13 +370,17 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | `label` | `string \| ((context: ReportDesignerContext) => string)` | 按钮与菜单项上的文字；给函数时每次刷新现取，随语言变。 |
 | `placement?` | `readonly DesignerCommandPlacement[]` | 缺省排列里出现在哪些位置；不给即只经快捷键或 commandLayout 出现。 |
 | `shortcut?` | `readonly string[]` | 快捷键，写法同 xh-kbd 的 keys：['Mod', 'Shift', 'P']，Mod 在 macOS 上是 ⌘，其余平台是 Ctrl。 |
+| `shortLabel?` | `string \| ((context: ReportDesignerContext) => string)` | 顶栏按钮图标下的短文字；不给用 label。名字（读屏与提示）仍取 label。 |
 | `tone?` | `Tone` | 语气：按钮与菜单项按这族色显示，破坏性命令写 danger。不给即不带语气。 |
 
 | 方法 | 说明 |
 | --- | --- |
 | `checked?(context: ReportDesignerContext): boolean` | 给了就是开关式命令，按钮与菜单项显示选中状态。 |
 | `enabled?(context: ReportDesignerContext): boolean` | 不给即总是可用。 |
-| `run(context: ReportDesignerContext): void` | 执行命令；按钮、菜单项与快捷键都只在命令此刻可用时调用它。 |
+| `menu?(context: ReportDesignerContext): readonly DesignerCommandMenuEntry[]` | 菜单命令：每次刷新时现算菜单的各项。 |
+| `panel?(context: ReportDesignerContext): DesignerCommandPanel<ReportDesignerContext>` | 弹层命令：每次打开时建出放进弹层的面板。 |
+| `run?(context: ReportDesignerContext): void` | 执行命令；按钮、菜单项与快捷键都只在命令此刻可用时调用它。弹层命令与菜单命令可以不给：工具栏上点它们是打开弹层或菜单，不调 run；给了 run，快捷键按下时调它（通常调工具栏的 open 打开同一份）。 |
+| `select?(value: string, context: ReportDesignerContext): void` | 菜单命令的条目被选中时调用，value 是条目的 value；写成命令 id 的项选中时执行那条命令，不调它。 |
 
 ### ReportDesignerContext {#reportdesignercontext}
 
