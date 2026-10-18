@@ -14,8 +14,8 @@ import type { XhReportDesigner } from './report-designer'
 import { cardTemplate, REPORT_CARD_TYPES } from '@xihan-report/core'
 import { createReportRuntimeModel } from '@xihan-report/runtime'
 import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
-import { collectSettingsSections } from '@xihan-ui/designer-shell'
-import { ClipboardIcon, CopyIcon, CopyPlusIcon, EyeIcon, PencilIcon, RedoIcon, ScissorsIcon, SquareDashedIcon, TrashIcon, UndoIcon } from '@xihan-ui/icons'
+import { collectSettingsSections, designerShellCommands } from '@xihan-ui/designer-shell'
+import { CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EyeIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TrashIcon, UndoIcon } from '@xihan-ui/icons'
 
 /** 命令、面板、物料与扩展装上时拿到的上下文。 */
 export interface ReportDesignerContext {
@@ -88,7 +88,10 @@ function isDashboard(designer: XhReportDesigner): boolean {
   return designer.schema?.body.type === 'dashboard'
 }
 
-/** 内置命令：撤销重做、剪贴板与删除、全选，以及设计与预览的切换。 */
+/** 内置命令 help 打开的帮助页：报表文档站的设计器一页。 */
+export const REPORT_DESIGNER_HELP_URL = 'https://report.docs.xihanfun.com/guide/designer'
+
+/** 内置命令：撤销重做、剪贴板、创建副本与删除、全选、设计与预览，以及 designer-shell 内置的设置与帮助，各带图标。 */
 const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
   { id: 'undo', label: shared('undo'), icon: UndoIcon, shortcut: ['Mod', 'Z'], enabled: context => designing(context) && context.designer.canUndo, run: ({ designer }) => designer.undo() },
   { id: 'redo', label: shared('redo'), icon: RedoIcon, shortcut: ['Mod', 'Shift', 'Z'], enabled: context => designing(context) && context.designer.canRedo, run: ({ designer }) => designer.redo() },
@@ -104,6 +107,12 @@ const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
   { id: 'preview', label: shared('preview'), icon: EyeIcon, checked: ({ designer }) => designer.mode === 'preview', run: (context) => {
     context.designer.mode = 'preview'
   } },
+  ...designerShellCommands<ReportDesignerContext>({
+    translations: context => context.commands,
+    openSettings: ({ designer }) => designer.openSettings(),
+    helpUrl: () => REPORT_DESIGNER_HELP_URL,
+    icons: { settings: SettingsIcon, help: CircleHelpIcon },
+  }),
 ]
 
 const BUILTIN_GROUPS = ['charts', 'metrics', 'tables'] as const
@@ -133,6 +142,7 @@ export const REPORT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['undo', 'redo'],
   ['cut', 'copy', 'paste', 'duplicate', 'delete'],
   ['design', 'preview'],
+  ['settings', 'help'],
 ]
 
 /** 右键菜单落在哪类对象上。 */

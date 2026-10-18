@@ -441,6 +441,7 @@ const REPORT_TOOLBAR_LAYOUT = [
   ['undo', 'redo'],
   ['cut', 'copy', 'paste', 'duplicate', 'delete'],
   ['design', 'preview'],
+  ['settings', 'help'],
 ]
 ```
 
