@@ -700,6 +700,12 @@ describe('<xh-report-designer>：编辑', () => {
     expect([button('delete').disabled, button('copy').disabled, button('preview').disabled]).toEqual([true, false, false])
   })
 
+  it('工具栏的容器部件叫 command-bar：设计器自己不再有 toolbar 部件，变换覆盖层的上下文工具条不会被它的样式连带命中', async () => {
+    const designer = await mount()
+    expect(designer.querySelector('[data-region="toolbar"] > [data-part="command-bar"]')).not.toBeNull()
+    expect([...designer.querySelectorAll('[data-part="toolbar"]')].filter(node => !node.closest('xh-designer-transform'))).toEqual([])
+  })
+
   it('工具栏缺省只显示图标：内置命令都带图标，名字与快捷键写在按钮上，删除按危险语气；共用命令的文案取 designer-shell 的命令文案', async () => {
     const designer = await mount()
     const buttons = (): HTMLButtonElement[] => [...designer.querySelectorAll<HTMLButtonElement>('[data-region="toolbar"] button[value]')]
