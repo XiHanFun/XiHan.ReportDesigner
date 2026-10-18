@@ -549,7 +549,7 @@ export class XhReportDesigner extends XhReactiveElement {
 
   /** 交给命令、面板、物料与扩展 setup 的上下文。 */
   #context(t: ReportDesignerTranslations = this.#translations()): ReportDesignerContext {
-    return { designer: this, translations: t, commands: this.#commandTranslations(), settings: this.#resolvedSettings }
+    return { designer: this, translations: t, commands: this.#commandTranslations(), settings: this.#resolvedSettings, frame: this.#layers?.frame }
   }
 
   /** 面板用的文案：问题的说明先问扩展，扩展不给时用设计器的文案。 */
