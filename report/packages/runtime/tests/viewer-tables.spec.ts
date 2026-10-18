@@ -50,6 +50,12 @@ function sectionRows(table: XhTableElement, section: 'body' | 'footer'): string[
   return [...table.querySelectorAll(`[data-xh-part="${section}"] > [data-xh-part="row"]`)].map(row => [...row.querySelectorAll('[data-xh-part="cell"]')].map(cell => cell.textContent ?? ''))
 }
 
+/** 某一区段里每一行的某一列的格子角色；被合并藏起的格子记 hidden。 */
+function roles(table: XhTableElement, section: 'body' | 'footer', column: string): (string | null)[] {
+  return [...table.querySelectorAll(`[data-xh-part="${section}"] > [data-xh-part="row"] > [data-xh-part="cell"][value="${column}"]`)]
+    .map(cell => (cell.hasAttribute('hidden') ? 'hidden' : cell.getAttribute('aria-hidden') === 'true' ? 'covered' : cell.getAttribute('role')))
+}
+
 function bodyRows(table: XhTableElement): string[][] {
   return sectionRows(table, 'body')
 }
@@ -81,7 +87,7 @@ describe('<xh-report-viewer>：分组报表', () => {
   it('每级分组占一列冻结在行首，组头、明细与小计依次成行，总计写进表尾', async () => {
     const table = await show(view)
     expect(table.columns).toEqual([
-      { id: 'g0', label: '区域', width: '8rem', sticky: 'start' },
+      { id: 'g0', label: '区域', width: '8rem', sticky: 'start', rowHeader: expect.any(Function) },
       { id: 'product', label: '产品', width: '8rem' },
       { id: 'amount', label: '金额', width: '8rem' },
     ])
@@ -125,6 +131,19 @@ describe('<xh-report-viewer>：分组报表', () => {
     expect(one.cellSpanOf('r0', 'g0')).toMatchObject({ colSpan: 1, rowSpan: 1 })
   })
 
+  it('分组列只在本级的组头行与小计行报行表头，明细行里空着的分组格是普通格子；总计的标签横跨各分组列', async () => {
+    const one = await show(view)
+    expect(roles(one, 'body', 'g0')).toEqual(['rowheader', 'gridcell', 'gridcell', 'rowheader', 'rowheader', 'gridcell', 'rowheader', 'rowheader', 'gridcell', 'rowheader'])
+    expect(roles(one, 'footer', 'g0')).toEqual(['rowheader'])
+    const two = await show({ ...view, groups: [{ id: 'region', field: 'region' }, { id: 'product', field: 'product' }], columns: [{ id: 'amount', field: 'amount', summary: { aggregate: 'sum' } }] })
+    // 第一组：组头（横跨两列）、下一级组头、明细、下一级小计……、本级小计
+    expect(roles(two, 'body', 'g0').slice(0, 3)).toEqual(['rowheader', 'gridcell', 'gridcell'])
+    expect(roles(two, 'body', 'g1').slice(0, 3)).toEqual(['hidden', 'rowheader', 'gridcell'])
+    const total = two.querySelector('[data-xh-part="footer"] [data-xh-part="cell"][value="g0"]')!
+    expect([total.getAttribute('role'), total.getAttribute('aria-colspan')]).toEqual(['rowheader', '2'])
+    expect(roles(two, 'footer', 'g1')).toEqual(['hidden'])
+  })
+
   it('不列明细时最后一级每组一行，带上小计', async () => {
     const table = await show({ ...view, detail: false })
     expect(bodyRows(table)).toEqual([['East', '', '150'], ['West', '', '80'], ['(Blank)', '', '20']])
@@ -143,7 +162,7 @@ describe('<xh-report-viewer>：交叉表', () => {
   it('列维度成员与度量组成多级表头，行维度冻结在行首', async () => {
     const table = await show(view)
     const columns = table.columns!
-    expect(columns[0]).toMatchObject({ id: 'row0', label: '区域', sticky: 'start' })
+    expect(columns[0]).toMatchObject({ id: 'row0', label: '区域', sticky: 'start', rowHeader: true })
     expect(columns.slice(1).map(column => [column.label, column.children?.map(child => child.label)])).toEqual([
       ['A', ['金额', '笔数']],
       ['B', ['金额', '笔数']],
@@ -177,7 +196,7 @@ describe('<xh-report-viewer>：交叉表', () => {
     expect([none.hasAttribute('footer-rows'), none.querySelector('[data-xh-part="footer"]')]).toEqual([false, null])
   })
 
-  it('两层行维度：上层成员纵向合并，被合并掉的格子照常写标签、由表格藏起；表尾不合并，被跨过的格子留空', async () => {
+  it('两层行维度：上层成员纵向合并，被合并掉的格子照常写标签、由表格藏起；表尾的总计横跨两层行维度', async () => {
     const table = await show({ ...view, rows: [{ id: 'region', field: 'region' }, { id: 'product', field: 'product' }], columns: [], measures: [view.measures[0]!], rowTotals: { subtotals: true } })
     expect(bodyRows(table).map(row => row.slice(0, 2))).toEqual([
       ['East', 'A'],
@@ -191,6 +210,10 @@ describe('<xh-report-viewer>：交叉表', () => {
     expect(table.querySelector('[data-xh-part="row"][value="r1"] [data-xh-part="cell"][value="row0"]')!.hasAttribute('data-covered')).toBe(true)
     expect(sectionRows(table, 'footer').map(row => row.slice(0, 2))).toEqual([['Total', '']])
     expect(table.cellSpanOf('r0', 'row0')).toMatchObject({ rowSpan: 3 })
+    const total = table.querySelector('[data-xh-part="footer"] [data-xh-part="cell"][value="row0"]')!
+    expect([total.getAttribute('role'), total.getAttribute('aria-colspan')]).toEqual(['rowheader', '2'])
+    expect(roles(table, 'footer', 'row1')).toEqual(['hidden'])
+    expect(roles(table, 'body', 'row0')).toEqual(['rowheader', 'covered', 'covered', 'rowheader', 'covered', 'rowheader', 'covered'])
   })
 
   it('行数超过阈值时表体交给 xh-virtualizer，合并照旧由 cellSpan 给出', async () => {
