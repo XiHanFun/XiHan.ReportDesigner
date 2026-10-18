@@ -23,7 +23,7 @@
 | `timeZone` | `time-zone` | `string \| undefined` | IANA 时区；缺省取运行环境所在的时区。 |
 | `readonly` | `readonly` | `boolean \| undefined` | 只读：可选择、浏览与预览，不能修改；缺省可修改。attribute 写 "false" 是可修改，其余写法是只读。 |
 | `mode` | `mode` | `ReportDesignerMode \| undefined` | design 或 preview，缺省 design。 |
-| `panels` | `panels` | `string \| undefined` | 空格分隔的可收起面板：toolbar data palette wells properties issues；不写即全部显示，写空串只留画布。 |
+| `panels` | `panels` | `string \| undefined` | 空格分隔的可收起面板：toolbar datasets parameters palette wells properties issues；不写即全部显示，写空串只留画布。点了面板头的关闭钮时设计器改写它并派发 panels-change。 |
 | `datasetEditing` | `dataset-editing` | `ReportDatasetEditing \| undefined` | 缺省 fields。 |
 
 ### 存取器
@@ -75,6 +75,7 @@
 | `card-dblclick` | `{ id: string }` | 双击了一张卡片。 |
 | `card-contextmenu` | `{ id: string, x: number, y: number }` | 可取消；不取消时弹内建右键菜单。 |
 | `blank-contextmenu` | `{ x: number, y: number }` | 可取消；不取消时弹内建右键菜单。 |
+| `panels-change` | `{ panels: string }` | 点了面板头的关闭钮，设计器已收起这块面板：panels 是收起之后要显示的面板（空格分隔），设计器的 panels 已换成它。 |
 
 ## 函数
 
@@ -133,7 +134,7 @@ type ReportSchemaChangeKind = 'execute' | 'undo' | 'redo' | 'load'
 可以收起的面板，画布常驻、不在其中。
 
 ```ts
-const REPORT_DESIGNER_PANELS = ['toolbar', 'data', 'palette', 'wells', 'properties', 'issues'] as const
+const REPORT_DESIGNER_PANELS = ['toolbar', 'datasets', 'parameters', 'palette', 'wells', 'properties', 'issues'] as const
 ```
 
 ### ReportSelection {#reportselection}
@@ -210,14 +211,19 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | --- | --- | --- | --- |
 | `label` | `string` | 设计器的可及名。 | 报表设计器 |
 | `canvas` | `string` |  | 画布 |
-| `data` | `string` | 数据面板的标题与分组。 | 数据 |
-| `datasets` | `string` |  | 数据集 |
+| `datasets` | `string` | 数据集与报表参数两块卡片的标题。 | 数据集 |
 | `parameters` | `string` |  | 报表参数 |
 | `wells` | `string` | 字段栏的标题。 | 字段 |
 | `lists` | `Readonly<Record<string, string>>` | 字段栏各列表的名字：dimensions、measures、series、rows、columns（交叉表的列维度）、groups、tableColumns（明细表与分组报表的列）。 | （按键对照） |
 | `palette` | `string` | 物料面板的标题，也是外框里这个区的名字。 | 物料 |
 | `properties` | `string` | 属性面板的标题，也是外框里这个区的名字。 | 属性 |
 | `issues` | `string` | 问题列表的标题，也是外框里这个区的名字。 | 问题 |
+| `datasetsHelp` | `string` | 数据集卡片的帮助。 | 报表用到的数据集与字段。把字段拖到卡片或字段栏上；选中一个，在属性里改标题、类型与公式。 |
+| `parametersHelp` | `string` | 报表参数卡片的帮助。 | 报表参数在报表上方填写，筛选与公式里按名字引用。 |
+| `paletteHelp` | `string` | 物料卡片的帮助。 | 图表、指标与表格。拖到看板上，或点一下放到第一个空位。 |
+| `wellsHelp` | `string` | 字段栏卡片的帮助。 | 选中卡片的维度、度量、系列与列。把字段拖进来，拖动换序，点叉移除。 |
+| `propertiesHelp` | `string` | 属性卡片的帮助。 | 选中对象的属性。选中多张卡片时只列它们共有的属性。 |
+| `issuesHelp` | `string` | 问题卡片的帮助。 | 报表的校验问题。点一条选中出问题的对象。 |
 | `paletteGroups` | `Readonly<Record<string, string>>` | 物料分组：charts、metrics、tables。 | （按键对照） |
 | `cardTypes` | `Readonly<Record<string, string>>` | 物料与卡片种类：chart.&lt;图表类型&gt;、metric、table.&lt;视图类型&gt;。 | （按键对照） |
 | `objectKinds` | `Readonly<Record<string, string>>` | 属性面板标题下的对象种类。 | （按键对照） |

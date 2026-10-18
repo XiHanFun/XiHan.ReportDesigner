@@ -28,8 +28,7 @@ export interface ReportDesignerTranslations {
   /** 设计器的可及名。 */
   readonly label: string
   readonly canvas: string
-  /** 数据面板的标题与分组。 */
-  readonly data: string
+  /** 数据集与报表参数两块卡片的标题。 */
   readonly datasets: string
   readonly parameters: string
   /** 字段栏的标题。 */
@@ -42,6 +41,18 @@ export interface ReportDesignerTranslations {
   readonly properties: string
   /** 问题列表的标题，也是外框里这个区的名字。 */
   readonly issues: string
+  /** 数据集卡片的帮助。 */
+  readonly datasetsHelp: string
+  /** 报表参数卡片的帮助。 */
+  readonly parametersHelp: string
+  /** 物料卡片的帮助。 */
+  readonly paletteHelp: string
+  /** 字段栏卡片的帮助。 */
+  readonly wellsHelp: string
+  /** 属性卡片的帮助。 */
+  readonly propertiesHelp: string
+  /** 问题卡片的帮助。 */
+  readonly issuesHelp: string
   /** 物料分组：charts、metrics、tables。 */
   readonly paletteGroups: Readonly<Record<string, string>>
   /** 物料与卡片种类：chart.<图表类型>、metric、table.<视图类型>。 */
@@ -526,7 +537,6 @@ const ISSUE_TEXTS: ReportDesignerLocale['issueTexts'] = {
 export const REPORT_DESIGNER_EN_US: ReportDesignerLocale = {
   label: 'Report designer',
   canvas: 'Canvas',
-  data: 'Data',
   datasets: 'Datasets',
   parameters: 'Parameters',
   wells: 'Fields',
@@ -534,6 +544,12 @@ export const REPORT_DESIGNER_EN_US: ReportDesignerLocale = {
   palette: 'Elements',
   properties: 'Properties',
   issues: 'Problems',
+  datasetsHelp: 'The datasets and fields this report uses. Drag a field onto a card or a field list; select one to edit its title, type and formula in Properties.',
+  parametersHelp: 'Report parameters are filled in above the report and referenced by name in filters and formulas.',
+  paletteHelp: 'Charts, metrics and tables. Drag one onto the dashboard, or click it to place it in the first free spot.',
+  wellsHelp: 'Dimensions, measures, series and columns of the selected card. Drag fields in, drag to reorder, and use the cross to remove.',
+  propertiesHelp: 'Properties of the selected object. With several cards selected, only the properties they share are listed.',
+  issuesHelp: 'Validation problems in the report. Select one to select the object it is about.',
   paletteGroups: PALETTE_GROUPS,
   cardTypes: CARD_TYPES,
   objectKinds: OBJECT_KINDS,

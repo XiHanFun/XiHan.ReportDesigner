@@ -157,7 +157,6 @@ function range(params: Readonly<Record<string, unknown>>): string {
 const designer: ReportDesignerLocale = {
   label: '보고서 디자이너',
   canvas: '캔버스',
-  data: '데이터',
   datasets: '데이터 세트',
   parameters: '보고서 매개변수',
   wells: '필드',
@@ -173,6 +172,12 @@ const designer: ReportDesignerLocale = {
   palette: '요소',
   properties: '속성',
   issues: '문제',
+  datasetsHelp: '이 보고서에서 쓰는 데이터 세트와 필드입니다. 필드를 카드나 필드 목록으로 끌어 놓고, 선택하면 속성에서 제목, 유형, 수식을 편집할 수 있습니다.',
+  parametersHelp: '보고서 매개변수는 보고서 위에서 입력하며, 필터와 수식에서 이름으로 참조합니다.',
+  paletteHelp: '차트, 지표, 표입니다. 대시보드로 끌어 놓거나, 클릭하면 첫 번째 빈자리에 놓입니다.',
+  wellsHelp: '선택한 카드의 차원, 측정값, 계열, 열입니다. 필드를 끌어 넣고, 끌어서 순서를 바꾸고, ×로 제거합니다.',
+  propertiesHelp: '선택한 개체의 속성입니다. 카드를 여러 장 선택하면 공통 속성만 표시됩니다.',
+  issuesHelp: '보고서 검증에서 발견된 문제입니다. 클릭하면 문제가 있는 개체가 선택됩니다.',
   issueTexts: {
     'required': () => '필수 항목입니다',
     'invalid-type': p => p.expected === undefined ? '유형이 올바르지 않습니다' : `유형이 올바르지 않습니다. ${typeName(p.expected)} 유형이어야 합니다`,

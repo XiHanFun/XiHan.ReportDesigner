@@ -157,7 +157,6 @@ function range(params: Readonly<Record<string, unknown>>): string {
 const designer: ReportDesignerLocale = {
   label: 'Designer de relatórios',
   canvas: 'Tela',
-  data: 'Dados',
   datasets: 'Conjuntos de dados',
   parameters: 'Parâmetros',
   wells: 'Campos',
@@ -173,6 +172,12 @@ const designer: ReportDesignerLocale = {
   palette: 'Elementos',
   properties: 'Propriedades',
   issues: 'Problemas',
+  datasetsHelp: 'Os conjuntos de dados e campos deste relatório. Arraste um campo para um cartão ou uma lista de campos; selecione um para editar título, tipo e fórmula em Propriedades.',
+  parametersHelp: 'Os parâmetros do relatório são preenchidos acima do relatório e referenciados pelo nome em filtros e fórmulas.',
+  paletteHelp: 'Gráficos, métricas e tabelas. Arraste um para o painel ou clique para colocá-lo no primeiro espaço livre.',
+  wellsHelp: 'Dimensões, medidas, séries e colunas do cartão selecionado. Arraste campos para cá, arraste para reordenar e remova com o x.',
+  propertiesHelp: 'Propriedades do objeto selecionado. Com vários cartões selecionados, só aparecem as propriedades em comum.',
+  issuesHelp: 'Problemas de validação do relatório. Selecione um para selecionar o objeto envolvido.',
   issueTexts: {
     'required': () => 'Este valor é obrigatório',
     'invalid-type': p => p.expected === undefined ? 'Tipo incorreto' : `Tipo incorreto; deve ser do tipo ${typeName(p.expected)}`,

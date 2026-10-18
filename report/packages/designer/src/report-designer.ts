@@ -11,7 +11,7 @@
 import type { DashboardCard, DashboardView, ExpressionEngine, ParameterValues, ReportDocument, ReportOperation, ValidationIssue } from '@xihan-report/core'
 import type { ReportDataProvider, ReportDesignerTranslations, ReportFormatter, ReportViewerTranslations, XhReportViewer } from '@xihan-report/runtime'
 import type { ExecuteOptions, ExtensionHost, GridRect, HistoryChangeKind, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
-import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFrameRegion, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelHost, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
+import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFrameEventMap, DesignerFrameRegion, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelHost, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { DialogService } from '@xihan-ui/web-components/services'
 import type { DataRemoval } from './data-editing'
@@ -31,6 +31,7 @@ import {
   createPanelHost,
   defineDesignerShellElement,
   DESIGNER_COMMANDS_EN_US,
+  DESIGNER_FRAME_REGIONS,
   parseDesignerPanels,
   registerDropTarget,
   renderCommandMenu,
@@ -59,7 +60,7 @@ import { fieldList, Wells, wellsOwner, withFilledBindings } from './wells'
 export const REPORT_DESIGNER_TAG = 'xh-report-designer'
 
 /** 可以收起的面板，画布常驻、不在其中。 */
-export const REPORT_DESIGNER_PANELS = ['toolbar', 'data', 'palette', 'wells', 'properties', 'issues'] as const
+export const REPORT_DESIGNER_PANELS = ['toolbar', 'datasets', 'parameters', 'palette', 'wells', 'properties', 'issues'] as const
 
 /** 可以收起的面板之一。 */
 export type ReportDesignerPanel = (typeof REPORT_DESIGNER_PANELS)[number]
@@ -93,18 +94,22 @@ export interface ReportDesignerEventMap {
   'card-contextmenu': CustomEvent<{ id: string, x: number, y: number }>
   /** 可取消；不取消时弹内建右键菜单。 */
   'blank-contextmenu': CustomEvent<{ x: number, y: number }>
+  /** 点了面板头的关闭钮，设计器已收起这块面板：panels 是收起之后要显示的面板（空格分隔），设计器的 panels 已换成它。 */
+  'panels-change': CustomEvent<{ panels: string }>
 }
 
-/** 外框的命名区：上方是工具栏，左侧上下是数据与物料，中间是画布、下方是问题列表，右侧上下是字段栏与属性。 */
-const FRAME_REGIONS: readonly DesignerFrameRegion[] = [
-  { name: 'toolbar', position: 'top' },
-  { name: 'data', position: 'start', size: 18 },
-  { name: 'palette', position: 'start' },
-  { name: 'canvas', position: 'center' },
-  { name: 'issues', position: 'bottom', size: 28 },
-  { name: 'wells', position: 'end', size: 24 },
-  { name: 'properties', position: 'end' },
-]
+/**
+ * 外框的命名区：照外框的缺省区表，左侧在物料上面叠数据集与报表参数，右侧在属性上面叠字段栏。
+ * 同一侧的宽度取该侧第一个区的，所以挪到叠在最上面的那块上。
+ */
+const FRAME_REGIONS: readonly DesignerFrameRegion[] = DESIGNER_FRAME_REGIONS.flatMap((region): DesignerFrameRegion[] => {
+  const { size, ...rest } = region
+  if (region.name === 'palette')
+    return [{ name: 'datasets', position: 'start', ...(size === undefined ? {} : { size }) }, { name: 'parameters', position: 'start' }, rest]
+  if (region.name === 'properties')
+    return [{ name: 'wells', position: 'end', ...(size === undefined ? {} : { size }) }, rest]
+  return [region]
+})
 
 interface Layers {
   readonly frame: XhDesignerFrameElement
@@ -205,7 +210,10 @@ export class XhReportDesigner extends XhReactiveElement {
   declare readonly: boolean | undefined
   /** design 或 preview，缺省 design。 */
   declare mode: ReportDesignerMode | undefined
-  /** 空格分隔的可收起面板：toolbar data palette wells properties issues；不写即全部显示，写空串只留画布。 */
+  /**
+   * 空格分隔的可收起面板：toolbar datasets parameters palette wells properties issues；不写即全部显示，写空串只留画布。
+   * 点了面板头的关闭钮时设计器改写它并派发 panels-change。
+   */
   declare panels: string | undefined
   /** 缺省 fields。 */
   declare datasetEditing: ReportDatasetEditing | undefined
@@ -448,7 +456,6 @@ export class XhReportDesigner extends XhReactiveElement {
       this.#lastMode = mode
       emitEvent(this, 'mode-change', { mode })
     }
-    this.#syncFrame(layers.frame, t)
     layers.overlay.readonly = this.readonly === true
     this.#syncPalette(layers.palette, t)
     this.#syncData()
@@ -626,6 +633,7 @@ export class XhReportDesigner extends XhReactiveElement {
     const preview = createAuthoredElement(doc, 'div', { 'data-part': 'preview', 'hidden': true })
     const workspace = createAuthoredElement(doc, 'div', { 'data-part': 'workspace' }, [menu, preview])
     const palette = createGeneratedElement(doc, 'xh-designer-palette', { 'data-part': 'palette', 'slot': 'palette' }) as XhDesignerPaletteElement
+    palette.headless = true
     palette.addEventListener('item-activate', this.#onPaletteActivate)
     const data = new DataPanel({
       ownerDocument: doc,
@@ -666,7 +674,10 @@ export class XhReportDesigner extends XhReactiveElement {
           this.revealCard(card)
       },
     })
-    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, data.element, palette, workspace, wells.element, properties.element, issues.element]) as XhDesignerFrameElement
+    properties.element.headless = true
+    issues.element.headless = true
+    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, data.datasets, data.parameters, palette, workspace, wells.element, properties.element, issues.element]) as XhDesignerFrameElement
+    frame.addEventListener('panels-change', this.#onPanelsChange)
     this.replaceChildren(frame)
     this.#layers?.panels.dispose()
     const panels = createPanelHost<ReportDesignerContext>(frame, { regions: FRAME_REGIONS })
@@ -701,29 +712,66 @@ export class XhReportDesigner extends XhReactiveElement {
     return this.mode === 'preview' ? 'preview' : 'design'
   }
 
-  /** 交给外框的 panels：设计态原样转交，预览态只留工具栏。 */
-  #framePanels(): string | undefined {
-    if (this.#mode() === 'design')
-      return this.panels
+  /** panels 列出了这块面板（不写 panels 即全部显示）。 */
+  #shows(panel: string): boolean {
     const shown = parseDesignerPanels(this.panels)
-    return shown === undefined || shown.has('toolbar') ? 'toolbar' : ''
+    return shown === undefined || shown.has(panel)
   }
 
-  /** 外框的区：内置区的名称换成文案，供分隔条的无障碍名称使用，后面接扩展面板的区；文案与扩展都没变时不重设。 */
+  /** 报表参数那块卡片有没有东西可看可做：有参数，或者能新增参数。 */
+  #hasParameters(): boolean {
+    return (this.#editor?.document.parameters?.length ?? 0) > 0 || (!this.readonly && canEditData('parameter', this.#datasetEditing()))
+  }
+
+  /** 交给外框的 panels：设计态原样转交，没有报表参数又不能新增时收起那块卡片；预览态只留工具栏。 */
+  #framePanels(): string | undefined {
+    if (this.#mode() === 'preview')
+      return this.#shows('toolbar') ? 'toolbar' : ''
+    if (this.#hasParameters())
+      return this.panels
+    const names = this.panels === undefined ? this.#regionList.map(region => region.name) : this.panels.split(/\s+/)
+    return names.filter(name => name !== '' && name !== 'parameters').join(' ')
+  }
+
+  /**
+   * 外框的区：工具栏与画布带上本地化的区名（分隔条的无障碍名称要用）；数据集、报表参数、物料、字段栏、属性与问题画成卡片，
+   * 面板头写标题与帮助，属性卡片的副标题是当前编辑的对象。后面接扩展面板的区；内容与扩展都没变时不重设。
+   */
   #syncFrame(frame: XhDesignerFrameElement, t: ReportDesignerTranslations): void {
-    frame.panels = this.#framePanels()
-    const labels: Readonly<Record<string, string>> = { toolbar: this.#commandTranslations().toolbar, data: t.data, palette: t.palette, canvas: t.canvas, wells: t.wells, properties: t.properties, issues: t.issues }
-    const key = JSON.stringify(labels)
+    const layers = this.#layers
+    const regions: Readonly<Record<string, Partial<DesignerFrameRegion>>> = {
+      toolbar: { label: this.#commandTranslations().toolbar },
+      datasets: { title: t.datasets, help: t.datasetsHelp },
+      parameters: { title: t.parameters, help: t.parametersHelp },
+      palette: { title: t.palette, help: t.paletteHelp },
+      canvas: { label: t.canvas },
+      wells: { title: t.wells, help: t.wellsHelp },
+      properties: { title: t.properties, help: t.propertiesHelp, ...(layers?.properties.element.heading === undefined ? {} : { subtitle: layers.properties.element.heading }) },
+      issues: { title: t.issues, help: t.issuesHelp },
+    }
+    const key = JSON.stringify(regions)
     if (key !== this.#regionsKey || this.#regionsModel !== this.#model) {
       this.#regionsKey = key
       this.#regionsModel = this.#model
       this.#regionList = [
-        ...FRAME_REGIONS.map(region => ({ ...region, label: labels[region.name] ?? region.name })),
+        ...FRAME_REGIONS.map(region => ({ ...region, ...regions[region.name] })),
         ...this.#model.extensions.flatMap(extension => (extension.panels ?? []).map(panel => panel.region)),
       ]
     }
     if (frame.regions !== this.#regionList)
       frame.regions = this.#regionList
+    frame.panels = this.#framePanels()
+  }
+
+  /** 外框收起了一块面板：外框没在显示的报表参数卡片（没有参数又不能新增）照 panels 原样留着。 */
+  readonly #onPanelsChange = (event: Event): void => {
+    event.stopPropagation()
+    const names = (event as DesignerFrameEventMap['panels-change']).detail.panels.split(' ').filter(Boolean)
+    if (!this.#hasParameters() && this.#shows('parameters'))
+      names.push('parameters')
+    const panels = names.join(' ')
+    this.panels = panels
+    emitEvent(this, 'panels-change', { panels })
   }
 
   /** 设计态画画布；预览态把当前报表交给查看器，画布不取数。 */
@@ -1031,21 +1079,25 @@ export class XhReportDesigner extends XhReactiveElement {
     editor.select({ data: plan.select })
   }
 
-  /** 数据面板与字段栏随文档与选择更新。 */
+  /** 数据面板、字段栏与各面板随文档与选择更新，最后按这一轮的结果设外框的区。 */
   #syncData(): void {
-    const editor = this.#editor
-    if (!this.#layers || !editor)
+    const layers = this.#layers
+    if (!layers)
       return
     const t = this.#translations()
-    const shown = this.#panelTranslations(t)
-    this.#layers.data.update(editor.document, editor.selection.data, t)
-    const context = this.#context(t)
-    this.#layers.wells.update(editor.document, editor.selection, t, context.commands.delete)
-    this.#layers.properties.update(shown)
-    this.#layers.issues.update(editor.document, this.#issues, shown)
-    const { commands } = this.#model
-    this.#layers.commandBar.update(arrangeCommands('toolbar', commands, REPORT_TOOLBAR_LAYOUT, this.commandLayout), commands, context, context.commands.toolbar)
-    this.#layers.panels.update(context)
+    const editor = this.#editor
+    if (editor) {
+      const shown = this.#panelTranslations(t)
+      layers.data.update(editor.document, editor.selection.data, t)
+      const context = this.#context(t)
+      layers.wells.update(editor.document, editor.selection, t, context.commands.delete)
+      layers.properties.update(shown)
+      layers.issues.update(editor.document, this.#issues, shown)
+      const { commands } = this.#model
+      layers.commandBar.update(arrangeCommands('toolbar', commands, REPORT_TOOLBAR_LAYOUT, this.commandLayout), commands, context, context.commands.toolbar)
+      layers.panels.update(context)
+    }
+    this.#syncFrame(layers.frame, t)
   }
 
   /** 物料项的新卡片模板，取数用第一个数据集。 */

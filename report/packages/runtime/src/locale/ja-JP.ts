@@ -157,7 +157,6 @@ function range(params: Readonly<Record<string, unknown>>): string {
 const designer: ReportDesignerLocale = {
   label: 'レポートデザイナー',
   canvas: 'キャンバス',
-  data: 'データ',
   datasets: 'データセット',
   parameters: 'レポートパラメーター',
   wells: 'フィールド',
@@ -173,6 +172,12 @@ const designer: ReportDesignerLocale = {
   palette: '要素',
   properties: 'プロパティ',
   issues: '問題',
+  datasetsHelp: 'このレポートで使うデータセットとフィールドです。フィールドをカードやフィールド欄にドラッグし、選択するとプロパティでタイトル、型、数式を編集できます。',
+  parametersHelp: 'レポートパラメーターはレポートの上で入力し、フィルターと数式から名前で参照します。',
+  paletteHelp: 'グラフ、指標、テーブルです。ダッシュボードにドラッグするか、クリックすると最初の空き位置に置かれます。',
+  wellsHelp: '選択したカードのディメンション、メジャー、系列、列です。フィールドをドラッグして追加し、ドラッグで並べ替え、×で削除します。',
+  propertiesHelp: '選択したオブジェクトのプロパティです。複数のカードを選択すると、共通のプロパティだけが表示されます。',
+  issuesHelp: 'レポートの検証で見つかった問題です。クリックすると問題のあるオブジェクトが選択されます。',
   issueTexts: {
     'required': () => '必須です',
     'invalid-type': p => p.expected === undefined ? '型が正しくありません' : `型が正しくありません。${typeName(p.expected)}である必要があります`,

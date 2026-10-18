@@ -157,7 +157,6 @@ function range(params: Readonly<Record<string, unknown>>): string {
 const designer: ReportDesignerLocale = {
   label: 'Berichtsdesigner',
   canvas: 'Zeichenfläche',
-  data: 'Daten',
   datasets: 'Datasets',
   parameters: 'Parameter',
   wells: 'Felder',
@@ -173,6 +172,12 @@ const designer: ReportDesignerLocale = {
   palette: 'Elemente',
   properties: 'Eigenschaften',
   issues: 'Probleme',
+  datasetsHelp: 'Die Datasets und Felder dieses Berichts. Zieh ein Feld auf eine Karte oder eine Feldliste; wähle eines aus, um Titel, Typ und Formel unter Eigenschaften zu bearbeiten.',
+  parametersHelp: 'Berichtsparameter werden über dem Bericht ausgefüllt und in Filtern und Formeln über ihren Namen referenziert.',
+  paletteHelp: 'Diagramme, Metriken und Tabellen. Zieh eines auf das Dashboard oder klick darauf, um es an der ersten freien Stelle einzufügen.',
+  wellsHelp: 'Dimensionen, Kennzahlen, Datenreihen und Spalten der ausgewählten Karte. Zieh Felder hinein, zieh sie zum Umsortieren und entferne sie mit dem Kreuz.',
+  propertiesHelp: 'Eigenschaften des ausgewählten Objekts. Sind mehrere Karten ausgewählt, stehen hier nur ihre gemeinsamen Eigenschaften.',
+  issuesHelp: 'Prüfprobleme im Bericht. Wähle eines aus, um das betroffene Objekt auszuwählen.',
   issueTexts: {
     'required': () => 'Dieser Wert ist erforderlich',
     'invalid-type': p => p.expected === undefined ? 'Falscher Typ' : `Falscher Typ, erwartet: ${typeName(p.expected)}`,

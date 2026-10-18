@@ -3,8 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 数据面板：数据集与字段一棵树、报表参数一棵树，都用 <xh-tree> 画。点选的对象交给编辑模型的选择，
-// 字段按下拖动时经 designer-shell 的 startDrag 拖向字段栏与看板卡片。两棵树下各有新增按钮，树上按 Delete 删除选中的对象。
+// 数据面板：数据集与字段一棵树、报表参数一棵树，都用 <xh-tree> 画，各放进外框里的一块卡片（卡片头写标题，树不再自己写）。
+// 点选的对象交给编辑模型的选择，字段按下拖动时经 designer-shell 的 startDrag 拖向字段栏与看板卡片。
+// 两棵树下各有新增按钮，树上按 Delete 删除选中的对象。
 
 import type { ReportDocument } from '@xihan-report/core'
 import type { ReportDesignerTranslations } from '@xihan-report/runtime'
@@ -73,12 +74,14 @@ interface AddButton {
 
 interface TreeParts {
   readonly element: XhTreeElement
-  readonly label: HTMLElement
   readonly tree: HTMLElement
 }
 
 export class DataPanel {
-  readonly element: HTMLElement
+  /** 数据集卡片的正文：数据集与字段一棵树，下面是新增数据集与新增字段两颗钮；slot 为 datasets。 */
+  readonly datasets: HTMLElement
+  /** 报表参数卡片的正文：报表参数一棵树，下面是新增参数的钮；slot 为 parameters。 */
+  readonly parameters: HTMLElement
   readonly #host: DataPanelHost
   readonly #datasets: TreeParts
   readonly #parameters: TreeParts
@@ -91,12 +94,14 @@ export class DataPanel {
   constructor(host: DataPanelHost) {
     this.#host = host
     const doc = host.ownerDocument
-    this.#datasets = this.#tree(doc, 'datasets')
-    this.#parameters = this.#tree(doc, 'parameters')
+    this.#datasets = this.#tree(doc, 'dataset-tree')
+    this.#parameters = this.#tree(doc, 'parameter-tree')
     this.#buttons = { dataset: this.#button(doc, 'dataset'), field: this.#button(doc, 'field'), parameter: this.#button(doc, 'parameter') }
-    this.element = createGeneratedElement(doc, 'div', { 'data-part': 'data', 'slot': 'data' }, [
+    this.datasets = createGeneratedElement(doc, 'div', { 'data-part': 'datasets', 'slot': 'datasets' }, [
       this.#datasets.element,
       createAuthoredElement(doc, 'div', { 'data-part': 'data-actions' }, [this.#buttons.dataset.element, this.#buttons.field.element]),
+    ])
+    this.parameters = createGeneratedElement(doc, 'div', { 'data-part': 'parameters', 'slot': 'parameters' }, [
       this.#parameters.element,
       createAuthoredElement(doc, 'div', { 'data-part': 'data-actions' }, [this.#buttons.parameter.element]),
     ])
@@ -149,7 +154,6 @@ export class DataPanel {
       element.hidden = !this.#host.canAdd(kind)
       button.disabled = kind === 'field' && data?.kind !== 'dataset' && data?.kind !== 'field'
     }
-    this.#parameters.element.hidden = parameters.length === 0 && !this.#host.canAdd('parameter')
   }
 
   #button(doc: Document, kind: DataAddKind): AddButton {
@@ -159,10 +163,9 @@ export class DataPanel {
   }
 
   #tree(doc: Document, name: string): TreeParts {
-    const label = createAuthoredElement(doc, 'span', { 'data-xh-part': 'label' })
     const tree = createAuthoredElement(doc, 'div', { 'data-xh-part': 'tree' })
     const element = createAuthoredElement(doc, 'xh-tree', { 'variant': 'ghost', 'size': 'sm', 'data-part': name }, [
-      createAuthoredElement(doc, 'div', { 'data-xh-part': 'root' }, [label, tree]),
+      createAuthoredElement(doc, 'div', { 'data-xh-part': 'root' }, [tree]),
     ]) as XhTreeElement
     element.addEventListener('keydown', (event) => {
       if ((event.key === 'Delete' || event.key === 'Backspace') && !event.ctrlKey && !event.metaKey && !event.altKey) {
@@ -176,12 +179,13 @@ export class DataPanel {
       if (ref)
         this.#host.select(ref)
     })
-    return { element, label, tree }
+    return { element, tree }
   }
 
+  /** 铺一棵树；树的名字取所在卡片的标题，写在 tree 部件上。 */
   #fill(parts: TreeParts, label: string, nodes: readonly DataNode[]): void {
     const doc = this.#host.ownerDocument
-    parts.label.textContent = label
+    parts.tree.setAttribute('aria-label', label)
     const leaf = (node: DataNode): HTMLElement => createAuthoredElement(doc, 'div', { 'data-xh-part': 'item', 'value': node.value }, [
       createAuthoredElement(doc, 'span', { 'data-xh-part': 'item-text' }, [node.label]),
       createAuthoredElement(doc, 'span', { 'data-xh-part': 'item-suffix' }, [node.description ?? '']),
