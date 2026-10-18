@@ -38,10 +38,9 @@
   color: var(--xh-fg-danger);
 }
 
-/* 示例里的设计器给定高度 */
+/* 示例里的设计器：随视口取高，1440×900 下滚到视野里时状态栏也看得到；版式由设计器自己的弹性布局排，这里不改 display */
 .report-demo xh-report-designer {
-  display: block;
-  block-size: 36rem;
+  block-size: clamp(640px, calc(100vh - 160px), 860px);
   border: var(--xh-stroke-thin) solid var(--xh-border-subtle);
   border-radius: var(--xh-radius-md);
 }
