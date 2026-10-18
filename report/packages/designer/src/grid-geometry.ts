@@ -21,10 +21,11 @@ export interface GridMetrics {
 }
 
 /**
- * 量出网格：grid 是排卡片的网格元素，origin 是画布原点所在的元素，columns 与 rowHeight 取自看板定义。
+ * 量出网格：grid 是排卡片的网格元素，origin 是画布原点所在的元素，columns 与 rowHeight 取自看板定义，zoom 是画布的缩放倍数：
+ * 屏幕上量出的偏移与宽度除以它换回画布像素，计算样式里的边框、内边距与间隙本来就是画布像素。
  * 网格还没有宽度（未布局、不可见）时为 undefined。
  */
-export function measureGrid(grid: Element, origin: Element, columns: number, rowHeight: number): GridMetrics | undefined {
+export function measureGrid(grid: Element, origin: Element, columns: number, rowHeight: number, zoom = 1): GridMetrics | undefined {
   const style = getComputedStyle(grid)
   const px = (value: string): number => Number.parseFloat(value) || 0
   const box = grid.getBoundingClientRect()
@@ -34,12 +35,12 @@ export function measureGrid(grid: Element, origin: Element, columns: number, row
   const top = px(style.borderTopWidth) + px(style.paddingTop)
   const columnGap = px(style.columnGap)
   const rowGap = px(style.rowGap)
-  const width = box.width - left - right
+  const width = box.width / zoom - left - right
   if (!(width > 0) || !(columns > 0) || !(rowHeight > 0))
     return undefined
   return {
-    x: box.left - base.left + left,
-    y: box.top - base.top + top,
+    x: (box.left - base.left) / zoom + left,
+    y: (box.top - base.top) / zoom + top,
     column: (width + columnGap) / columns,
     row: rowHeight + rowGap,
     columnGap,
