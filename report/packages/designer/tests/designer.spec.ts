@@ -8,6 +8,7 @@ import type { DashboardView, DatasetRequest, ReportDocument } from '@xihan-repor
 import type { XhReportViewer } from '@xihan-report/runtime'
 import type { XhSortableElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import type { XhReportDesigner } from '../src'
+import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS } from '@xihan-report/runtime'
 import { reportZhCN } from '@xihan-report/runtime/locale'
 import { formatJsonPath } from '@xihan-ui/core/json'
 import { setXhConfig } from '@xihan-ui/web-components'
@@ -356,22 +357,29 @@ describe('<xh-report-designer>：编辑', () => {
     expect(cards(designer)).toHaveLength(before + 1)
   })
 
-  it('数据面板列出数据集与字段，点字段选中它；选择变了树随之同步；没有报表参数且不能新增时参数树收起', async () => {
+  it('数据集与报表参数各占一块卡片，树以卡片标题为名；点字段选中它，选择变了树随之同步；没有报表参数且不能新增时参数卡片收起', async () => {
     const designer = await mount()
-    const data = designer.querySelector('[data-part="data"]')!
-    expect(data.closest('[data-region="data"]')).not.toBeNull()
-    const tree = data.querySelector<XhTreeElement>('xh-tree[data-part="datasets"]')!
+    const data = designer.querySelector('[data-part="datasets"]')!
+    expect(data.closest('[data-region="datasets"]')).not.toBeNull()
+    expect(designer.querySelector('[data-part="parameters"]')!.closest('[data-region="parameters"]')).not.toBeNull()
+    const tree = data.querySelector<XhTreeElement>('xh-tree[data-part="dataset-tree"]')!
+    expect(tree.querySelector('[data-xh-part="tree"]')!.getAttribute('aria-label')).toBe('Datasets')
     expect(tree.collection).toEqual([{ value: '["dataset","sales"]', label: 'sales', children: [
       { value: '["field","sales","region"]', label: 'region' },
       { value: '["field","sales","amount"]', label: 'amount' },
     ] }])
     expect([...tree.querySelectorAll('[data-xh-part="item"] [data-xh-part="item-suffix"]')].map(item => item.textContent)).toEqual(['Text', 'Number'])
-    expect(data.querySelector<HTMLElement>('xh-tree[data-part="parameters"]')!.hidden).toBe(false)
+    const frame = designer.querySelector('xh-designer-frame')!
+    expect(frame.panels).toBeUndefined()
     tree.dispatchEvent(new CustomEvent('selection-change', { detail: { value: ['["field","sales","amount"]'] } }))
     expect(designer.getSelection()).toEqual({ cards: [], data: { kind: 'field', dataset: 'sales', name: 'amount' } })
     expect(tree.selection).toEqual(['["field","sales","amount"]'])
     designer.select({ cards: ['a'] })
     expect(tree.selection).toEqual([])
+    designer.readonly = true
+    await designer.updateComplete
+    expect(frame.panels!.split(' ')).not.toContain('parameters')
+    expect(frame.panels!.split(' ')).toContain('datasets')
   })
 
   it('数据面板的新增按钮按 datasetEditing 显示：fields 只能加参数，full 还能加数据集与字段；新增后选中它', async () => {
@@ -387,7 +395,7 @@ describe('<xh-report-designer>：编辑', () => {
     expect(['dataset', 'field', 'parameter'].map(kind => button(kind).hidden)).toEqual([false, false, false])
     button('field').querySelector('button')!.click()
     expect(designer.schema!.datasets[0]!.fields.at(-1)).toEqual({ name: 'field1', type: 'string' })
-    const tree = designer.querySelector<XhTreeElement>('[data-part="datasets"]')!
+    const tree = designer.querySelector<XhTreeElement>('[data-part="dataset-tree"]')!
     tree.expandedValue = []
     tree.dispatchEvent(new CustomEvent('expanded-value-change', { detail: { value: [] } }))
     designer.select({ data: { kind: 'field', dataset: 'sales', name: 'region' } })
@@ -623,6 +631,45 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.querySelector<HTMLElement>('[data-part="preview"]')!.hidden).toBe(true)
     expect(designer.querySelector('[data-region="palette"]')).not.toBeNull()
     expect(modes).toEqual([{ mode: 'preview' }, { mode: 'design' }])
+  })
+
+  it('数据集、报表参数、物料、字段栏、属性与问题画成卡片：面板头写标题与帮助，属性卡片的副标题是当前对象；三个零件 headless', async () => {
+    const designer = await mount()
+    const t = DEFAULT_REPORT_DESIGNER_TRANSLATIONS
+    const title = (name: string): string | null | undefined => designer.querySelector(`[data-region="${name}"] [data-part="panel-title"]`)?.textContent
+    const names = ['datasets', 'parameters', 'palette', 'wells', 'properties', 'issues']
+    expect(names.map(title)).toEqual([t.datasets, t.parameters, t.palette, t.wells, t.properties, t.issues])
+    const regions = designer.querySelector('xh-designer-frame')!.regions!
+    expect(names.map(name => regions.find(region => region.name === name)?.help)).toEqual([t.datasetsHelp, t.parametersHelp, t.paletteHelp, t.wellsHelp, t.propertiesHelp, t.issuesHelp])
+    expect(['xh-designer-palette', 'xh-designer-properties', 'xh-designer-issues'].map(tag => (designer.querySelector(tag) as HTMLElement & { headless?: boolean }).headless)).toEqual([true, true, true])
+    designer.select({ cards: ['a'] })
+    await designer.updateComplete
+    const subtitle = designer.querySelector('[data-region="properties"] [data-part="panel-subtitle"]')!.textContent
+    expect(subtitle).toBe((designer.querySelector('xh-designer-properties') as HTMLElement & { heading?: string }).heading)
+    expect(subtitle).toContain('a')
+  })
+
+  it('点卡片头的关闭钮收起那块面板：设计器改写 panels 并派发 panels-change，外框的同名事件不冒出来；收起着的报表参数卡片照原样留在 panels 里', async () => {
+    const designer = await mount()
+    const seen = events(designer, 'panels-change')
+    let fromFrame = 0
+    document.addEventListener('panels-change', (event) => {
+      if (event.target !== designer)
+        fromFrame++
+    })
+    designer.querySelector<HTMLButtonElement>('[data-region="palette"] [data-part="panel-close"]')!.click()
+    await designer.updateComplete
+    expect(designer.panels!.split(' ')).not.toContain('palette')
+    expect(designer.panels!.split(' ')).toContain('parameters')
+    expect(seen).toEqual([{ panels: designer.panels }])
+    expect(fromFrame).toBe(0)
+    designer.readonly = true
+    await designer.updateComplete
+    expect(designer.querySelector('xh-designer-frame')!.panels!.split(' ')).not.toContain('parameters')
+    designer.querySelector<HTMLButtonElement>('[data-region="issues"] [data-part="panel-close"]')!.click()
+    await designer.updateComplete
+    expect(designer.panels!.split(' ')).toEqual(expect.arrayContaining(['parameters', 'wells']))
+    expect(designer.panels!.split(' ')).not.toContain('issues')
   })
 
   it('工具栏：按钮随选择与历史启用，点按钮执行命令，设计与预览两个按钮切换模式；只读时编辑类命令不可用', async () => {

@@ -157,7 +157,6 @@ function range(params: Readonly<Record<string, unknown>>): string {
 const designer: ReportDesignerLocale = {
   label: '報表設計器',
   canvas: '畫布',
-  data: '資料',
   datasets: '資料集',
   parameters: '報表參數',
   wells: '欄位',
@@ -173,6 +172,12 @@ const designer: ReportDesignerLocale = {
   palette: '元件',
   properties: '屬性',
   issues: '問題',
+  datasetsHelp: '報表用到的資料集與欄位。把欄位拖曳到卡片或欄位列上；選取一個，在屬性裡改標題、類型與公式。',
+  parametersHelp: '報表參數在報表上方填寫，篩選與公式裡按名稱參照。',
+  paletteHelp: '圖表、指標與表格。拖曳到看板上，或點一下放到第一個空位。',
+  wellsHelp: '選取卡片的維度、量值、數列與欄。把欄位拖曳進來，拖曳調整順序，點叉移除。',
+  propertiesHelp: '選取物件的屬性。選取多張卡片時只列出它們共有的屬性。',
+  issuesHelp: '報表的驗證問題。點一條選取出問題的物件。',
   issueTexts: {
     'required': () => '必須填寫',
     'invalid-type': p => p.expected === undefined ? '類型不正確' : `類型不正確，應為${typeName(p.expected)}`,

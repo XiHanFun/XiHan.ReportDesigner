@@ -157,7 +157,6 @@ function range(params: Readonly<Record<string, unknown>>): string {
 const designer: ReportDesignerLocale = {
   label: 'Concepteur de rapports',
   canvas: 'Canevas',
-  data: 'Données',
   datasets: 'Jeux de données',
   parameters: 'Paramètres',
   wells: 'Champs',
@@ -173,6 +172,12 @@ const designer: ReportDesignerLocale = {
   palette: 'Éléments',
   properties: 'Propriétés',
   issues: 'Problèmes',
+  datasetsHelp: 'Les jeux de données et les champs de ce rapport. Faites glisser un champ sur une carte ou une liste de champs ; sélectionnez-en un pour modifier son titre, son type et sa formule dans Propriétés.',
+  parametersHelp: 'Les paramètres du rapport se remplissent au-dessus du rapport et sont référencés par leur nom dans les filtres et les formules.',
+  paletteHelp: 'Graphiques, indicateurs et tableaux. Faites-en glisser un sur le tableau de bord, ou cliquez dessus pour le placer au premier emplacement libre.',
+  wellsHelp: 'Dimensions, mesures, séries et colonnes de la carte sélectionnée. Faites glisser des champs ici, faites-les glisser pour les réordonner et retirez-les avec la croix.',
+  propertiesHelp: 'Propriétés de l’objet sélectionné. Si plusieurs cartes sont sélectionnées, seules leurs propriétés communes sont listées.',
+  issuesHelp: 'Problèmes de validation du rapport. Sélectionnez-en un pour sélectionner l’objet concerné.',
   issueTexts: {
     'required': () => 'Cette valeur est obligatoire',
     'invalid-type': p => p.expected === undefined ? 'Type incorrect' : `Type incorrect, type attendu : ${typeName(p.expected)}`,

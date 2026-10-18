@@ -157,7 +157,6 @@ function range(params: Readonly<Record<string, unknown>>): string {
 const designer: ReportDesignerLocale = {
   label: 'Diseñador de informes',
   canvas: 'Lienzo',
-  data: 'Datos',
   datasets: 'Conjuntos de datos',
   parameters: 'Parámetros',
   wells: 'Campos',
@@ -173,6 +172,12 @@ const designer: ReportDesignerLocale = {
   palette: 'Elementos',
   properties: 'Propiedades',
   issues: 'Problemas',
+  datasetsHelp: 'Los conjuntos de datos y campos de este informe. Arrastra un campo a una tarjeta o a una lista de campos; selecciona uno para editar su título, tipo y fórmula en Propiedades.',
+  parametersHelp: 'Los parámetros del informe se rellenan encima del informe y se referencian por su nombre en filtros y fórmulas.',
+  paletteHelp: 'Gráficos, métricas y tablas. Arrastra uno al panel o haz clic para colocarlo en el primer hueco libre.',
+  wellsHelp: 'Dimensiones, medidas, series y columnas de la tarjeta seleccionada. Arrastra campos aquí, arrástralos para reordenarlos y quítalos con la cruz.',
+  propertiesHelp: 'Propiedades del objeto seleccionado. Con varias tarjetas seleccionadas solo se muestran las propiedades que comparten.',
+  issuesHelp: 'Problemas de validación del informe. Selecciona uno para seleccionar el objeto afectado.',
   issueTexts: {
     'required': () => 'Este valor es obligatorio',
     'invalid-type': p => p.expected === undefined ? 'Tipo incorrecto' : `Tipo incorrecto; debe ser de tipo ${typeName(p.expected)}`,

@@ -140,8 +140,8 @@ xh-report-designer [data-part='canvas'][data-gesture='drop'] {
   cursor: copy;
 }
 
-/* 数据面板：数据集与字段一棵树、报表参数一棵树，上下排开 */
-xh-report-designer [data-part='data'] {
+/* 数据集与报表参数两块卡片的正文：一棵树，下面是新增钮 */
+xh-report-designer :is([data-part='datasets'], [data-part='parameters']) {
   display: flex;
   flex-direction: column;
   gap: var(--xh-space-3);
@@ -150,15 +150,11 @@ xh-report-designer [data-part='data'] {
   font-size: var(--xh-font-size-sm);
 }
 
-xh-report-designer [data-part='data'] [hidden] {
+xh-report-designer :is([data-part='datasets'], [data-part='parameters']) [hidden] {
   display: none;
 }
 
-xh-report-designer [data-part='data'] [data-xh-part='label'] {
-  font-weight: var(--xh-font-weight-semibold);
-}
-
-xh-report-designer [data-part='data'] [data-xh-part='item-suffix'] {
+xh-report-designer :is([data-part='datasets'], [data-part='parameters']) [data-xh-part='item-suffix'] {
   color: var(--xh-fg-muted);
 }
 
