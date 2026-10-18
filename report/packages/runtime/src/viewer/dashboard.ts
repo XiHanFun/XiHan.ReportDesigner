@@ -148,13 +148,84 @@ export function renderChartCard(body: HTMLElement, result: CardResult, ctx: Rend
   return rendered
 }
 
-/** 内置指标卡片的渲染：复用上一轮的指标与迷你图元素，只换数据。 */
+/** 指标卡片正文的尺寸观察器，与此刻写进去的字号倍数。 */
+const metricFits = new WeakMap<HTMLElement, { readonly observer: ResizeObserver, readonly watched: WeakSet<Element>, scale: number }>()
+
+/** 字号倍数取到百分之一，向下取整。 */
+function floorScale(scale: number): number {
+  return Math.floor(scale * 100) / 100
+}
+
+/**
+ * 让指标卡片的数值落进卡片的宽：前缀、数值与后缀排在同一行放不下时，按同一个倍数缩小三者的字号，写进 UI 指标公开的
+ * --xh-statistic-value-font-size 与 --xh-statistic-affix-font-size，三者总在一行、不折开；卡片再窄也按它的宽换算，不设下限。
+ * 每次绘制先回到原来的字号再量；正文或指标根的大小变了就按此刻的倍数换回原来的宽度重算。量不出宽度（没有排版的环境）时
+ * 不写；正文离开文档时停止观察。
+ */
+export function fitMetricToCard(body: HTMLElement): void {
+  const fit = (): void => {
+    const entry = metricFits.get(body)
+    if (entry && !body.isConnected) {
+      entry.observer.disconnect()
+      metricFits.delete(body)
+      return
+    }
+    const host = body.querySelector<HTMLElement>(':scope > [data-part="metric"] > xh-statistic')
+    const root = host?.querySelector<HTMLElement>(':scope > [data-xh-part="root"]')
+    const part = (name: string): HTMLElement | null => root?.querySelector<HTMLElement>(`:scope > [data-xh-part="${name}"]`) ?? null
+    const value = part('value')
+    const affixes = [part('prefix'), part('suffix')].filter(item => item !== null)
+    const available = root?.getBoundingClientRect().width ?? 0
+    if (!host || !root || !value || !(available > 0))
+      return
+    if (entry && !entry.watched.has(root)) {
+      entry.watched.add(root)
+      entry.observer.observe(root)
+    }
+    const scale = entry?.scale ?? 1
+    const pieces = [...affixes, value]
+    const gap = (Number.parseFloat(getComputedStyle(root).columnGap) || 0) * (pieces.length - 1)
+    const natural = pieces.reduce((sum, item) => sum + item.getBoundingClientRect().width, 0) / scale
+    const px = (element: Element): number => Number.parseFloat(getComputedStyle(element).fontSize) || 0
+    const next = natural > 0 ? Math.min(1, floorScale((available - gap) / natural)) : 1
+    if (!(next > 0))
+      return
+    if (entry && Math.abs(next - scale) < 0.005)
+      return
+    if (entry)
+      entry.scale = next
+    if (next >= 1) {
+      host.style.removeProperty('--xh-statistic-value-font-size')
+      host.style.removeProperty('--xh-statistic-affix-font-size')
+      return
+    }
+    host.style.setProperty('--xh-statistic-value-font-size', `${px(value) / scale * next}px`)
+    if (affixes.length > 0)
+      host.style.setProperty('--xh-statistic-affix-font-size', `${px(affixes[0]!) / scale * next}px`)
+  }
+  let entry = metricFits.get(body)
+  if (!entry && typeof ResizeObserver === 'function') {
+    const observer = new ResizeObserver(fit)
+    observer.observe(body)
+    entry = { observer, watched: new WeakSet(), scale: 1 }
+    metricFits.set(body, entry)
+  }
+  const host = body.querySelector<HTMLElement>(':scope > [data-part="metric"] > xh-statistic')
+  host?.style.removeProperty('--xh-statistic-value-font-size')
+  host?.style.removeProperty('--xh-statistic-affix-font-size')
+  if (entry)
+    entry.scale = 1
+  fit()
+}
+
+/** 内置指标卡片的渲染：复用上一轮的指标与迷你图元素，只换数据；数值按卡片的宽定字号。 */
 export function renderMetricCard(body: HTMLElement, result: CardResult, ctx: RenderContext): undefined {
   const previous = body.firstElementChild
   const metric = result.value as MetricValue
   const content = renderMetric(result.card as MetricCard, metric.result, metric.metric, result.dataset!, ctx, previous)
   if (content !== previous || body.childElementCount !== 1)
     body.replaceChildren(content)
+  fitMetricToCard(body)
   return undefined
 }
 
