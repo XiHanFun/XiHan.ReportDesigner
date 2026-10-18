@@ -3,7 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 分组报表：排成树形的 <xh-table>，每级分组占一列（行首冻结），组头、明细与组小计依次成行，组头的键横跨其后各列，总计写进表尾。
+// 分组报表：排成树形的 <xh-table>，每级分组占一列（行首冻结），组头、明细与组小计依次成行，组头的键横跨其后各列，总计写进表尾、
+// 总计的标签横跨各分组列。分组列只在本级的组头行与小计行报行表头，明细行里空着的分组格是普通格子。
 // 组头是可开合的父行，组里的明细与下一级挂在它下面，组小计与组头同级，收起后留组头与小计；表体按表格给的可见行铺。
 
 import type { DatasetSchema, GroupNode, GroupReportResult, GroupView } from '@xihan-report/core'
@@ -108,13 +109,22 @@ function visibleRows(rows: readonly GroupRow[], expanded: ReadonlySet<string>): 
 /** 把分组报表排进 container。 */
 export function renderGroupReport(container: HTMLElement, view: GroupView, dataset: DatasetSchema, result: GroupReportResult, ctx: RenderContext, label: string): RenderedTable {
   const { groups, columns } = view
-  const groupColumns: TableColumnDef[] = groups.map((group, index) => ({ id: groupColumnId(index), label: fieldLabel(dataset, group.field, group.title), width: COLUMN_WIDTH, sticky: 'start' }))
+  const rows = groupRows(view, dataset, result, ctx)
+  const byId = new Map(rows.map(row => [row.id, row]))
+  const groupColumns: TableColumnDef[] = groups.map((group, index) => ({
+    id: groupColumnId(index),
+    label: fieldLabel(dataset, group.field, group.title),
+    width: COLUMN_WIDTH,
+    sticky: 'start',
+    rowHeader: (current) => {
+      const row = byId.get(current.id)
+      return row !== undefined && row.kind !== 'detail' && row.level === index
+    },
+  }))
   const definitions = [...groupColumns, ...columns.map(column => columnDef(column, dataset))]
   const shell = tableShell(ctx, result.total === null ? 0 : 1, label)
   shell.header.append(headerRow(definitions.map(column => ({ id: column.id, label: column.label ?? '' }))))
 
-  const rows = groupRows(view, dataset, result, ctx)
-  const byId = new Map(rows.map(row => [row.id, row]))
   const parents = new Set(rows.flatMap(row => (row.parentId === undefined ? [] : [row.parentId])))
   const rowElement = (row: GroupRow): HTMLElement => tableRow(row.id, row.cells.map(cell => (cell.expand && !parents.has(row.id) ? { id: cell.id, text: cell.text } : cell)), { 'data-kind': row.kind })
   if (result.total) {
@@ -133,6 +143,7 @@ export function renderGroupReport(container: HTMLElement, view: GroupView, datas
     const row = byId.get(current.id)
     return row?.kind === 'group' && columnIndex === row.level && row.level < groups.length - 1 ? { colSpan: groups.length - row.level } : null
   }
+  shell.table.footerCellSpan = ({ columnIndex }) => (columnIndex === 0 && groups.length > 1 ? { colSpan: groups.length } : null)
   container.replaceChildren(shell.table)
   let order = rows
   const body = fillTableBody(shell, order.length, index => rowElement(order[index]!))

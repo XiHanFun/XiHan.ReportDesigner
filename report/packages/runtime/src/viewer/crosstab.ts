@@ -4,7 +4,8 @@
  */
 
 // 交叉表：排成 <xh-table>。列轴的表头树写成列定义的 children（多级表头由表格的 headerRows 逐层铺），
-// 行维度各占一列冻结在行首，相同的上层成员与小计的标签经 cellSpan 合并；行轴的总计（度量排在行轴上时每个度量一行）写进表尾。
+// 行维度各占一列冻结在行首、报行表头，相同的上层成员与小计的标签经 cellSpan 合并；行轴的总计（度量排在行轴上时每个度量一行）
+// 写进表尾，总计的标签经 footerCellSpan 横跨各层行维度。
 // 行数多时表体交给 <xh-virtualizer>，合并区按在场的行铺开。
 
 import type { CrosstabAxisNode, CrosstabLabel, CrosstabLeaf, CrosstabResult, CrosstabView, DatasetSchema } from '@xihan-report/core'
@@ -71,7 +72,7 @@ export function renderCrosstab(container: HTMLElement, view: CrosstabView, datas
   const rowLevels = axes.rows.levels
   const rowColumns: TableColumnDef[] = Array.from({ length: rowLevels }, (_, level) => {
     const dimension = view.rows[level]
-    return { id: `row${level}`, label: dimension ? fieldLabel(dataset, dimension.field, dimension.title) : '', width: COLUMN_WIDTH, sticky: 'start' }
+    return { id: `row${level}`, label: dimension ? fieldLabel(dataset, dimension.field, dimension.title) : '', width: COLUMN_WIDTH, sticky: 'start', rowHeader: true }
   })
   const valueLeaves = axes.columns.leaves
 
@@ -93,7 +94,7 @@ export function renderCrosstab(container: HTMLElement, view: CrosstabView, datas
   const totalStart = leaves.findIndex(leaf => leaf.labels[0]?.kind === 'total')
   const bodyLeaves = totalStart < 0 ? leaves : leaves.slice(0, totalStart)
   const totalLeaves = totalStart < 0 ? [] : leaves.slice(totalStart)
-  // 表体里被纵向合并掉的格子也写标签：只渲一段行时由它接替起点；表尾不合并，被跨过的格子留空
+  // 表体里被纵向合并掉的格子也写标签：只渲一段行时由它接替起点；表尾不会只渲一段，被跨过的格子留空
   const cells = (rowLeaf: CrosstabLeaf, r: number, footer: boolean): TableCellSpec[] => [
     ...rowColumns.map((column, level) => {
       const label = rowLeaf.labels[level]
@@ -113,6 +114,7 @@ export function renderCrosstab(container: HTMLElement, view: CrosstabView, datas
   shell.table.columns = [...rowColumns, ...columnTree(axes.columns.tree, dataset, ctx)]
   shell.table.rows = bodyLeaves.map((_, index) => ({ id: `r${index}` }))
   shell.table.cellSpan = ({ rowIndex, columnIndex }) => (columnIndex < rowLevels ? spans.get(`${rowIndex}:${columnIndex}`) ?? null : null)
+  shell.table.footerCellSpan = ({ level, columnIndex }) => (columnIndex < rowLevels ? spans.get(`${totalStart + level - 1}:${columnIndex}`) ?? null : null)
   container.replaceChildren(shell.table)
   fillTableBody(shell, bodyLeaves.length, (r) => {
     const rowLeaf = bodyLeaves[r]!
