@@ -5,6 +5,9 @@
 
 // 报表设计器的内建文案；类型补进 UI 的 XhTranslationOverrides。几张对照表（属性名、选项、卡片种类等）按键整份覆盖。
 
+import type { PARAMETER_ISSUE_CODES, REPORT_ISSUE_CODES, ReportPropertyGroup } from '@xihan-report/core'
+import type { CommonIssueCode } from '@xihan-ui/designer-kit/schema'
+
 /** 删除数据面板对象时一并删掉的别处的数目。 */
 export interface ReportDesignerCascade {
   readonly items: number
@@ -88,19 +91,19 @@ export interface ReportDesignerTranslations {
   readonly removeConfirm: string
 }
 
-function cascadeText(cascade: ReportDesignerCascade): string {
-  const parts = [
-    [cascade.items, 'list item', 'list items'],
-    [cascade.conditions, 'filter condition', 'filter conditions'],
-    [cascade.sorts, 'sort rule', 'sort rules'],
-    [cascade.links, 'link target', 'link targets'],
-    [cascade.bindings, 'parameter binding', 'parameter bindings'],
-  ] as const
-  const listed = parts.filter(([count]) => count > 0).map(([count, one, many]) => `${count} ${count === 1 ? one : many}`)
-  return `This also deletes ${listed.join(', ')}. You can undo it.`
+const LIST_LABELS = {
+  dimensions: 'Dimensions',
+  measures: 'Measures',
+  series: 'Series',
+  rows: 'Rows',
+  columns: 'Columns',
+  groups: 'Groups',
+  tableColumns: 'Columns',
 }
 
-const CHART_TYPES: Readonly<Record<string, string>> = {
+const PALETTE_GROUPS = { charts: 'Charts', metrics: 'Metrics', tables: 'Tables' }
+
+const CARD_TYPES = {
   'chart.cartesian': 'Bar / line chart',
   'chart.pie': 'Pie chart',
   'chart.funnel': 'Funnel chart',
@@ -112,6 +115,313 @@ const CHART_TYPES: Readonly<Record<string, string>> = {
   'table.table': 'Detail table',
   'table.group': 'Grouped report',
   'table.crosstab': 'Crosstab',
+}
+
+const OBJECT_KINDS = {
+  document: 'Report',
+  dashboard: 'Dashboard',
+  card: 'Card',
+  chart: 'Chart',
+  metric: 'Metric',
+  view: 'View',
+  dimension: 'Dimension',
+  measure: 'Measure',
+  column: 'Column',
+  group: 'Group',
+  series: 'Series',
+  field: 'Field',
+  parameter: 'Parameter',
+  link: 'Link',
+}
+
+const PROPERTY_GROUPS: Readonly<Record<ReportPropertyGroup, string>> = {
+  basic: 'General',
+  data: 'Data',
+  display: 'Display',
+  axis: 'Axes',
+  style: 'Style',
+  interaction: 'Interaction',
+  totals: 'Totals',
+  sparkline: 'Sparkline',
+}
+
+const PROPERTY_LABELS = {
+  'title': 'Title',
+  'description': 'Description',
+  'grid.columns': 'Columns',
+  'grid.rowHeight': 'Row height',
+  'dataset': 'Dataset',
+  'parameters': 'Parameter bindings',
+  'filter': 'Filter',
+  'query.filter': 'Filter',
+  'query.limit': 'Row limit',
+  'limit': 'Row limit',
+  'sort': 'Sort',
+  'detail': 'Show detail rows',
+  'grandTotal': 'Grand total',
+  'measuresOn': 'Measures on',
+  'rowTotals.subtotals': 'Row subtotals',
+  'rowTotals.grandTotal': 'Row grand total',
+  'columnTotals.subtotals': 'Column subtotals',
+  'columnTotals.grandTotal': 'Column grand total',
+  'splitBy': 'Split series by',
+  'orientation': 'Orientation',
+  'totals': 'Show totals',
+  'palette': 'Palette',
+  'renderer': 'Renderer',
+  'xAxis.title': 'X-axis title',
+  'xAxis.scale': 'X-axis scale',
+  'xAxis.format': 'X-axis format',
+  'xAxis.grid': 'X-axis grid lines',
+  'xAxis.zero': 'X-axis includes zero',
+  'xAxis.nice': 'Round X-axis range',
+  'xAxis.reverse': 'Reverse X-axis',
+  'xAxis.ticks': 'X-axis tick count',
+  'xAxis.labelOverflow': 'Long X-axis labels',
+  'yAxis.title': 'Y-axis title',
+  'yAxis.scale': 'Y-axis scale',
+  'yAxis.format': 'Y-axis format',
+  'yAxis.grid': 'Y-axis grid lines',
+  'yAxis.zero': 'Y-axis includes zero',
+  'yAxis.nice': 'Round Y-axis range',
+  'yAxis.reverse': 'Reverse Y-axis',
+  'yAxis.ticks': 'Y-axis tick count',
+  'yAxis.labelOverflow': 'Long Y-axis labels',
+  'trigger': 'Tooltip trigger',
+  'tooltipOrder': 'Tooltip order',
+  'zoom': 'Zoom',
+  'brush': 'Brush',
+  'annotations': 'Annotations',
+  'nameField': 'Name dimension',
+  'valueField': 'Value measure',
+  'variant': 'Variant',
+  'rose': 'Rose chart',
+  'sweep': 'Sweep',
+  'maxSlices': 'Maximum slices',
+  'labels': 'Labels',
+  'labelContent': 'Label content',
+  'format': 'Format',
+  'shape': 'Shape',
+  'align': 'Alignment',
+  'direction': 'Direction',
+  'conversion': 'Conversion rate',
+  'indicators': 'Indicators',
+  'area': 'Area',
+  'scale': 'Scale',
+  'curve': 'Curve',
+  'rings': 'Rings',
+  'ringLabels': 'Ring labels',
+  'sourceField': 'Source dimension',
+  'targetField': 'Target dimension',
+  'nodeAlign': 'Node alignment',
+  'linkColor': 'Link color',
+  'nodeSort': 'Node order',
+  'dateField': 'Date dimension',
+  'startDate': 'Start date',
+  'endDate': 'End date',
+  'firstDayOfWeek': 'First day of the week',
+  'rowField': 'Row dimension',
+  'columnField': 'Column dimension',
+  'levels': 'Levels',
+  'thresholds': 'Thresholds',
+  'midpoint': 'Midpoint',
+  'continuous': 'Continuous color scale',
+  'tone': 'Tone',
+  'size': 'Size',
+  'layout': 'Layout',
+  'tile': 'Tiling',
+  'depth': 'Expanded levels',
+  'colorBy': 'Color by',
+  'mark': 'Mark',
+  'name': 'Name',
+  'x': 'X',
+  'y': 'Y',
+  'color': 'Color measure',
+  'stack': 'Stack group',
+  'stackOffset': 'Stacking',
+  'symbols': 'Data points',
+  'connectNulls': 'Connect blanks',
+  'endLabel': 'End label',
+  'symbol': 'Point shape',
+  'jitter': 'Jitter',
+  'slot': 'Color slot',
+  'value': 'Value',
+  'baseline': 'Baseline',
+  'prefix': 'Prefix',
+  'suffix': 'Suffix',
+  'sparkline.x': 'Sparkline X',
+  'sparkline.y': 'Sparkline value',
+  'sparkline.variant': 'Sparkline variant',
+  'sparkline.curve': 'Sparkline curve',
+  'sparkline.markers': 'Sparkline markers',
+  'sparkline.tone': 'Sparkline tone',
+  'field': 'Field',
+  'width': 'Column width',
+  'sticky': 'Freeze',
+  'summary.aggregate': 'Summary',
+  'summary.formula': 'Summary formula',
+  'bucket': 'Date grouping',
+  'sort.by': 'Sort by',
+  'sort.direction': 'Sort direction',
+  'sort.nulls': 'Blanks',
+  'header': 'Group header',
+  'subtotal': 'Group subtotal',
+  'aggregate': 'Aggregate',
+  'formula': 'Formula',
+  'type': 'Type',
+  'required': 'Required',
+  'multiple': 'Multiple values',
+  'defaultValue': 'Default value',
+  'options': 'Options',
+  'card': 'Source card',
+  'dimension': 'Source dimension',
+  'targets': 'Targets',
+  'series:size': 'Bubble size',
+  'measure:field': 'Field',
+}
+
+const OPTION_LABELS = {
+  'none': 'None',
+  'auto': 'Auto',
+  'start': 'Start',
+  'center': 'Center',
+  'end': 'End',
+  'inside': 'Inside',
+  'outside': 'Outside',
+  'vertical': 'Vertical',
+  'horizontal': 'Horizontal',
+  'asc': 'Ascending',
+  'desc': 'Descending',
+  'ascending': 'Ascending',
+  'descending': 'Descending',
+  'first': 'First',
+  'last': 'Last',
+  'sum': 'Sum',
+  'avg': 'Average',
+  'count': 'Count',
+  'min': 'Minimum',
+  'max': 'Maximum',
+  'distinctCount': 'Distinct count',
+  'year': 'Year',
+  'quarter': 'Quarter',
+  'month': 'Month',
+  'week': 'Week',
+  'day': 'Day',
+  'hour': 'Hour',
+  'string': 'Text',
+  'number': 'Number',
+  'boolean': 'Boolean',
+  'date': 'Date',
+  'datetime': 'Date and time',
+  'bar': 'Bar',
+  'line': 'Line',
+  'scatter': 'Scatter',
+  'pie': 'Pie',
+  'donut': 'Donut',
+  'full': 'Full circle',
+  'half': 'Half circle',
+  'name': 'Name',
+  'share': 'Share',
+  'value': 'Value',
+  'name-share': 'Name and share',
+  'name-value': 'Name and value',
+  'trapezoid': 'Trapezoid',
+  'previous': 'Relative to the previous stage',
+  'up': 'Up',
+  'down': 'Down',
+  'polygon': 'Polygon',
+  'circle': 'Circle',
+  'shared': 'Shared scale',
+  'independent': 'Separate scales',
+  'calendar': 'Calendar',
+  'matrix': 'Matrix',
+  'sequential': 'Sequential',
+  'diverging': 'Diverging',
+  'treemap': 'Treemap',
+  'sunburst': 'Sunburst',
+  'icicle': 'Icicle',
+  'pack': 'Circle packing',
+  'columns': 'Columns',
+  'rows': 'Rows',
+  'axis': 'Whole axis',
+  'item': 'Single point',
+  'series': 'By series',
+  'lollipop': 'Lollipop',
+  'expand': 'Percent stacked',
+  'linear': 'Straight',
+  'monotone': 'Smooth',
+  'step': 'Step',
+  'always': 'Always',
+  'sm': 'Small',
+  'md': 'Medium',
+  'lg': 'Large',
+  'brand': 'Brand',
+  'neutral': 'Neutral',
+  'success': 'Success',
+  'warning': 'Warning',
+  'danger': 'Danger',
+  'info': 'Info',
+  'measuresOn=columns': 'Columns',
+  'measuresOn=rows': 'Rows',
+  'conversion=first': 'Relative to the first stage',
+  'labels=end': 'End',
+}
+
+/** 字段栏各列表名的键。 */
+export type ReportListLabelKey = keyof typeof LIST_LABELS
+/** 物料分组的键。 */
+export type ReportPaletteGroupKey = keyof typeof PALETTE_GROUPS
+/** 卡片种类的键。 */
+export type ReportCardTypeKey = keyof typeof CARD_TYPES
+/** 对象种类的键。 */
+export type ReportObjectKindKey = keyof typeof OBJECT_KINDS
+/** 内建属性名对照表的键。 */
+export type ReportPropertyLabelKey = keyof typeof PROPERTY_LABELS
+/** 内建下拉选项对照表的键。 */
+export type ReportOptionLabelKey = keyof typeof OPTION_LABELS
+
+/** 内建的问题码：designer-kit 的通用码、报表校验的码与参数取值的码。 */
+export type ReportBuiltinIssueCode = CommonIssueCode | (typeof REPORT_ISSUE_CODES)[number] | (typeof PARAMETER_ISSUE_CODES)[number]
+
+/** 一个问题码的说明，入参是问题的参数。 */
+export type ReportIssueText = (params: Readonly<Record<string, unknown>>) => string
+
+/**
+ * 设计器一种语言的全部文案。对照表的键与英文表同一组；issueTexts 按内建问题码各写一条说明，
+ * unknownIssue 是认不出的码（扩展的问题码）的说明。
+ */
+export interface ReportDesignerLocale extends Omit<ReportDesignerTranslations, 'lists' | 'paletteGroups' | 'cardTypes' | 'objectKinds' | 'propertyGroups' | 'propertyLabels' | 'optionLabels' | 'issue'> {
+  readonly lists: Readonly<Record<ReportListLabelKey, string>>
+  readonly paletteGroups: Readonly<Record<ReportPaletteGroupKey, string>>
+  readonly cardTypes: Readonly<Record<ReportCardTypeKey, string>>
+  readonly objectKinds: Readonly<Record<ReportObjectKindKey, string>>
+  readonly propertyGroups: Readonly<Record<ReportPropertyGroup, string>>
+  readonly propertyLabels: Readonly<Record<ReportPropertyLabelKey, string>>
+  readonly optionLabels: Readonly<Record<ReportOptionLabelKey, string>>
+  readonly issueTexts: Readonly<Record<ReportBuiltinIssueCode, ReportIssueText>>
+  readonly unknownIssue: (code: string) => string
+}
+
+/** 一种语言的设计器文案换成设计器读的形状：问题说明按码查表，查不到用 unknownIssue。 */
+export function reportDesignerTranslations(locale: ReportDesignerLocale): ReportDesignerTranslations {
+  const { issueTexts, unknownIssue, ...rest } = locale
+  const table = issueTexts as Readonly<Record<string, ReportIssueText | undefined>>
+  return {
+    ...rest,
+    issue: issue => table[issue.code]?.(issue.params ?? {}) ?? unknownIssue(issue.code),
+  }
+}
+
+function cascadeText(cascade: ReportDesignerCascade): string {
+  const parts = [
+    [cascade.items, 'list item', 'list items'],
+    [cascade.conditions, 'filter condition', 'filter conditions'],
+    [cascade.sorts, 'sort rule', 'sort rules'],
+    [cascade.links, 'link target', 'link targets'],
+    [cascade.bindings, 'parameter binding', 'parameter bindings'],
+  ] as const
+  const listed = parts.filter(([count]) => count > 0).map(([count, one, many]) => `${count} ${count === 1 ? one : many}`)
+  return `This also deletes ${listed.join(', ')}. You can undo it.`
 }
 
 const TYPE_NAMES: Readonly<Record<string, string>> = {
@@ -168,106 +478,63 @@ function range(params: Readonly<Record<string, unknown>>): string {
   return parts.length === 0 ? '' : `; it must be ${parts.join(' and ')}`
 }
 
-function issueText(issue: ReportDesignerIssueDetails): string {
-  const params = issue.params ?? {}
-  switch (issue.code) {
-    case 'required':
-      return 'This value is required'
-    case 'invalid-type':
-      return params.expected === undefined ? 'Wrong type' : `Wrong type; expected ${typeName(params.expected)}`
-    case 'invalid-value':
-      if (params.min !== undefined && params.max !== undefined)
-        return params.min === params.max ? `Invalid value; it needs ${String(params.min)} items` : `Invalid value; it needs ${String(params.min)} to ${String(params.max)} items`
-      return params.expected === undefined ? 'Invalid value' : `Invalid value; expected ${String(params.expected)}`
-    case 'out-of-range':
-      return `Out of range${range(params)}`
-    case 'not-integer':
-      return 'This must be a whole number'
-    case 'invalid-option':
-      return 'This is not one of the allowed values'
-    case 'invalid-color':
-      return 'This is not a valid color'
-    case 'empty':
-      return 'This value cannot be empty'
-    case 'unknown-key':
-      return params.key === undefined ? 'Unknown key' : `Unknown name${quoted(params.key)}`
-    case 'unknown-control':
-      return 'Unknown editor kind'
-    case 'duplicate-key':
-      return `Duplicate name${quoted(params.key)}`
-    case 'duplicate-id':
-      return `Duplicate id${quoted(params.id)}`
-    case 'aggregate-type-mismatch':
-      return `${AGGREGATE_NAMES[String(params.aggregate)] ?? String(params.aggregate)} works only on number fields; this field is ${typeName(params.type)}`
-    case 'bucket-type-mismatch':
-      return `Date grouping works only on date fields; this field is ${typeName(params.type)}`
-    case 'chart-reference-role':
-      return `"${String(params.key)}" must be a ${params.expected === 'dimension' ? 'dimension' : 'measure'}`
-    case 'format-invalid':
-      return 'The format is invalid'
-    case 'formula-cycle':
-      return `Formulas reference each other in a cycle: ${String(params.names ?? '').split(',').join(' → ')}`
-    case 'formula-invalid':
-      return 'The formula cannot be parsed'
-    case 'formula-unknown-reference':
-      return `The formula refers to an unknown name${quoted(params.name)}`
-    case 'layout-out-of-bounds':
-      return `The card is outside the ${String(params.columns)}-column grid`
-    case 'layout-overlap':
-      return `The card overlaps card${quoted(params.card)}`
-    case 'link-target-type-mismatch':
-      return `The source dimension is grouped by date, so the target field must be a date; this field is ${typeName(params.type)}`
-    case 'measure-definition':
-      return 'A measure needs either an aggregate or a formula, not both'
-    case 'operand-required':
-      return 'A value to compare with is missing'
-    case 'operand-shape':
-      if (params.operator === 'between')
-        return '"between" needs two values'
-      if (params.operator === 'in' || params.operator === 'notIn')
-        return `"${operatorName(params.operator)}" needs a list of values`
-      return params.operator === undefined ? 'Only one value is allowed here' : `"${operatorName(params.operator)}" needs a single value`
-    case 'operand-type-mismatch':
-      return `The value must be ${typeName(params.expected)}`
-    case 'operator-type-mismatch':
-      return `"${operatorName(params.operator)}" does not apply to ${typeName(params.type)} fields`
-    case 'reserved-name':
-      return `"${String(params.key)}" starts with $, which is reserved for report parameters in formulas`
-    case 'unknown-card':
-      return `Unknown card${quoted(params.card)}`
-    case 'unknown-dataset':
-      return `Unknown dataset${quoted(params.dataset)}`
-    case 'unknown-dataset-parameter':
-      return `The dataset has no parameter${quoted(params.parameter)}`
-    case 'unknown-dimension':
-      return `Unknown dimension${quoted(params.key)}`
-    case 'unknown-field':
-      return `Unknown field${quoted(params.field)}`
-    case 'unknown-kind':
-      return `The kind${quoted(params.kind)} is not registered; install the extension that registers it`
-    case 'unknown-measure':
-      return `Unknown measure${quoted(params.key)}`
-    case 'unknown-parameter':
-      return `Unknown parameter${quoted(params.parameter)}`
-    case 'unknown-series':
-      return `Unknown series${quoted(params.series)}`
-    case 'unsupported-schema-version':
-      return `Report version ${String(params.version)} is not supported`
-    case 'parameter-required':
-      return 'This parameter needs a value'
-    case 'parameter-type-mismatch':
-      return 'The parameter value has the wrong type'
-    case 'parameter-not-multiple':
-      return 'This parameter takes a single value'
-    case 'parameter-option-mismatch':
-      return 'The value is not one of the options'
-    default:
-      return `Problem: ${issue.code}`
-  }
+const ISSUE_TEXTS: ReportDesignerLocale['issueTexts'] = {
+  'required': () => 'This value is required',
+  'invalid-type': p => p.expected === undefined ? 'Wrong type' : `Wrong type; expected ${typeName(p.expected)}`,
+  'invalid-value': (p) => {
+    if (p.min !== undefined && p.max !== undefined)
+      return p.min === p.max ? `Invalid value; it needs ${String(p.min)} items` : `Invalid value; it needs ${String(p.min)} to ${String(p.max)} items`
+    return p.expected === undefined ? 'Invalid value' : `Invalid value; expected ${String(p.expected)}`
+  },
+  'out-of-range': p => `Out of range${range(p)}`,
+  'not-integer': () => 'This must be a whole number',
+  'invalid-option': () => 'This is not one of the allowed values',
+  'invalid-color': () => 'This is not a valid color',
+  'empty': () => 'This value cannot be empty',
+  'unknown-key': p => p.key === undefined ? 'Unknown key' : `Unknown name${quoted(p.key)}`,
+  'unknown-control': () => 'Unknown editor kind',
+  'duplicate-key': p => `Duplicate name${quoted(p.key)}`,
+  'duplicate-id': p => `Duplicate id${quoted(p.id)}`,
+  'aggregate-type-mismatch': p => `${AGGREGATE_NAMES[String(p.aggregate)] ?? String(p.aggregate)} works only on number fields; this field is ${typeName(p.type)}`,
+  'bucket-type-mismatch': p => `Date grouping works only on date fields; this field is ${typeName(p.type)}`,
+  'chart-reference-role': p => `"${String(p.key)}" must be a ${p.expected === 'dimension' ? 'dimension' : 'measure'}`,
+  'format-invalid': () => 'The format is invalid',
+  'formula-cycle': p => `Formulas reference each other in a cycle: ${String(p.names ?? '').split(',').join(' → ')}`,
+  'formula-invalid': () => 'The formula cannot be parsed',
+  'formula-unknown-reference': p => `The formula refers to an unknown name${quoted(p.name)}`,
+  'layout-out-of-bounds': p => `The card is outside the ${String(p.columns)}-column grid`,
+  'layout-overlap': p => `The card overlaps card${quoted(p.card)}`,
+  'link-target-type-mismatch': p => `The source dimension is grouped by date, so the target field must be a date; this field is ${typeName(p.type)}`,
+  'measure-definition': () => 'A measure needs either an aggregate or a formula, not both',
+  'operand-required': () => 'A value to compare with is missing',
+  'operand-shape': (p) => {
+    if (p.operator === 'between')
+      return '"between" needs two values'
+    if (p.operator === 'in' || p.operator === 'notIn')
+      return `"${operatorName(p.operator)}" needs a list of values`
+    return p.operator === undefined ? 'Only one value is allowed here' : `"${operatorName(p.operator)}" needs a single value`
+  },
+  'operand-type-mismatch': p => `The value must be ${typeName(p.expected)}`,
+  'operator-type-mismatch': p => `"${operatorName(p.operator)}" does not apply to ${typeName(p.type)} fields`,
+  'reserved-name': p => `"${String(p.key)}" starts with $, which is reserved for report parameters in formulas`,
+  'unknown-card': p => `Unknown card${quoted(p.card)}`,
+  'unknown-dataset': p => `Unknown dataset${quoted(p.dataset)}`,
+  'unknown-dataset-parameter': p => `The dataset has no parameter${quoted(p.parameter)}`,
+  'unknown-dimension': p => `Unknown dimension${quoted(p.key)}`,
+  'unknown-field': p => `Unknown field${quoted(p.field)}`,
+  'unknown-kind': p => `The kind${quoted(p.kind)} is not registered; install the extension that registers it`,
+  'unknown-measure': p => `Unknown measure${quoted(p.key)}`,
+  'unknown-parameter': p => `Unknown parameter${quoted(p.parameter)}`,
+  'unknown-series': p => `Unknown series${quoted(p.series)}`,
+  'unsupported-schema-version': p => `Report version ${String(p.version)} is not supported`,
+  'parameter-required': () => 'This parameter needs a value',
+  'parameter-type-mismatch': () => 'The parameter value has the wrong type',
+  'parameter-not-multiple': () => 'This parameter takes a single value',
+  'parameter-option-mismatch': () => 'The value is not one of the options',
 }
 
-/** 内建英文文案。 */
-export const DEFAULT_REPORT_DESIGNER_TRANSLATIONS: ReportDesignerTranslations = {
+/** 设计器的英文文案，各语言包按它对键。 */
+export const REPORT_DESIGNER_EN_US: ReportDesignerLocale = {
   label: 'Report designer',
   toolbar: 'Designer actions',
   canvas: 'Canvas',
@@ -285,31 +552,16 @@ export const DEFAULT_REPORT_DESIGNER_TRANSLATIONS: ReportDesignerTranslations = 
   datasets: 'Datasets',
   parameters: 'Parameters',
   wells: 'Fields',
-  lists: { dimensions: 'Dimensions', measures: 'Measures', series: 'Series', rows: 'Rows', columns: 'Columns', groups: 'Groups', tableColumns: 'Columns' },
+  lists: LIST_LABELS,
   palette: 'Elements',
   properties: 'Properties',
   issues: 'Problems',
-  paletteGroups: { charts: 'Charts', metrics: 'Metrics', tables: 'Tables' },
-  cardTypes: CHART_TYPES,
-  objectKinds: {
-    document: 'Report',
-    dashboard: 'Dashboard',
-    card: 'Card',
-    chart: 'Chart',
-    metric: 'Metric',
-    view: 'View',
-    dimension: 'Dimension',
-    measure: 'Measure',
-    column: 'Column',
-    group: 'Group',
-    series: 'Series',
-    field: 'Field',
-    parameter: 'Parameter',
-    link: 'Link',
-  },
-  propertyGroups: { basic: 'General', data: 'Data', display: 'Display', axis: 'Axes', style: 'Style', interaction: 'Interaction', totals: 'Totals', sparkline: 'Sparkline' },
-  propertyLabels: {},
-  optionLabels: {},
+  paletteGroups: PALETTE_GROUPS,
+  cardTypes: CARD_TYPES,
+  objectKinds: OBJECT_KINDS,
+  propertyGroups: PROPERTY_GROUPS,
+  propertyLabels: PROPERTY_LABELS,
+  optionLabels: OPTION_LABELS,
   selected: count => `${count} selected`,
   emptyDashboard: 'Drag a chart, metric or table here',
   links: 'Links',
@@ -318,14 +570,18 @@ export const DEFAULT_REPORT_DESIGNER_TRANSLATIONS: ReportDesignerTranslations = 
   wellsEmpty: 'Select a card to edit its fields',
   emptyList: 'Drop fields here',
   placeholder: 'Sample data appears when a data provider is set',
-  issue: issueText,
   addDataset: 'Add dataset',
   addField: 'Add field',
   addParameter: 'Add parameter',
   removeTitle: name => `Delete "${name}"`,
   removeCascade: cascadeText,
   removeConfirm: 'Delete',
+  issueTexts: ISSUE_TEXTS,
+  unknownIssue: code => `Problem: ${code}`,
 }
+
+/** 内建英文文案。 */
+export const DEFAULT_REPORT_DESIGNER_TRANSLATIONS: ReportDesignerTranslations = reportDesignerTranslations(REPORT_DESIGNER_EN_US)
 
 declare module '@xihan-ui/web-components' {
   interface XhTranslationOverrides {

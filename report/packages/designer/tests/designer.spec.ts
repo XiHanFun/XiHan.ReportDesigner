@@ -336,7 +336,7 @@ describe('<xh-report-designer>：编辑', () => {
       { value: '["field","sales","region"]', label: 'region' },
       { value: '["field","sales","amount"]', label: 'amount' },
     ] }])
-    expect([...tree.querySelectorAll('[data-xh-part="item"] [data-xh-part="item-suffix"]')].map(item => item.textContent)).toEqual(['string', 'number'])
+    expect([...tree.querySelectorAll('[data-xh-part="item"] [data-xh-part="item-suffix"]')].map(item => item.textContent)).toEqual(['Text', 'Number'])
     expect(data.querySelector<HTMLElement>('xh-tree[data-part="parameters"]')!.hidden).toBe(false)
     tree.dispatchEvent(new CustomEvent('selection-change', { detail: { value: ['["field","sales","amount"]'] } }))
     expect(designer.getSelection()).toEqual({ cards: [], data: { kind: 'field', dataset: 'sales', name: 'amount' } })
@@ -501,7 +501,7 @@ describe('<xh-report-designer>：编辑', () => {
       fields: [{ name: 'region', type: 'string' }, { name: 'amount', type: 'number' }],
       parameters: [],
     })
-    expect(panel.labelOf!(descriptors.find(descriptor => formatJsonPath(descriptor.path) === 'chart.nameField')!)).toBe('nameField')
+    expect(panel.labelOf!(descriptors.find(descriptor => formatJsonPath(descriptor.path) === 'chart.nameField')!)).toBe('Name dimension')
   })
 
   it('属性写入换成操作：同一合并键的连续输入并成一步，property-commit 之后另起一步；多选时每个对象一条，合为一步', async () => {
