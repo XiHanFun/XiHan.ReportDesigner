@@ -6,8 +6,9 @@
   <title>报表设计器 · 开发预览</title>
   <style>
     body { margin: 0; background: var(--xh-bg-page); color: var(--xh-fg-default); }
-    .page { display: grid; gap: var(--xh-space-4); max-inline-size: 80rem; margin-inline: auto; padding: var(--xh-space-4); }
+    .page { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--xh-space-4); max-inline-size: 80rem; margin-inline: auto; padding: var(--xh-space-4); }
     .bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--xh-space-3); }
+    .bar > xh-toolbar { max-inline-size: 100%; overflow-x: auto; }
     .switch-label { display: inline-flex; align-items: center; gap: var(--xh-space-2); color: var(--xh-fg-muted); font-size: var(--xh-font-size-sm); }
     xh-report-viewer { margin-block-start: var(--xh-space-3); }
     .designer-bar { margin-block-start: var(--xh-space-3); }
