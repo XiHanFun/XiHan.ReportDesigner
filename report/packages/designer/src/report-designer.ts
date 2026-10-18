@@ -15,7 +15,7 @@ import type { JsonValue } from '@xihan-ui/core/json'
 import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
 import type { ExecuteOptions, ExtensionHost, GridRect, HistoryChangeKind, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertySwatchOption } from '@xihan-ui/designer-kit/properties'
-import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFrameEventMap, DesignerFrameRegion, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
+import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFrameEventMap, DesignerFrameRegion, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { DialogService } from '@xihan-ui/web-components/services'
 import type { DataRemoval } from './data-editing'
@@ -23,7 +23,7 @@ import type { DataAddKind } from './data-panel'
 import type { LayoutGesture, ReportAddCardInit, ReportClipboard, ReportDataRef, ReportEditor, ReportItemRef, ReportSelection } from './editor'
 import type { ReportCardTemplate, ReportDesignerContext, ReportDesignerExtension, ReportDesignerModel, ReportMenuSubject } from './extensions'
 import type { GridMetrics } from './grid-geometry'
-import { planAddCard, planAddFieldItem, resolveParameters } from '@xihan-report/core'
+import { cardTypeOf, planAddCard, planAddFieldItem, resolveParameters } from '@xihan-report/core'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS, DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter, defineReportViewer } from '@xihan-report/runtime'
 import { createRenderContext } from '@xihan-report/runtime/design'
 import { getLocalTimeZone } from '@xihan-ui/core/date'
@@ -34,9 +34,11 @@ import {
   createCommandToolbar,
   createDesignerSettingsHost,
   createPanelHost,
+  createStatusItem,
   defineDesignerShellElement,
   DESIGNER_COMMANDS_EN_US,
   DESIGNER_FRAME_REGIONS,
+  DESIGNER_SETTING_KEYS,
   parseDesignerPanels,
   registerDropTarget,
   renderCommandMenu,
@@ -68,7 +70,7 @@ import { fieldList, Wells, wellsOwner, withFilledBindings } from './wells'
 export const REPORT_DESIGNER_TAG = 'xh-report-designer'
 
 /** 可以收起的面板，画布常驻、不在其中。 */
-export const REPORT_DESIGNER_PANELS = ['toolbar', 'datasets', 'parameters', 'palette', 'wells', 'properties', 'issues'] as const
+export const REPORT_DESIGNER_PANELS = ['toolbar', 'datasets', 'parameters', 'palette', 'wells', 'properties', 'issues', 'status'] as const
 
 /** 可以收起的面板之一。 */
 export type ReportDesignerPanel = (typeof REPORT_DESIGNER_PANELS)[number]
@@ -168,6 +170,10 @@ interface Layers {
   readonly issues: IssuesPanel
   /** 设置对话框。 */
   readonly settings: XhDesignerSettingsElement
+  /** 状态栏左段：选中对象的信息，没选中时是报表的概况。 */
+  readonly selectionStatus: DesignerStatusItem
+  /** 状态栏右段：缩放倍数，点了回到实际大小。 */
+  readonly zoomStatus: DesignerStatusItem
 }
 
 /** 数据面板的字段拖到画布上的落点：卡片（缺省为报表主体的视图）与字段。 */
@@ -248,7 +254,7 @@ export class XhReportDesigner extends XhReactiveElement {
   /** design 或 preview，缺省 design。 */
   declare mode: ReportDesignerMode | undefined
   /**
-   * 空格分隔的可收起面板：toolbar datasets parameters palette wells properties issues；不写即全部显示，写空串只留画布。
+   * 空格分隔的可收起面板：toolbar datasets parameters palette wells properties issues status；不写即全部显示，写空串只留画布。
    * 点了面板头的关闭钮时设计器改写它并派发 panels-change。
    */
   declare panels: string | undefined
@@ -799,6 +805,11 @@ export class XhReportDesigner extends XhReactiveElement {
     issueSummary.slot = 'issues-actions'
     const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, data.datasets, data.parameters, palette, workspace, wells.element, properties.element, issues.element, issueSummary]) as XhDesignerFrameElement
     frame.addEventListener('panels-change', this.#onPanelsChange)
+    const selectionStatus = createStatusItem(doc, { value: '' })
+    selectionStatus.element.slot = 'status-start'
+    const zoomStatus = createStatusItem(doc, { value: '', action: () => this.zoomToActual() })
+    zoomStatus.element.slot = 'status-end'
+    frame.append(selectionStatus.element, zoomStatus.element)
     const settings = createGeneratedElement(doc, 'xh-designer-settings', { 'data-part': 'settings' }) as XhDesignerSettingsElement
     settings.addEventListener('settings-change', this.#onSettingsChange)
     this.replaceChildren(frame, settings)
@@ -832,7 +843,7 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#regionsKey = ''
     this.#viewer = undefined
     this.#settingsDialogKey = ''
-    this.#layers = { frame, toolbar, commandBar, headerBar, panels, menu, menuContent, menuTrigger, canvas, scroller, sizer, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, settings }
+    this.#layers = { frame, toolbar, commandBar, headerBar, panels, menu, menuContent, menuTrigger, canvas, scroller, sizer, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, settings, selectionStatus, zoomStatus }
     panels.assign(this.#model.extensions, this.#context())
     this.#fillMenu('blank')
     return this.#layers
@@ -911,14 +922,23 @@ export class XhReportDesigner extends XhReactiveElement {
     return (this.#editor?.document.parameters?.length ?? 0) > 0 || (!this.readonly && canEditData('parameter', this.#datasetEditing()))
   }
 
-  /** 交给外框的 panels：设计态原样转交，没有报表参数又不能新增时收起那块卡片；预览态只留工具栏。 */
+  /** 设置里的状态栏开关，缺省开。 */
+  #statusBarOn(): boolean {
+    return this.#resolvedSettings[DESIGNER_SETTING_KEYS.statusBar] !== false
+  }
+
+  /**
+   * 交给外框的 panels：设计态原样转交，没有报表参数又不能新增时收起那块卡片，设置里关了状态栏时去掉 status；
+   * 预览态只留工具栏。
+   */
   #framePanels(): string | undefined {
     if (this.#mode() === 'preview')
       return this.#shows('toolbar') ? 'toolbar' : ''
-    if (this.#hasParameters())
+    const hidden = [...(this.#hasParameters() ? [] : ['parameters']), ...(this.#statusBarOn() ? [] : ['status'])]
+    if (hidden.length === 0)
       return this.panels
     const names = this.panels === undefined ? this.#regionList.map(region => region.name) : this.panels.split(/\s+/)
-    return names.filter(name => name !== '' && name !== 'parameters').join(' ')
+    return names.filter(name => name !== '' && !hidden.includes(name)).join(' ')
   }
 
   /**
@@ -951,12 +971,14 @@ export class XhReportDesigner extends XhReactiveElement {
     frame.panels = this.#framePanels()
   }
 
-  /** 外框收起了一块面板：外框没在显示的报表参数卡片（没有参数又不能新增）照 panels 原样留着。 */
+  /** 外框收起了一块面板：外框没在显示的报表参数卡片（没有参数又不能新增）与被设置关掉的状态栏照 panels 原样留着。 */
   readonly #onPanelsChange = (event: Event): void => {
     event.stopPropagation()
     const names = (event as DesignerFrameEventMap['panels-change']).detail.panels.split(' ').filter(Boolean)
     if (!this.#hasParameters() && this.#shows('parameters'))
       names.push('parameters')
+    if (!this.#statusBarOn() && this.#shows('status'))
+      names.push('status')
     const panels = names.join(' ')
     this.panels = panels
     emitEvent(this, 'panels-change', { panels })
@@ -1058,11 +1080,16 @@ export class XhReportDesigner extends XhReactiveElement {
     return box && box.width > 0 && box.height > 0 ? { width: box.width, height: box.height } : undefined
   }
 
-  /** 缩放倍数落到 surface 上：surface 按倍数缩放，宽除以倍数，缩放之后仍铺满可见区的宽；再按新的倍数排一次画布的高。 */
+  /**
+   * 缩放倍数落到 surface 上：surface 按倍数缩放，宽除以倍数，缩放之后仍铺满可见区的宽；再按新的倍数排一次画布的高，
+   * 当场刷新状态栏的缩放那一项。
+   */
   #applyZoom(zoom: number): void {
     this.#zoom = zoom
     this.style.setProperty('--xh-report-designer-zoom', String(zoom))
     this.#layoutZoom()
+    if (this.#layers)
+      this.#renderZoomStatus(this.#layers, this.#translations())
   }
 
   /** 滚动区的内容区（去掉内边距）的高；还没布局时为 0。 */
@@ -1409,8 +1436,44 @@ export class XhReportDesigner extends XhReactiveElement {
         layers.headerBar.element.remove()
       }
       layers.panels.update(context)
+      this.#renderStatus(layers, t)
     }
     this.#syncFrame(layers.frame, t)
+  }
+
+  /**
+   * 状态栏左段：选中一张卡片写它的种类与所在的格，选中几张写「已选中 N 个」；选中列表项、联动或数据面板里的对象时写属性卡片
+   * 的那句（对象种类与名字）；什么都没选时写报表的数据集数与卡片数。右段是缩放倍数。
+   */
+  #renderStatus(layers: Layers, t: ReportDesignerTranslations): void {
+    const editor = this.#editor
+    if (!editor)
+      return
+    const { document, selection } = editor
+    const body = document.body
+    const cards = body.type === 'dashboard' ? selection.cards.flatMap(id => body.cards.filter(card => card.id === id)) : []
+    const heading = layers.properties.element.heading
+    if (cards.length > 1) {
+      layers.selectionStatus.update({ value: t.selected(cards.length) })
+    }
+    else if (cards.length === 1 && selection.item === undefined && selection.link === undefined) {
+      const card = cards[0]!
+      const type = cardTypeOf(card)
+      const { x, y, w, h } = card.layout
+      layers.selectionStatus.update({ label: t.cardTypes[type] ?? type, value: t.statusCell(x + 1, y + 1, w, h) })
+    }
+    else if ((selection.item !== undefined || selection.link !== undefined || selection.data !== undefined) && heading !== undefined) {
+      layers.selectionStatus.update({ value: heading })
+    }
+    else {
+      layers.selectionStatus.update({ label: t.objectKinds.document ?? 'document', value: t.statusDocument(document.datasets.length, body.type === 'dashboard' ? body.cards.length : undefined) })
+    }
+    this.#renderZoomStatus(layers, t)
+  }
+
+  /** 状态栏右段的缩放倍数，按百分数取整。 */
+  #renderZoomStatus(layers: Layers, t: ReportDesignerTranslations): void {
+    layers.zoomStatus.update({ label: t.statusZoom, value: `${Math.round(this.#zoom * 100)}%` })
   }
 
   /** 物料项的新卡片模板，取数用第一个数据集。 */

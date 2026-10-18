@@ -23,7 +23,7 @@
 | `timeZone` | `time-zone` | `string \| undefined` | IANA 时区；缺省取运行环境所在的时区。 |
 | `readonly` | `readonly` | `boolean \| undefined` | 只读：可选择、浏览与预览，不能修改；缺省可修改。attribute 写 "false" 是可修改，其余写法是只读。 |
 | `mode` | `mode` | `ReportDesignerMode \| undefined` | design 或 preview，缺省 design。 |
-| `panels` | `panels` | `string \| undefined` | 空格分隔的可收起面板：toolbar datasets parameters palette wells properties issues；不写即全部显示，写空串只留画布。点了面板头的关闭钮时设计器改写它并派发 panels-change。 |
+| `panels` | `panels` | `string \| undefined` | 空格分隔的可收起面板：toolbar datasets parameters palette wells properties issues status；不写即全部显示，写空串只留画布。点了面板头的关闭钮时设计器改写它并派发 panels-change。 |
 | `datasetEditing` | `dataset-editing` | `ReportDatasetEditing \| undefined` | 缺省 fields。 |
 | `settings` | — | `DesignerSettings \| undefined` | 设置的值：扁平的键值，键是「分区 id.条目 id」，如 general.theme；没写的键取条目的缺省值。赋值即生效；用户在设置对话框里改了以后设计器换成新的一份并派发 settings-change。 |
 | `settingsPolicy` | — | `DesignerSettingsPolicy \| undefined` | 宿主对设置条目的管控：键是条目键或分区 id，hidden 不显示，locked 只读、说明换成「由所在系统管理」。 |
@@ -150,7 +150,7 @@ type ReportSchemaChangeKind = 'execute' | 'undo' | 'redo' | 'load'
 可以收起的面板，画布常驻、不在其中。
 
 ```ts
-const REPORT_DESIGNER_PANELS = ['toolbar', 'datasets', 'parameters', 'palette', 'wells', 'properties', 'issues'] as const
+const REPORT_DESIGNER_PANELS = ['toolbar', 'datasets', 'parameters', 'palette', 'wells', 'properties', 'issues', 'status'] as const
 ```
 
 ### ReportSelection {#reportselection}
@@ -242,6 +242,9 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `issuesHelp` | `string` | 问题卡片的帮助。 | 报表的校验问题。点一条选中出问题的对象。 |
 | `insertToolbar` | `string` | 顶栏那一条插入钮的名字。 | 插入卡片 |
 | `insertCard` | `(label: string): string` | 顶栏插入钮的名字与提示，label 是物料名。 | （按参数生成） |
+| `statusDocument` | `(datasets: number, cards: number \| undefined): string` | 状态栏左段没选中时：数据集数，主体是看板时再写卡片数（不是看板时 cards 为 undefined）。 | （按参数生成） |
+| `statusCell` | `(column: number, row: number, width: number, height: number): string` | 状态栏左段选中一张卡片时：它左上角所在的列与行（从 1 数起）和占的格数。 | （按参数生成） |
+| `statusZoom` | `string` | 状态栏右段缩放那一项的标签。 | 缩放 |
 | `paletteGroups` | `Readonly<Record<string, string>>` | 物料分组：charts、metrics、tables。 | （按键对照） |
 | `cardTypes` | `Readonly<Record<string, string>>` | 物料与卡片种类：chart.&lt;图表类型&gt;、metric、table.&lt;视图类型&gt;。 | （按键对照） |
 | `objectKinds` | `Readonly<Record<string, string>>` | 属性面板标题下的对象种类。 | （按键对照） |

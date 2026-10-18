@@ -180,6 +180,9 @@ const designer: ReportDesignerLocale = {
   issuesHelp: 'Problèmes de validation du rapport. Sélectionnez-en un pour sélectionner l’objet concerné.',
   insertToolbar: 'Insérer des cartes',
   insertCard: label => `Ajouter ${label}`,
+  statusDocument: (datasets, cards) => `${datasets} ${datasets < 2 ? 'jeu de données' : 'jeux de données'}${cards === undefined ? '' : ` · ${cards} ${cards < 2 ? 'carte' : 'cartes'}`}`,
+  statusCell: (column, row, width, height) => `Colonne ${column}, ligne ${row} · ${width} × ${height}`,
+  statusZoom: 'Zoom',
   issueTexts: {
     'required': () => 'Cette valeur est obligatoire',
     'invalid-type': p => p.expected === undefined ? 'Type incorrect' : `Type incorrect, type attendu : ${typeName(p.expected)}`,

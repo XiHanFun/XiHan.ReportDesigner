@@ -57,6 +57,12 @@ export interface ReportDesignerTranslations {
   readonly insertToolbar: string
   /** 顶栏插入钮的名字与提示，label 是物料名。 */
   readonly insertCard: (label: string) => string
+  /** 状态栏左段没选中时：数据集数，主体是看板时再写卡片数（不是看板时 cards 为 undefined）。 */
+  readonly statusDocument: (datasets: number, cards: number | undefined) => string
+  /** 状态栏左段选中一张卡片时：它左上角所在的列与行（从 1 数起）和占的格数。 */
+  readonly statusCell: (column: number, row: number, width: number, height: number) => string
+  /** 状态栏右段缩放那一项的标签。 */
+  readonly statusZoom: string
   /** 物料分组：charts、metrics、tables。 */
   readonly paletteGroups: Readonly<Record<string, string>>
   /** 物料与卡片种类：chart.<图表类型>、metric、table.<视图类型>。 */
@@ -556,6 +562,9 @@ export const REPORT_DESIGNER_EN_US: ReportDesignerLocale = {
   issuesHelp: 'Validation problems in the report. Select one to select the object it is about.',
   insertToolbar: 'Insert cards',
   insertCard: label => `Add ${label}`,
+  statusDocument: (datasets, cards) => `${datasets} ${datasets === 1 ? 'dataset' : 'datasets'}${cards === undefined ? '' : ` · ${cards} ${cards === 1 ? 'card' : 'cards'}`}`,
+  statusCell: (column, row, width, height) => `Column ${column}, row ${row} · ${width} × ${height}`,
+  statusZoom: 'Zoom',
   paletteGroups: PALETTE_GROUPS,
   cardTypes: CARD_TYPES,
   objectKinds: OBJECT_KINDS,

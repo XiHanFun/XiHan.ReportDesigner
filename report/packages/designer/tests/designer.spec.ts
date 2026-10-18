@@ -768,6 +768,60 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.panels!.split(' ')).toContain('wells')
   })
 
+  it('状态栏左段：没选中时写数据集与卡片数，选中一张卡片写种类与所在的格，几张写已选中 N 个，选中数据面板的对象写属性卡片的那句', async () => {
+    const designer = await mount()
+    const t = DEFAULT_REPORT_DESIGNER_TRANSLATIONS
+    const left = (): string | null => designer.querySelector('[data-region="status"] [data-zone="start"]')!.textContent
+    expect(left()).toBe(`${t.objectKinds.document}${t.statusDocument(1, 3)}`)
+    designer.select({ cards: ['a'] })
+    await designer.updateComplete
+    expect(left()).toBe(`${t.cardTypes.metric}${t.statusCell(5, 1, 4, 2)}`)
+    designer.select({ cards: ['a', 'pie'] })
+    await designer.updateComplete
+    expect(left()).toBe(t.selected(2))
+    designer.select({ data: { kind: 'field', dataset: 'sales', name: 'amount' } })
+    await designer.updateComplete
+    expect(left()).toBe((designer.querySelector('xh-designer-properties') as HTMLElement & { heading?: string }).heading)
+  })
+
+  it('状态栏右段是缩放倍数：缩放一变当场刷新，不等下一轮更新；点它回到实际大小', async () => {
+    const designer = await mount()
+    const t = DEFAULT_REPORT_DESIGNER_TRANSLATIONS
+    const right = (): HTMLElement => designer.querySelector('[data-region="status"] [data-zone="end"]')!
+    expect(right().textContent).toBe(`${t.statusZoom}100%`)
+    designer.zoomIn()
+    expect(right().textContent).toBe(`${t.statusZoom}120%`)
+    designer.zoomOut()
+    designer.zoomOut()
+    expect(right().textContent).toBe(`${t.statusZoom}83%`)
+    right().querySelector('button')!.click()
+    expect([designer.getViewport().zoom, right().textContent]).toEqual([1, `${t.statusZoom}100%`])
+    try {
+      setXhConfig(reportZhCN)
+      designer.requestUpdate()
+      await designer.updateComplete
+      expect(right().textContent).toBe('缩放100%')
+    }
+    finally {
+      setXhConfig({})
+    }
+  })
+
+  it('设置里关掉状态栏：外框不显示它；这时关掉一块卡片，panels 仍留着 status，再打开状态栏照样出现', async () => {
+    const designer = await mount()
+    const frame = designer.querySelector<HTMLElement & { panels?: string }>('xh-designer-frame')!
+    designer.settings = { 'general.statusBar': false }
+    await designer.updateComplete
+    expect(frame.panels!.split(' ')).not.toContain('status')
+    designer.querySelector<HTMLButtonElement>('[data-region="issues"] [data-part="panel-close"]')!.click()
+    await designer.updateComplete
+    expect(designer.panels!.split(' ')).toContain('status')
+    designer.settings = {}
+    await designer.updateComplete
+    expect(frame.panels!.split(' ')).toContain('status')
+    expect(frame.panels!.split(' ')).not.toContain('issues')
+  })
+
   it('工具栏的容器部件叫 command-bar：设计器自己不再有 toolbar 部件，变换覆盖层的上下文工具条不会被它的样式连带命中', async () => {
     const designer = await mount()
     expect(designer.querySelector('[data-region="toolbar"] > [data-part="command-bar"]')).not.toBeNull()
