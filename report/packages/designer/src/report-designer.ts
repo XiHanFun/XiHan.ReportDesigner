@@ -676,7 +676,10 @@ export class XhReportDesigner extends XhReactiveElement {
     })
     properties.element.headless = true
     issues.element.headless = true
-    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, data.datasets, data.parameters, palette, workspace, wells.element, properties.element, issues.element]) as XhDesignerFrameElement
+    // 问题列表带计数的严重程度开关放进它所在卡片的面板头
+    const issueSummary = issues.element.summary
+    issueSummary.slot = 'issues-actions'
+    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, data.datasets, data.parameters, palette, workspace, wells.element, properties.element, issues.element, issueSummary]) as XhDesignerFrameElement
     frame.addEventListener('panels-change', this.#onPanelsChange)
     this.replaceChildren(frame)
     this.#layers?.panels.dispose()

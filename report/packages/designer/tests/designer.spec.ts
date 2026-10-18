@@ -603,13 +603,17 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.canUndo).toBe(true)
   })
 
-  it('问题列表放在画布下方，列出校验问题与所在卡片；点问题选中卡片', async () => {
+  it('问题列表放在画布下方，列出校验问题与所在卡片，错误、警告数在面板头里；点问题选中卡片', async () => {
     const designer = await mount()
     const issues = designer.querySelector('xh-designer-issues')!
     expect(issues.closest('[data-region="issues"]')).not.toBeNull()
     designer.execute([{ type: 'updateCard', id: 'pie', changes: [{ path: ['chart', 'nameField'], value: 'ghost' }] }])
     await designer.updateComplete
     expect(issues.items).toEqual([expect.objectContaining({ subject: '各区域', message: 'Unknown dimension "ghost"' })])
+    const filter = designer.querySelector('[data-region="issues"] [data-part="panel-actions"] > [data-part="filter"]')!
+    expect(filter).not.toBeNull()
+    expect(issues.querySelector('[data-part="filter"]')).toBeNull()
+    expect(filter.textContent).toContain('1')
     issues.dispatchEvent(new CustomEvent('issue-activate', { detail: { issue: issues.items![0]!.issue, index: 0 } }))
     expect(designer.getSelection()).toEqual({ cards: ['pie'] })
   })
