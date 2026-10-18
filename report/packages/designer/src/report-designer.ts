@@ -40,7 +40,7 @@ import {
   XhDesignerPropertiesElement,
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
-import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
+import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { defineXhElement, XhButtonElement, XhContextMenuElement, XhSortableElement, XhTagElement, XhToolbarElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import { createDialogService } from '@xihan-ui/web-components/services'
 import { CanvasContent } from './canvas'
@@ -176,7 +176,7 @@ export class XhReportDesigner extends XhReactiveElement {
     translations: { attribute: false },
     locale: { attribute: 'locale' },
     timeZone: { attribute: 'time-zone' },
-    readonly: { type: Boolean },
+    readonly: { converter: BOOLEAN_CONVERTER },
     mode: { attribute: 'mode' },
     panels: { converter: { fromAttribute: (value: string | null) => value ?? undefined } },
     datasetEditing: { attribute: 'dataset-editing' },
@@ -200,8 +200,8 @@ export class XhReportDesigner extends XhReactiveElement {
   declare locale: string | undefined
   /** IANA 时区；缺省取运行环境所在的时区。 */
   declare timeZone: string | undefined
-  /** 只读：可选择、浏览与预览，不能修改。 */
-  declare readonly: boolean
+  /** 只读：可选择、浏览与预览，不能修改；缺省可修改。attribute 写 "false" 是可修改，其余写法是只读。 */
+  declare readonly: boolean | undefined
   /** design 或 preview，缺省 design。 */
   declare mode: ReportDesignerMode | undefined
   /** 空格分隔的可收起面板：toolbar data palette wells properties issues；不写即全部显示，写空串只留画布。 */
@@ -239,11 +239,6 @@ export class XhReportDesigner extends XhReactiveElement {
     builtins: [REPORT_DESIGNER_EXTENSION],
     context: () => this.#context(),
   })
-
-  constructor() {
-    super()
-    this.readonly = false
-  }
 
   /**
    * 扩展：卡片与视图种类、渲染、属性编辑器、命令、面板与物料都从这里来，内置扩展自动排在最前。
@@ -453,7 +448,7 @@ export class XhReportDesigner extends XhReactiveElement {
       emitEvent(this, 'mode-change', { mode })
     }
     this.#syncFrame(layers.frame, t)
-    layers.overlay.readonly = this.readonly
+    layers.overlay.readonly = this.readonly === true
     this.#syncPalette(layers.palette, t)
     this.#syncData()
     this.#renderCanvas()
@@ -630,7 +625,7 @@ export class XhReportDesigner extends XhReactiveElement {
     const data = new DataPanel({
       ownerDocument: doc,
       select: ref => this.#editor?.select({ data: ref }),
-      isReadonly: () => this.readonly,
+      isReadonly: () => this.readonly === true,
       canAdd: kind => !this.readonly && canEditData(kind, this.#datasetEditing()),
       add: kind => this.#addData(kind),
       remove: () => {
@@ -643,13 +638,13 @@ export class XhReportDesigner extends XhReactiveElement {
       execute: operations => this.#editor?.execute(operations),
       selectItem: ref => this.#editor?.select({ cards: ref.card === undefined ? [] : [ref.card], item: ref }),
       selectLink: (card, id) => this.#editor?.select({ cards: [card], link: id }),
-      isReadonly: () => this.readonly,
+      isReadonly: () => this.readonly === true,
       extensions: () => this.#extensions ?? NO_EXTENSIONS,
     })
     const properties = new PropertiesPanel({
       ownerDocument: doc,
       editor: () => this.#editor,
-      isReadonly: () => this.readonly,
+      isReadonly: () => this.readonly === true,
       datasetEditing: () => this.#datasetEditing(),
       issues: () => this.#issues,
       model: () => this.#model,

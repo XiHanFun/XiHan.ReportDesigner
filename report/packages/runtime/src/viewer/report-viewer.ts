@@ -20,7 +20,7 @@ import { bodyQuery, cardQuery, cardView, computeCard, computeExtensionView, comp
 import { getLocalTimeZone } from '@xihan-ui/core/date'
 import { hasErrors, withSeverity } from '@xihan-ui/designer-kit/schema'
 import { valueKey } from '@xihan-ui/viz'
-import { emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
+import { BOOLEAN_CONVERTER, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { createReportRuntimeModel } from '../extensions'
 import { DEFAULT_REPORT_VIEWER_TRANSLATIONS } from '../translations'
 import { createRenderContext } from './context'
@@ -127,7 +127,7 @@ export class XhReportViewer extends XhReactiveElement {
     locale: { attribute: 'locale' },
     timeZone: { attribute: 'time-zone' },
     translations: { attribute: false },
-    hideParameters: { type: Boolean, attribute: 'hide-parameters' },
+    hideParameters: { converter: BOOLEAN_CONVERTER, attribute: 'hide-parameters' },
   }
 
   /** 报表定义。 */
@@ -150,7 +150,7 @@ export class XhReportViewer extends XhReactiveElement {
   declare timeZone: string | undefined
   /** 元素自己的文案，压在全局配置之上。 */
   declare translations: Partial<ReportViewerTranslations> | undefined
-  /** 不显示参数栏。 */
+  /** 不显示参数栏；缺省显示。attribute 写 "false" 是显示，其余写法是不显示。 */
   declare hideParameters: boolean | undefined
 
   readonly #config = new XhConfigController(this)

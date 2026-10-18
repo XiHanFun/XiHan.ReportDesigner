@@ -327,6 +327,33 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.schema).toEqual(board)
   })
 
+  it('readonly attribute 按三态读：没写可修改，写 "false" 也可修改，空串与别的写法只读，移除后回到可修改', async () => {
+    const designer = await mount()
+    const palette = designer.querySelector('xh-designer-palette')!
+    const states: [string | null, boolean | undefined, boolean][] = [
+      [null, undefined, false],
+      ['false', false, false],
+      ['', true, true],
+      ['true', true, true],
+      ['readonly', true, true],
+      [null, undefined, false],
+    ]
+    for (const [attribute, property, readonly] of states) {
+      if (attribute === null)
+        designer.removeAttribute('readonly')
+      else
+        designer.setAttribute('readonly', attribute)
+      await designer.updateComplete
+      expect(designer.readonly, String(attribute)).toBe(property)
+      expect(palette.readonly, String(attribute)).toBe(readonly)
+    }
+    designer.setAttribute('readonly', 'false')
+    await designer.updateComplete
+    const before = cards(designer).length
+    palette.dispatchEvent(new CustomEvent('item-activate', { detail: { id: 'metric', payload: 'metric' } }))
+    expect(cards(designer)).toHaveLength(before + 1)
+  })
+
   it('数据面板列出数据集与字段，点字段选中它；选择变了树随之同步；没有报表参数且不能新增时参数树收起', async () => {
     const designer = await mount()
     const data = designer.querySelector('[data-part="data"]')!

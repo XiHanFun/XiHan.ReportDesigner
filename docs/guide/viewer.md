@@ -18,12 +18,14 @@
 | `dataProvider` | 取数回调，见[与宿主集成](./host) |
 | `parameters` | 报表参数的取值；写了就是受控，参数栏的改动只派发 `parameters-change` |
 | `selections` | 看板联动的选中值；写了就是受控 |
-| `hideParameters`（`hide-parameters`） | 不显示参数栏 |
+| `hideParameters`（`hide-parameters`） | 不显示参数栏；缺省显示 |
 | `expressionEngine` | 表达式引擎，计算字段与公式度量要用 |
 | `formatter` | 换掉全部值的显示方式；缺省按格式说明写 |
 | `locale`、`timeZone`（`time-zone`） | 语言与时区；缺省取全局配置与运行环境所在的时区 |
 | `translations` | 这个元素自己的文案，压在全局配置之上 |
 | `extensions` | 扩展：新的卡片与视图种类、渲染、叠加层、导出器与取数中间件，见[扩展](./extensions) |
+
+布尔 attribute 按三态读：没写取缺省，写 `"false"` 是关，空串、`"true"` 与别的写法都是开，移除后回到缺省。这与 HTML 原生的布尔 attribute 不同：原生的只要写了就算开。这是一处行为变化，报表元素此前也照原生读，`hide-parameters="false"` 会隐藏参数栏，现在是显示。
 
 复杂数据都走属性，`schema`、`dataProvider`、`parameters`、`extensions` 或时区变了会重新取数；`selections` 变了只重算受影响的卡片；文案、语言或格式化器变了只重绘。
 

@@ -21,7 +21,7 @@
 | `translations` | — | `Partial<ReportDesignerTranslations> \| undefined` | 元素自己的文案，压在全局配置之上。 |
 | `locale` | `locale` | `string \| undefined` | BCP 47 语言标记；缺省取全局配置。 |
 | `timeZone` | `time-zone` | `string \| undefined` | IANA 时区；缺省取运行环境所在的时区。 |
-| `readonly` | `readonly` | `boolean` | 只读：可选择、浏览与预览，不能修改。 |
+| `readonly` | `readonly` | `boolean \| undefined` | 只读：可选择、浏览与预览，不能修改；缺省可修改。attribute 写 "false" 是可修改，其余写法是只读。 |
 | `mode` | `mode` | `ReportDesignerMode \| undefined` | design 或 preview，缺省 design。 |
 | `panels` | `panels` | `string \| undefined` | 空格分隔的可收起面板：toolbar data palette wells properties issues；不写即全部显示，写空串只留画布。 |
 | `datasetEditing` | `dataset-editing` | `ReportDatasetEditing \| undefined` | 缺省 fields。 |
