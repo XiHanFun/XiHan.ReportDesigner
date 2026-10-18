@@ -24,9 +24,11 @@ XiHan.ReportDesigner 是框架无关的报表设计器，以原生 Web Component
 /
 ├─ AGENTS.md
 ├─ CLAUDE.md -> AGENTS.md         # Claude Code 仓库指令入口
-├─ .github/ .gitee/ .gitcode/     # 三平台 Issue / PR 模板，GitHub 另有 CI
+├─ .github/ .gitee/ .gitcode/     # 三平台 Issue / PR 模板，GitHub 另有 CI 与发版工作流
 ├─ docs/                          # 产品文档站（VitePress，独立的 pnpm 项目）
 └─ report/                           # pnpm monorepo 根
+   ├─ .changeset/                 # changesets 配置与待发布的变更集
+   ├─ scripts/release/            # 发版脚本：VersionUpgrade、锁步与标签核对、产物契约、冒烟（smoke/ 是冒烟用的宿主项目模板）
    ├─ packages/
    │  ├─ core/                    # @xihan-report/core：模型层，纯 TS，不碰 DOM
    │  ├─ runtime/                 # @xihan-report/runtime：业务页面用的运行时元素；./xlsx 子入口把报表排成 @xihan-ui/xlsx 的工作表，./design 子入口给设计器画布复用计算与渲染
@@ -46,6 +48,9 @@ XiHan.ReportDesigner 是框架无关的报表设计器，以原生 Web Component
 | 类型检查 | `pnpm typecheck` |
 | 单测 | `pnpm test` |
 | Lint | `pnpm lint` |
+| 产物契约（publint + attw，先 build） | `pnpm gate:publish` |
+| 冒烟（在临时空项目里装包、类型检查与打包） | `pnpm smoke --pack`（UI 未发版时加 `--ui ../../XiHan.UI/ui`） |
+| 写变更集 | `pnpm changeset` |
 
 `pnpm build` 按依赖拓扑依次构建 core、runtime、designer。runtime 与 designer 经包的 `exports` 读取上游 dist，改了上游先重建再验证下游。
 
@@ -108,6 +113,18 @@ pnpm dev
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 ```
+
+## 发版
+
+做法照 XiHan.UI：changesets 记变更，main 上的 `v<版本>` 标签触发 `.github/workflows/release.yml` 发 npm。说明见 `report/.changeset/README.md`。
+
+- 三个公开包经 changesets 的 `fixed` 组锁步同版；`scripts/release/check-version-lock.mjs` 核对。
+- 使用者能感知的改动附一份变更集（`pnpm changeset`），中文、官方口径；CI、测试、文档站、脚本、README 不写。首发之前的改动由 `.changeset/first-release.md` 一并概括。
+- 定版本用 `report/scripts/release/VersionUpgrade.bat`（或 `pwsh scripts/release/VersionUpgrade.ps1`）：消费变更集、写各包 CHANGELOG，可进出预发布通道；不提交、不打标签、不推送，`-DryRun` 只打印计划。同一笔补文档站 `docs/changelog.md` 这一版的一节。
+- release.yml 先核对标签（在 main 的历史里；标签号等于包版本且与 `.changeset/pre.json` 一致，`check-release-tag.mjs`），再构建、`gate:publish`、`changeset publish`（带 provenance），然后 `scripts/release/smoke.mjs --version` 冒烟，最后调 `deploy-docs.yml` 部署文档站。deploy-docs 只部署已经发布的版本：当前版本有标签、main 上的包与标签一致、这个版本已在 npm 上。
+- npm 包的版本不建 GitHub Release。
+- main 只接收发版；两次发版之间挑进 main 的纯文档修正，进了 main 以后立刻把 main 合回 dev。
+- 合并 main、打标签、发布都只在用户明确要求时执行。
 
 ## 分支与 worktree
 
