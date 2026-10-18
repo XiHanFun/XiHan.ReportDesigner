@@ -48,9 +48,9 @@ pnpm add @xihan-report/core @xihan-report/runtime @xihan-ui/styles
 
 <ReportDemo name="quickstart" />
 
-## 中文界面
+## 界面语言
 
-查看器与设计器的界面文字缺省是英文。把 XiHan.UI 的中文语言包与报表的中文语言包合并后全局设置，所有实例都跟着换。这一步要另外安装 `@xihan-ui/web-components`：
+查看器与设计器的界面文字缺省是英文。报表给 XiHan.UI 的每种内建语言各出一份语言包，名字是 `report` 加 UI 语言包的名字：`zhCN` 对 `reportZhCN`，`jaJP` 对 `reportJaJP`。把同一语言的两份合并后全局设置，所有实例都跟着换。下面以中文为例。这一步要另外安装 `@xihan-ui/web-components`：
 
 <<< @/examples/snippets/locale.ts#example
 

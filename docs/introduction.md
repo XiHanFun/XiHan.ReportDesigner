@@ -25,7 +25,7 @@
 | --- | --- |
 | `@xihan-report/core` | 报表定义的类型、校验、取数请求、计算、编辑操作与扩展的合并。纯 TypeScript，不依赖 DOM |
 | `@xihan-report/runtime` | 业务页面用的 `<xh-report-viewer>`，样式在 `@xihan-report/runtime/style.css` |
-| `@xihan-report/runtime/locale` | 中文语言包 `reportZhCN`，查看器与设计器共用 |
+| `@xihan-report/runtime/locale` | 各语言的语言包，如 `reportZhCN`、`reportJaJP`，与 XiHan.UI 的内建语言包一一对应，查看器与设计器共用 |
 | `@xihan-report/runtime/xlsx` | 把明细表、分组报表与交叉表的计算结果排成工作表，自己组织工作簿时用 |
 | `@xihan-report/designer` | `<xh-report-designer>`，样式在 `@xihan-report/designer/style.css` |
 

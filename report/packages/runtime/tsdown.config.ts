@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsdown'
 
 export default defineConfig({
-  entry: { index: 'src/index.ts', design: 'src/design.ts', locale: 'src/locale.ts', xlsx: 'src/xlsx/index.ts' },
+  entry: { index: 'src/index.ts', design: 'src/design.ts', locale: 'src/locale/index.ts', xlsx: 'src/xlsx/index.ts' },
   format: ['esm'],
   platform: 'neutral',
   dts: true,

@@ -250,7 +250,16 @@ type ReportFormatter = (value: unknown, format: FormatSpec | undefined, context:
 
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
+| `reportDeDE` | 常量 | 报表的德语文案：查看器、设计器与 designer-shell 零件。 |
+| `reportEnUS` | 常量 | 报表的英文文案：查看器、设计器与 designer-shell 零件。 |
+| `reportEsES` | 常量 | 报表的西班牙语文案：查看器、设计器与 designer-shell 零件。 |
+| `reportFrFR` | 常量 | 报表的法语文案：查看器、设计器与 designer-shell 零件。 |
+| `reportJaJP` | 常量 | 报表的日语文案：查看器、设计器与 designer-shell 零件。 |
+| `reportKoKR` | 常量 | 报表的韩语文案：查看器、设计器与 designer-shell 零件。 |
+| `reportPtBR` | 常量 | 报表的巴西葡萄牙语文案：查看器、设计器与 designer-shell 零件。 |
+| `reportRuRU` | 常量 | 报表的俄语文案：查看器、设计器与 designer-shell 零件。 |
 | `reportZhCN` | 常量 | 报表的简体中文文案：查看器、设计器与 designer-shell 零件。 |
+| `reportZhTW` | 常量 | 报表的繁体中文文案：查看器、设计器与 designer-shell 零件。 |
 
 ## `@xihan-report/runtime/xlsx` 的导出
 

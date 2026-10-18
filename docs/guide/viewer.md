@@ -62,6 +62,6 @@
 
 ## 界面文字
 
-查看器的文字取全局配置：用 `setXhConfig(mergeXhConfig(zhCN, reportZhCN))` 换成中文（见[快速开始](../quickstart#中文界面)）。只改某个实例的个别文字时写 `translations`，例如 `{ empty: '本期没有数据' }`；全部文案键见[参考 · 查看器](../reference/viewer#reportviewertranslations)。
+查看器的文字取全局配置：用 `setXhConfig(mergeXhConfig(zhCN, reportZhCN))` 换成中文，其他语言同理（见[快速开始](../quickstart#界面语言)）。只改某个实例的个别文字时写 `translations`，例如 `{ empty: '本期没有数据' }`；全部文案键见[参考 · 查看器](../reference/viewer#reportviewertranslations)。
 
 同一页面放多少个查看器都互不影响：它们不共享状态，扩展也按实例传入。

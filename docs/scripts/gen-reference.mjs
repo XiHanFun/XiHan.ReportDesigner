@@ -579,8 +579,10 @@ function exportIndex(entry) {
   return groups
 }
 
+/** 导出索引：entry.group 给了时全部导出归在这一组名下，不按源文件分组。 */
 function exportIndexSection(title, entry) {
-  const groups = exportIndex(entry)
+  const found = exportIndex(entry)
+  const groups = entry.group === undefined ? found : new Map([[entry.group, [...found.values()].flat()]])
   const parts = [`## ${title}`]
   for (const [module, items] of [...groups.entries()].sort(([a], [b]) => a.localeCompare(b))) {
     parts.push(`### ${module}`)
@@ -975,7 +977,7 @@ function viewerPage() {
     interfaceSection(format, 'ReportFormatContext'),
     translationsSection(translations, 'ReportViewerTranslations', 'xh-report-viewer'),
     exportIndexSection('全部导出', { root, file: join(root, 'index.ts') }),
-    exportIndexSection(`${code('@xihan-report/runtime/locale')} 的导出`, { root, file: join(root, 'locale.ts') }),
+    exportIndexSection(`${code('@xihan-report/runtime/locale')} 的导出`, { root, file: join(root, 'locale', 'index.ts'), group: 'locale' }),
     exportIndexSection(`${code('@xihan-report/runtime/xlsx')} 的导出`, { root, file: join(root, 'xlsx', 'index.ts') }),
   ])
 }
