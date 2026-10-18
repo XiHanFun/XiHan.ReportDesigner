@@ -392,6 +392,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | `translations` | `ReportDesignerTranslations` | 此刻生效的设计器文案。 |
 | `commands` | `DesignerCommandsTranslations` | 四款设计器共用的命令文案，取 designer-shell 语言包的 xh-designer-commands。 |
 | `settings` | `DesignerSettings` | 此刻生效的设置：键是「分区 id.条目 id」，各分区没写的条目取了缺省值。 |
+| `frame` | `XhDesignerFrameElement \| undefined` | 设计器的外框；还没建出来时为 undefined。内置的「面板」命令经它开关面板。 |
 
 ### ReportMenuSubject {#reportmenusubject}
 
@@ -441,7 +442,7 @@ const REPORT_TOOLBAR_LAYOUT = [
   ['undo', 'redo'],
   ['cut', 'copy', 'paste', 'duplicate', 'delete'],
   ['design', 'preview'],
-  ['settings', 'help'],
+  ['panels', 'settings', 'help'],
 ]
 ```
 

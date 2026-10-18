@@ -9,14 +9,14 @@ import type { ReportCardType, ReportDocument, ReportRuleContext } from '@xihan-r
 import type { ReportDesignerTranslations, ReportRuntimeExtension, ReportRuntimeModel } from '@xihan-report/runtime'
 import type { IconRecord } from '@xihan-ui/core'
 import type { DesignerCommand, DesignerExtensionCore, ExtensionKeySpaces } from '@xihan-ui/designer-kit'
-import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension } from '@xihan-ui/designer-shell'
+import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension, XhDesignerFrameElement } from '@xihan-ui/designer-shell'
 import type { ReportAddCardInit } from './editor'
 import type { XhReportDesigner } from './report-designer'
 import { cardTemplate, REPORT_CARD_TYPES } from '@xihan-report/core'
 import { createReportRuntimeModel } from '@xihan-report/runtime'
 import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
 import { collectSettingsSections, designerShellCommands } from '@xihan-ui/designer-shell'
-import { ChartBarIcon, ChartPieIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EyeIcon, GridIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TableIcon, TrashIcon, TrendingUpIcon, UndoIcon } from '@xihan-ui/icons'
+import { ChartBarIcon, ChartPieIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EyeIcon, GridIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TableIcon, TrashIcon, TrendingUpIcon, UndoIcon } from '@xihan-ui/icons'
 
 /** 命令、面板、物料与扩展装上时拿到的上下文。 */
 export interface ReportDesignerContext {
@@ -28,6 +28,8 @@ export interface ReportDesignerContext {
   readonly commands: DesignerCommandsTranslations
   /** 此刻生效的设置：键是「分区 id.条目 id」，各分区没写的条目取了缺省值。 */
   readonly settings: DesignerSettings
+  /** 设计器的外框；还没建出来时为 undefined。内置的「面板」命令经它开关面板。 */
+  readonly frame: XhDesignerFrameElement | undefined
 }
 
 /** 设计器的命令。 */
@@ -112,7 +114,7 @@ const QUICK_INSERT_COMMANDS: readonly ReportDesignerCommand[] = QUICK_INSERT.map
 /** 内置命令 help 打开的帮助页：报表文档站的设计器一页。 */
 export const REPORT_DESIGNER_HELP_URL = 'https://report.docs.xihanfun.com/guide/designer'
 
-/** 内置命令：撤销重做、剪贴板、创建副本与删除、全选、设计与预览，以及 designer-shell 内置的设置与帮助，各带图标。 */
+/** 内置命令：撤销重做、剪贴板、创建副本与删除、全选、设计与预览，以及 designer-shell 内置的面板、设置与帮助，各带图标。 */
 const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
   { id: 'undo', label: shared('undo'), icon: UndoIcon, shortcut: ['Mod', 'Z'], enabled: context => designing(context) && context.designer.canUndo, run: ({ designer }) => designer.undo() },
   { id: 'redo', label: shared('redo'), icon: RedoIcon, shortcut: ['Mod', 'Shift', 'Z'], enabled: context => designing(context) && context.designer.canRedo, run: ({ designer }) => designer.redo() },
@@ -130,9 +132,10 @@ const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
   } },
   ...designerShellCommands<ReportDesignerContext>({
     translations: context => context.commands,
+    frame: context => context.frame,
     openSettings: ({ designer }) => designer.openSettings(),
     helpUrl: () => REPORT_DESIGNER_HELP_URL,
-    icons: { settings: SettingsIcon, help: CircleHelpIcon },
+    icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon },
   }),
   ...QUICK_INSERT_COMMANDS,
 ]
@@ -164,7 +167,7 @@ export const REPORT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['undo', 'redo'],
   ['cut', 'copy', 'paste', 'duplicate', 'delete'],
   ['design', 'preview'],
-  ['settings', 'help'],
+  ['panels', 'settings', 'help'],
 ]
 
 /** 右键菜单落在哪类对象上。 */

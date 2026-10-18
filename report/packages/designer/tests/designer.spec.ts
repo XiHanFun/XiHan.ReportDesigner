@@ -679,7 +679,7 @@ describe('<xh-report-designer>：编辑', () => {
   it('工具栏：按钮随选择与历史启用，点按钮执行命令，设计与预览两个按钮切换模式；只读时编辑类命令不可用', async () => {
     const designer = await mount()
     const button = (command: string): HTMLButtonElement => designer.querySelector(`[data-region="toolbar"] button[value="${command}"]`)!
-    expect([...designer.querySelectorAll('[data-region="toolbar"] button[value]')].map(item => item.textContent)).toEqual(['Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Duplicate', 'Delete', 'Design', 'Preview', 'Settings', 'Help'])
+    expect([...designer.querySelectorAll('[data-region="toolbar"] button[value]')].map(item => item.textContent)).toEqual(['Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Duplicate', 'Delete', 'Design', 'Preview', 'Panels', 'Settings', 'Help'])
     expect([button('undo').disabled, button('delete').disabled]).toEqual([true, true])
     designer.select({ cards: ['a'] })
     await designer.updateComplete
@@ -700,10 +700,10 @@ describe('<xh-report-designer>：编辑', () => {
     expect([button('delete').disabled, button('copy').disabled, button('preview').disabled]).toEqual([true, false, false])
   })
 
-  it('工具栏末组是 designer-shell 内置的设置与帮助：设置打开设置对话框，帮助在新窗口打开文档站的设计器一页', async () => {
+  it('工具栏末组是 designer-shell 内置的面板、设置与帮助：设置打开设置对话框，帮助在新窗口打开文档站的设计器一页', async () => {
     const designer = await mount()
     const groups = Array.from(designer.querySelectorAll('[data-part="command-bar"] [data-xh-part="group"]'), group => Array.from(group.querySelectorAll('button'), button => button.value))
-    expect(groups.at(-1)).toEqual(['settings', 'help'])
+    expect(groups.at(-1)).toEqual(['panels', 'settings', 'help'])
     designer.querySelector<HTMLButtonElement>('[data-region="toolbar"] button[value="settings"]')!.click()
     await designer.updateComplete
     expect(designer.querySelector<HTMLElement & { open?: boolean }>('xh-designer-settings')!.open).toBe(true)
@@ -734,6 +734,34 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.querySelector('[data-region="header"] button[value]')).toBeNull()
   })
 
+  it('「面板」点开一张锚在按钮上的菜单，列出能开关的六块卡片，勾选的显示；选中一项开关它并派发 panels-change', async () => {
+    const designer = await mount()
+    const frame = designer.querySelector<HTMLElement & { updateComplete: Promise<unknown> }>('xh-designer-frame')!
+    await frame.updateComplete
+    const button = designer.querySelector<HTMLButtonElement>('[data-region="toolbar"] button[value="panels"]')!
+    expect(button.disabled).toBe(false)
+    button.click()
+    await designer.updateComplete
+    type MenuHost = HTMLElement & { open?: boolean, anchor?: HTMLElement | null, collection?: readonly { value: string }[], checkboxValue?: readonly string[] }
+    const menu = designer.querySelector<MenuHost>('[data-part="command-bar"] xh-menu')!
+    const all = ['datasets', 'parameters', 'palette', 'issues', 'wells', 'properties'].map(name => `item:${name}`)
+    expect([menu.open, menu.anchor]).toEqual([true, button])
+    expect([...menu.collection!.map(item => item.value)].sort()).toEqual([...all].sort())
+    expect([...menu.checkboxValue!].sort()).toEqual([...all].sort())
+    const seen: string[] = []
+    designer.addEventListener('panels-change', event => seen.push((event as CustomEvent<{ panels: string }>).detail.panels))
+    menu.dispatchEvent(new CustomEvent('select', { detail: { value: 'item:wells' } }))
+    await designer.updateComplete
+    await frame.updateComplete
+    expect(seen).toEqual([designer.panels])
+    expect(designer.panels!.split(' ')).not.toContain('wells')
+    expect(menu.checkboxValue).not.toContain('item:wells')
+    menu.dispatchEvent(new CustomEvent('select', { detail: { value: 'item:wells' } }))
+    await designer.updateComplete
+    await frame.updateComplete
+    expect(designer.panels!.split(' ')).toContain('wells')
+  })
+
   it('工具栏的容器部件叫 command-bar：设计器自己不再有 toolbar 部件，变换覆盖层的上下文工具条不会被它的样式连带命中', async () => {
     const designer = await mount()
     expect(designer.querySelector('[data-region="toolbar"] > [data-part="command-bar"]')).not.toBeNull()
@@ -752,7 +780,7 @@ describe('<xh-report-designer>：编辑', () => {
       setXhConfig(reportZhCN)
       designer.requestUpdate()
       await designer.updateComplete
-      expect(buttons().map(item => item.getAttribute('aria-label'))).toEqual(['撤销', '重做', '剪切', '复制', '粘贴', '创建副本', '删除', '设计', '预览', '设置', '帮助'])
+      expect(buttons().map(item => item.getAttribute('aria-label'))).toEqual(['撤销', '重做', '剪切', '复制', '粘贴', '创建副本', '删除', '设计', '预览', '面板', '设置', '帮助'])
       expect(designer.querySelector('[data-region="toolbar"] [aria-label="设计器操作"]')).not.toBeNull()
       expect(designer.querySelector('xh-designer-frame')!.regions?.find(region => region.name === 'toolbar')?.label).toBe('设计器操作')
     }
