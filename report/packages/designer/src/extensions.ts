@@ -8,12 +8,13 @@
 import type { ReportCardType, ReportDocument, ReportRuleContext } from '@xihan-report/core'
 import type { ReportDesignerTranslations, ReportRuntimeExtension, ReportRuntimeModel } from '@xihan-report/runtime'
 import type { DesignerCommand, DesignerExtensionCore, ExtensionKeySpaces } from '@xihan-ui/designer-kit'
-import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerPropertyEditor, DesignerShellExtension } from '@xihan-ui/designer-shell'
+import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension } from '@xihan-ui/designer-shell'
 import type { ReportAddCardInit } from './editor'
 import type { XhReportDesigner } from './report-designer'
 import { cardTemplate, REPORT_CARD_TYPES } from '@xihan-report/core'
 import { createReportRuntimeModel } from '@xihan-report/runtime'
 import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
+import { collectSettingsSections } from '@xihan-ui/designer-shell'
 import { ClipboardIcon, CopyIcon, CopyPlusIcon, EyeIcon, PencilIcon, RedoIcon, ScissorsIcon, SquareDashedIcon, TrashIcon, UndoIcon } from '@xihan-ui/icons'
 
 /** 命令、面板、物料与扩展装上时拿到的上下文。 */
@@ -24,6 +25,8 @@ export interface ReportDesignerContext {
   readonly translations: ReportDesignerTranslations
   /** 四款设计器共用的命令文案，取 designer-shell 语言包的 xh-designer-commands。 */
   readonly commands: DesignerCommandsTranslations
+  /** 此刻生效的设置：键是「分区 id.条目 id」，各分区没写的条目取了缺省值。 */
+  readonly settings: DesignerSettings
 }
 
 /** 设计器的命令。 */
@@ -160,6 +163,8 @@ export interface ReportDesignerModel {
   readonly paletteGroups: readonly ReportPaletteGroup[]
   /** 物料项 id 到物料项的对照。 */
   readonly palette: ReadonlyMap<string, ReportPaletteItem>
+  /** 各扩展登记的设置分区，按登记顺序；分区 id 不与基础分区或彼此重名。 */
+  readonly settings: readonly DesignerSettingsSection[]
 }
 
 const MODELS = new WeakMap<readonly ReportDesignerExtension[], ReportDesignerModel>()
@@ -190,6 +195,7 @@ export function createReportDesignerModel(extensions: readonly ReportDesignerExt
     commands: extensionCommands(all),
     paletteGroups,
     palette,
+    settings: collectSettingsSections(all),
   }
   MODELS.set(extensions, model)
   return model

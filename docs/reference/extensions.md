@@ -391,6 +391,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | `designer` | `XhReportDesigner` | 所在的设计器元素。 |
 | `translations` | `ReportDesignerTranslations` | 此刻生效的设计器文案。 |
 | `commands` | `DesignerCommandsTranslations` | 四款设计器共用的命令文案，取 designer-shell 语言包的 xh-designer-commands。 |
+| `settings` | `DesignerSettings` | 此刻生效的设置：键是「分区 id.条目 id」，各分区没写的条目取了缺省值。 |
 
 ### ReportMenuSubject {#reportmenusubject}
 
@@ -466,3 +467,4 @@ const REPORT_MENU_LAYOUT = {
 | `commands` | `DesignerCommandTable<ReportDesignerContext>` | 命令 id 到命令的对照：内置的在前，扩展的按登记顺序。 |
 | `paletteGroups` | `readonly ReportPaletteGroup[]` | 物料面板的组，内置的在前。 |
 | `palette` | `ReadonlyMap<string, ReportPaletteItem>` | 物料项 id 到物料项的对照。 |
+| `settings` | `readonly DesignerSettingsSection[]` | 各扩展登记的设置分区，按登记顺序；分区 id 不与基础分区或彼此重名。 |
