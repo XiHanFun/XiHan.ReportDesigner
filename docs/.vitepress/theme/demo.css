@@ -45,6 +45,20 @@
   border-radius: var(--xh-radius-md);
 }
 
+/* 全屏时舞台占满组件下方的高度、排成一列，舞台里的设计器长满状态行以外的高度 */
+.xh-fullscreen[data-fullscreen] .report-demo__stage {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-block-size: 0;
+}
+
+.xh-fullscreen[data-fullscreen] .report-demo__stage > xh-report-designer {
+  flex: 1 1 0;
+  block-size: auto;
+  min-block-size: 0;
+}
+
 /* 示例里直接写的原生按钮 */
 .report-demo__stage > button {
   margin-block-end: var(--xh-space-3);
