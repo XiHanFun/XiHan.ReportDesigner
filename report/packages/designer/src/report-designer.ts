@@ -6,12 +6,16 @@
 // <xh-report-designer>：报表设计器元素。编辑模型（历史、选择、剪贴板、布局手势）在 createReportEditor 里，
 // 画布内容复用查看器的计算与渲染；整体版式用 @xihan-ui/designer-shell 的外框，panels 决定显示哪些区，面板用 designer-shell 的零件。
 // 卡片与视图种类、渲染、属性编辑器、命令、面板与物料都从 extensions 来，内置命令与物料也是一个扩展；
-// 工具栏与菜单的排列可由 commandLayout 改写。
+// 工具栏与菜单的排列可由 commandLayout 改写。设置对话框（openSettings()）里是基础分区与各扩展的分区，值经 settings 与
+// settings-change 交给宿主。
 
 import type { DashboardCard, DashboardView, ExpressionEngine, ParameterValues, ReportDocument, ReportOperation, ValidationIssue } from '@xihan-report/core'
 import type { ReportDataProvider, ReportDesignerTranslations, ReportFormatter, ReportViewerTranslations, XhReportViewer } from '@xihan-report/runtime'
+import type { JsonValue } from '@xihan-ui/core/json'
+import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
 import type { ExecuteOptions, ExtensionHost, GridRect, HistoryChangeKind, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
-import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFrameEventMap, DesignerFrameRegion, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelHost, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
+import type { PropertySwatchOption } from '@xihan-ui/designer-kit/properties'
+import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFrameEventMap, DesignerFrameRegion, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { DialogService } from '@xihan-ui/web-components/services'
 import type { DataRemoval } from './data-editing'
@@ -28,6 +32,7 @@ import { commandForShortcut, createExtensionHost, createIdAllocator, selectInMar
 import {
   arrangeCommands,
   createCommandToolbar,
+  createDesignerSettingsHost,
   createPanelHost,
   defineDesignerShellElement,
   DESIGNER_COMMANDS_EN_US,
@@ -35,11 +40,13 @@ import {
   parseDesignerPanels,
   registerDropTarget,
   renderCommandMenu,
+  resolveSettings,
   runCommand,
   XhDesignerFrameElement,
   XhDesignerIssuesElement,
   XhDesignerPaletteElement,
   XhDesignerPropertiesElement,
+  XhDesignerSettingsElement,
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
@@ -96,6 +103,13 @@ export interface ReportDesignerEventMap {
   'blank-contextmenu': CustomEvent<{ x: number, y: number }>
   /** 点了面板头的关闭钮，设计器已收起这块面板：panels 是收起之后要显示的面板（空格分隔），设计器的 panels 已换成它。 */
   'panels-change': CustomEvent<{ panels: string }>
+  /**
+   * 在设置对话框里改了一条设置：设计器已换成新的 settings 并生效（主题、主题色与扩展读的值）；
+   * value 为 undefined 表示删掉这个键、回到缺省值。宿主存起来，下次赋回 settings。
+   */
+  'settings-change': CustomEvent<{ key: string, value: JsonValue | undefined, settings: DesignerSettings }>
+  /** 读写 settingsStorageKey 指的本机存储失败（内容不是对象、无痕窗口、配额满）；设置留在内存里。 */
+  'settings-storage-error': CustomEvent<VisualEnvironmentStorageError>
 }
 
 /**
@@ -136,6 +150,8 @@ interface Layers {
   readonly wells: Wells
   readonly properties: PropertiesPanel
   readonly issues: IssuesPanel
+  /** 设置对话框。 */
+  readonly settings: XhDesignerSettingsElement
 }
 
 /** 数据面板的字段拖到画布上的落点：卡片（缺省为报表主体的视图）与字段。 */
@@ -186,6 +202,11 @@ export class XhReportDesigner extends XhReactiveElement {
     mode: { attribute: 'mode' },
     panels: { converter: { fromAttribute: (value: string | null) => value ?? undefined } },
     datasetEditing: { attribute: 'dataset-editing' },
+    settings: { attribute: false },
+    settingsPolicy: { attribute: false },
+    settingsStorageKey: { attribute: 'settings-storage-key', converter: { fromAttribute: (value: string | null) => value ?? undefined } },
+    brands: { attribute: false },
+    registerBrand: { attribute: false },
   }
 
   /** 报表定义：赋值即装载（清空历史与选择）；赋回当前这一份不重新装载。读取得到当前报表。 */
@@ -217,6 +238,22 @@ export class XhReportDesigner extends XhReactiveElement {
   declare panels: string | undefined
   /** 缺省 fields。 */
   declare datasetEditing: ReportDatasetEditing | undefined
+  /**
+   * 设置的值：扁平的键值，键是「分区 id.条目 id」，如 general.theme；没写的键取条目的缺省值。
+   * 赋值即生效；用户在设置对话框里改了以后设计器换成新的一份并派发 settings-change。
+   */
+  declare settings: DesignerSettings | undefined
+  /** 宿主对设置条目的管控：键是条目键或分区 id，hidden 不显示，locked 只读、说明换成「由所在系统管理」。 */
+  declare settingsPolicy: DesignerSettingsPolicy | undefined
+  /**
+   * 设置存在根所在窗口 localStorage 的哪个键下：给了，连上文档时若没赋 settings 就从这里读，用户改了设置就写回去，
+   * 标了 secret 的条目不存；读写失败派发 settings-storage-error。不给就不读写。同名 attribute settings-storage-key。
+   */
+  declare settingsStorageKey: string | undefined
+  /** 设置里主题色的预设：value 是品牌 id（写成设计器根上的 data-brand），color 是色板格子的颜色。不给且没给 registerBrand 时没有主题色这一项。 */
+  declare brands: readonly PropertySwatchOption[] | undefined
+  /** 注册自定义主题色，形状与 @xihan-ui/tokens 的 registerBrand 相同；给了才许在设置里自定义主题色。 */
+  declare registerBrand: ((id: string, color: string) => () => void) | undefined
 
   readonly #config = new XhConfigController(this)
   #editor: ReportEditor | undefined
@@ -240,6 +277,11 @@ export class XhReportDesigner extends XhReactiveElement {
   #regionsKey = ''
   #regionsModel: ReportDesignerModel | undefined
   #regionList: readonly DesignerFrameRegion[] = FRAME_REGIONS
+  #settingsHost: DesignerSettingsHost | undefined
+  #settingsHostOptions: readonly unknown[] = []
+  #settingsDialogKey = ''
+  /** 此刻生效的设置：各分区没写的条目取了缺省值。 */
+  #resolvedSettings: DesignerSettings = {}
   #extensions: readonly ReportDesignerExtension[] | undefined
   /** 包好各扩展取数中间件的取数回调，扩展与 dataProvider 都没变时沿用。 */
   #wrapped: { readonly model: ReportDesignerModel, readonly base: ReportDataProvider, readonly provider: ReportDataProvider } | undefined
@@ -439,6 +481,8 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#content?.dispose()
     this.#dialogs?.dispose()
     this.#dialogs = undefined
+    this.#settingsHost?.dispose()
+    this.#settingsHost = undefined
     this.#host.dispose()
   }
 
@@ -446,6 +490,7 @@ export class XhReportDesigner extends XhReactiveElement {
     super.update(changed)
     const layers = this.#ensureLayers()
     const t = this.#translations()
+    this.#syncSettings(layers, changed)
     this.setAttribute('aria-label', t.label)
     layers.canvas.setAttribute('aria-label', t.canvas)
     if (changed.has('schema'))
@@ -489,7 +534,7 @@ export class XhReportDesigner extends XhReactiveElement {
 
   /** 交给命令、面板、物料与扩展 setup 的上下文。 */
   #context(t: ReportDesignerTranslations = this.#translations()): ReportDesignerContext {
-    return { designer: this, translations: t, commands: this.#commandTranslations() }
+    return { designer: this, translations: t, commands: this.#commandTranslations(), settings: this.#resolvedSettings }
   }
 
   /** 面板用的文案：问题的说明先问扩展，扩展不给时用设计器的文案。 */
@@ -681,7 +726,9 @@ export class XhReportDesigner extends XhReactiveElement {
     issueSummary.slot = 'issues-actions'
     const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, data.datasets, data.parameters, palette, workspace, wells.element, properties.element, issues.element, issueSummary]) as XhDesignerFrameElement
     frame.addEventListener('panels-change', this.#onPanelsChange)
-    this.replaceChildren(frame)
+    const settings = createGeneratedElement(doc, 'xh-designer-settings', { 'data-part': 'settings' }) as XhDesignerSettingsElement
+    settings.addEventListener('settings-change', this.#onSettingsChange)
+    this.replaceChildren(frame, settings)
     this.#layers?.panels.dispose()
     const panels = createPanelHost<ReportDesignerContext>(frame, { regions: FRAME_REGIONS })
     canvas.addEventListener('pointerdown', this.#onPointerDown)
@@ -704,7 +751,8 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#paletteKey = ''
     this.#regionsKey = ''
     this.#viewer = undefined
-    this.#layers = { frame, toolbar, commandBar, panels, menu, menuContent, menuTrigger, canvas, scroller, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues }
+    this.#settingsDialogKey = ''
+    this.#layers = { frame, toolbar, commandBar, panels, menu, menuContent, menuTrigger, canvas, scroller, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, settings }
     panels.assign(this.#model.extensions, this.#context())
     this.#fillMenu('blank')
     return this.#layers
@@ -713,6 +761,63 @@ export class XhReportDesigner extends XhReactiveElement {
   /** panels 原样交给外框；区名换成文案，供分隔条的无障碍名称使用，文案没变时不重设。 */
   #mode(): ReportDesignerMode {
     return this.mode === 'preview' ? 'preview' : 'design'
+  }
+
+  /** 打开设置对话框，给了分区 id 就显示那一页：基础是 general，扩展的是它登记的分区 id。 */
+  openSettings(section?: string): void {
+    this.#ensureLayers().settings.show(section)
+  }
+
+  /**
+   * 设置：建好设置宿主（主题色预设、注册函数或存储键变了就重建），给了存储键又没赋 settings 时从存储读；settings 变了
+   * 把主题与主题色落到设计器上；算出此刻生效的设置，交给设置对话框。
+   */
+  #syncSettings(layers: Layers, changed: PropertyValues): void {
+    const options = [this.brands, this.registerBrand, this.settingsStorageKey]
+    let fresh = false
+    if (!this.#settingsHost || options.some((value, index) => value !== this.#settingsHostOptions[index])) {
+      this.#settingsHost?.dispose()
+      this.#settingsHostOptions = options
+      const storageKey = this.settingsStorageKey
+      this.#settingsHost = storageKey === undefined
+        ? createDesignerSettingsHost({ root: this, brands: this.brands, registerBrand: this.registerBrand })
+        : createDesignerSettingsHost({
+            root: this,
+            brands: this.brands,
+            registerBrand: this.registerBrand,
+            storageKey,
+            onStorageError: detail => emitEvent(this, 'settings-storage-error', detail),
+          })
+      if (storageKey !== undefined && this.settings === undefined)
+        this.settings = this.#settingsHost.load()
+      fresh = true
+    }
+    if (fresh || changed.has('settings'))
+      this.#settingsHost.apply(this.settings ?? {})
+    const sections = this.#model.settings
+    this.#resolvedSettings = resolveSettings(sections, this.settings)
+    const dialog = layers.settings
+    const general = { brands: this.brands, customBrand: this.registerBrand !== undefined }
+    const policy: DesignerSettingsPolicy = { ...this.settingsPolicy }
+    const dialogKey = JSON.stringify([general.brands, general.customBrand, policy])
+    if (dialogKey !== this.#settingsDialogKey) {
+      this.#settingsDialogKey = dialogKey
+      dialog.general = general
+      dialog.policy = policy
+    }
+    if (dialog.sections !== sections)
+      dialog.sections = sections
+    if (dialog.settings !== this.settings)
+      dialog.settings = this.settings
+  }
+
+  /** 设置对话框里改了一条：换成新的 settings，给了存储键就存起来，再派发 settings-change。 */
+  readonly #onSettingsChange = (event: Event): void => {
+    event.stopPropagation()
+    const detail = (event as DesignerSettingsEventMap['settings-change']).detail
+    this.settings = detail.settings
+    this.#settingsHost?.save(detail.settings, this.#model.settings)
+    emitEvent(this, 'settings-change', detail)
   }
 
   /** panels 列出了这块面板（不写 panels 即全部显示）。 */
@@ -1362,6 +1467,7 @@ export function defineReportDesigner(): void {
   defineDesignerShellElement('xh-designer-issues', XhDesignerIssuesElement)
   defineDesignerShellElement('xh-designer-palette', XhDesignerPaletteElement)
   defineDesignerShellElement('xh-designer-properties', XhDesignerPropertiesElement)
+  defineDesignerShellElement('xh-designer-settings', XhDesignerSettingsElement)
   defineDesignerShellElement('xh-designer-transform', XhDesignerTransformElement)
   registerElement(REPORT_DESIGNER_TAG, XhReportDesigner)
 }

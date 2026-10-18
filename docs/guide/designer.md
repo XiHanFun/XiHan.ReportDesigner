@@ -77,6 +77,28 @@ aside: false
 
 右键点卡片或空白处时派发 `card-contextmenu` 或 `blank-contextmenu`，取消这个事件就不弹内建菜单，宿主可以画自己的；双击卡片派发 `card-dblclick`。
 
+## 设置
+
+设置是用户偏好，每人每机一份，不随报表定义保存。`openSettings(section?)` 打开设置对话框，左边一个分区一页：
+
+- 「基础」（`general`）：主题（跟随页面、跟随系统、亮色、暗色）、主题色、工具栏按钮的显示方式（图标、文字、图标和文字，缺省只显示图标）与状态栏。工具栏的显示方式只走设置，没有单独的属性。
+- 扩展登记的分区，排在后面。分区 id 与 `general` 或别的扩展重名时，给 `extensions` 赋值就抛 `DesignerExtensionError`。
+
+看板的网格是报表布局的一部分（卡片总落在格子上），随报表定义保存，所以报表没有自己的「画布」一页。`datasetEditing` 管的是能改到什么程度，属于权限，仍是设计器的属性。
+
+<<< @/examples/snippets/settings.ts#open
+
+值是扁平的键值，键是「分区 id.条目 id」，如 `general.theme`，没写的键取缺省值。宿主给缺省、锁定条目或读值时用 `@xihan-ui/designer-shell` 导出的 `DESIGNER_SETTING_KEYS`，不手写键。`settings` 赋值即生效；用户在对话框里改了一条，设计器换成新的一份并派发 `settings-change`，宿主存起来、下次赋回。`settingsPolicy` 隐藏或锁定条目，键是条目键或分区 id：`hidden` 不显示，一个分区的条目全藏了就没有这一页；`locked` 只读，说明换成「由所在系统管理」。
+
+<<< @/examples/snippets/settings.ts#host
+
+- **主题只作用于设计器**：主题与主题色写在 `<xh-report-designer>` 自己的 `data-theme`、`data-brand` 上，页面其余部分不变；设置对话框、菜单这些浮层跟着设计器变。主题色的预设由宿主给 `brands`（品牌 id 与色板格子的颜色，可以用 `@xihan-ui/tokens` 的 `BRAND_PRESETS` 与 `BRAND_PRESET_COLORS`）；给了 `registerBrand`（形状同 `@xihan-ui/tokens` 的 `registerBrand`）才许自定义颜色。两样都不给时没有主题色这一项。
+- **扩展读设置**：命令、面板与扩展从上下文的 `settings` 读值，各分区没写的条目已经取了缺省值。
+
+独立使用、没有宿主替你存时，给 `settingsStorageKey`：连上文档时若没赋 `settings` 就从根所在窗口的 localStorage 读，用户改了设置就写回去；标了 `secret` 的文本条目（如密钥）不存。读写失败派发 `settings-storage-error`，设置留在内存里。不给就不读写存储。
+
+<<< @/examples/snippets/settings.ts#storage
+
 ## 用代码编辑
 
 设计器的每一步编辑都是 core 的编辑操作，宿主也可以自己执行：`execute(operations)` 执行一组操作并记为一步撤销，返回新的报表。core 的 `plan…` 函数按报表算出要执行的操作：
