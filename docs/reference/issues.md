@@ -23,6 +23,7 @@
 | `unknown-key` | 不认识的「{key}」 | `key` |
 | `duplicate-key` | 名字「{key}」重复 | `key` |
 | `duplicate-id` | 标识「{id}」重复 | `id` |
+| `duplicate-value` | 选项的值重复 | — |
 | `unknown-control` | 未知的编辑方式 | — |
 
 ## 报表的问题码

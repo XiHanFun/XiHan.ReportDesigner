@@ -200,6 +200,7 @@ const designer: ReportDesignerLocale = {
     'unknown-control': () => '알 수 없는 편집 방식입니다',
     'duplicate-key': p => `${quoted(p.key)}이름이 중복됩니다`,
     'duplicate-id': p => `${quoted(p.id)}ID가 중복됩니다`,
+    'duplicate-value': () => '옵션 값이 중복되었습니다',
     'aggregate-type-mismatch': p => `‘${optionName(p.aggregate)}’ 집계는 숫자 필드에만 사용할 수 있습니다. 이 필드는 ${typeName(p.type)} 유형입니다`,
     'bucket-type-mismatch': p => `날짜 그룹화는 날짜 필드에만 사용할 수 있습니다. 이 필드는 ${typeName(p.type)} 유형입니다`,
     'chart-reference-role': p => `${quoted(p.key)}항목은 ${p.expected === 'dimension' ? '차원' : '측정값'}이어야 합니다`,

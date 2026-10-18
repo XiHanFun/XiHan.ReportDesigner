@@ -505,6 +505,7 @@ const ISSUE_TEXTS: ReportDesignerLocale['issueTexts'] = {
   'unknown-control': () => 'Unknown editor kind',
   'duplicate-key': p => `Duplicate name${quoted(p.key)}`,
   'duplicate-id': p => `Duplicate id${quoted(p.id)}`,
+  'duplicate-value': () => 'Duplicate option value',
   'aggregate-type-mismatch': p => `${AGGREGATE_NAMES[String(p.aggregate)] ?? String(p.aggregate)} works only on number fields; this field is ${typeName(p.type)}`,
   'bucket-type-mismatch': p => `Date grouping works only on date fields; this field is ${typeName(p.type)}`,
   'chart-reference-role': p => `"${String(p.key)}" must be a ${p.expected === 'dimension' ? 'dimension' : 'measure'}`,

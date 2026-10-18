@@ -200,6 +200,7 @@ const designer: ReportDesignerLocale = {
     'unknown-control': () => 'Type d’éditeur inconnu',
     'duplicate-key': p => `Nom${quoted(p.key)} en double`,
     'duplicate-id': p => `Identifiant${quoted(p.id)} en double`,
+    'duplicate-value': () => 'Valeur d’option en double',
     'aggregate-type-mismatch': p => `«\u00A0${optionName(p.aggregate)}\u00A0» ne s’applique qu’aux champs numériques ; ce champ est de type ${typeName(p.type)}`,
     'bucket-type-mismatch': p => `Le regroupement par date ne s’applique qu’aux champs de date ; ce champ est de type ${typeName(p.type)}`,
     'chart-reference-role': p => `La référence${quoted(p.key)} doit désigner une ${p.expected === 'dimension' ? 'dimension' : 'mesure'}`,
