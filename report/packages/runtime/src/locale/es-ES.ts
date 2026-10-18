@@ -200,6 +200,7 @@ const designer: ReportDesignerLocale = {
     'unknown-control': () => 'Tipo de editor desconocido',
     'duplicate-key': p => `Nombre duplicado${quoted(p.key)}`,
     'duplicate-id': p => `Identificador duplicado${quoted(p.id)}`,
+    'duplicate-value': () => 'Valor de opción duplicado',
     'aggregate-type-mismatch': p => `«${optionName(p.aggregate)}» solo se aplica a campos numéricos; este campo es de tipo ${typeName(p.type)}`,
     'bucket-type-mismatch': p => `La agrupación por fecha solo se aplica a campos de fecha; este campo es de tipo ${typeName(p.type)}`,
     'chart-reference-role': p => `«${String(p.key)}» debe ser una ${p.expected === 'dimension' ? 'dimensión' : 'medida'}`,

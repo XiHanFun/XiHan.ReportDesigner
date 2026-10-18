@@ -211,6 +211,7 @@ const designer: ReportDesignerLocale = {
     'unknown-control': () => 'Неизвестный тип редактора',
     'duplicate-key': p => `Имя${quoted(p.key)} повторяется`,
     'duplicate-id': p => `Идентификатор${quoted(p.id)} повторяется`,
+    'duplicate-value': () => 'Повторяющееся значение варианта',
     'aggregate-type-mismatch': p => `«${optionName(p.aggregate)}» применяется только к числовым полям; тип этого поля — ${typeName(p.type)}`,
     'bucket-type-mismatch': p => `Группировка дат применяется только к полям с датами; тип этого поля — ${typeName(p.type)}`,
     'chart-reference-role': p => `Ключ${quoted(p.key)} должен ссылаться на ${p.expected === 'dimension' ? 'измерение' : 'меру'}`,

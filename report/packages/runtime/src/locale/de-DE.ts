@@ -200,6 +200,7 @@ const designer: ReportDesignerLocale = {
     'unknown-control': () => 'Unbekannter Editortyp',
     'duplicate-key': p => `Doppelter Name${quoted(p.key)}`,
     'duplicate-id': p => `Doppelte ID${quoted(p.id)}`,
+    'duplicate-value': () => 'Doppelter Optionswert',
     'aggregate-type-mismatch': p => `„${optionName(p.aggregate)}“ ist nur für Zahlenfelder möglich; dieses Feld ist vom Typ ${typeName(p.type)}`,
     'bucket-type-mismatch': p => `Die Datumsgruppierung ist nur für Datumsfelder möglich; dieses Feld ist vom Typ ${typeName(p.type)}`,
     'chart-reference-role': p => `Der Verweis${quoted(p.key)} muss auf eine ${p.expected === 'dimension' ? 'Dimension' : 'Kennzahl'} zeigen`,

@@ -89,7 +89,7 @@ describe('各语言的语言包', () => {
   })
 })
 
-const COMMON_ISSUE_CODES = ['required', 'invalid-type', 'invalid-value', 'out-of-range', 'not-integer', 'invalid-option', 'invalid-color', 'empty', 'unknown-key', 'duplicate-key', 'duplicate-id', 'unknown-control'] as const satisfies readonly CommonIssueCode[]
+const COMMON_ISSUE_CODES = ['required', 'invalid-type', 'invalid-value', 'out-of-range', 'not-integer', 'invalid-option', 'invalid-color', 'empty', 'unknown-key', 'duplicate-key', 'duplicate-id', 'duplicate-value', 'unknown-control'] as const satisfies readonly CommonIssueCode[]
 
 describe('问题说明', () => {
   it('通用问题码列全了', () => {

@@ -200,6 +200,7 @@ const designer: ReportDesignerLocale = {
     'unknown-control': () => '不明な編集方法です',
     'duplicate-key': p => `名前${quoted(p.key)}が重複しています`,
     'duplicate-id': p => `ID${quoted(p.id)}が重複しています`,
+    'duplicate-value': () => '選択肢の値が重複しています',
     'aggregate-type-mismatch': p => `「${optionName(p.aggregate)}」は数値フィールドにしか使えません。このフィールドは${typeName(p.type)}です`,
     'bucket-type-mismatch': p => `日付の単位は日付フィールドにしか使えません。このフィールドは${typeName(p.type)}です`,
     'chart-reference-role': p => `${quoted(p.key)}は${p.expected === 'dimension' ? 'ディメンション' : 'メジャー'}である必要があります`,

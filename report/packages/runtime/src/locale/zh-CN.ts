@@ -200,6 +200,7 @@ const designer: ReportDesignerLocale = {
     'unknown-control': () => '未知的编辑方式',
     'duplicate-key': p => `名字${quoted(p.key)}重复`,
     'duplicate-id': p => `标识${quoted(p.id)}重复`,
+    'duplicate-value': () => '选项的值重复',
     'aggregate-type-mismatch': p => `「${optionName(p.aggregate)}」只能用于数值字段，这个字段是${typeName(p.type)}`,
     'bucket-type-mismatch': p => `日期粒度只能用于日期字段，这个字段是${typeName(p.type)}`,
     'chart-reference-role': p => `${quoted(p.key)}应是${p.expected === 'dimension' ? '维度' : '度量'}`,
