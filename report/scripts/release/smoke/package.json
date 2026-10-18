@@ -1,0 +1,19 @@
+{
+  "name": "xihan-report-smoke",
+  "type": "module",
+  "private": true,
+  "description": "发布后冒烟用的宿主项目模板：版本留空，由 scripts/release/smoke.mjs 填。",
+  "dependencies": {
+    "@xihan-report/core": "",
+    "@xihan-report/designer": "",
+    "@xihan-report/runtime": "",
+    "@xihan-ui/designer-shell": "",
+    "@xihan-ui/expression": "",
+    "@xihan-ui/styles": "",
+    "@xihan-ui/web-components": ""
+  },
+  "devDependencies": {
+    "typescript": "",
+    "vite": ""
+  }
+}
