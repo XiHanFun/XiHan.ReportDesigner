@@ -1,0 +1,26 @@
+/*
+ * Copyright (c) 2021-Present XiHanFun and contributors.
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
+/*
+ * 示例舞台里 VitePress .vp-doc 写在这些标签上的正文排版撤掉（revert-layer），退回层里的样式，设计器零件里的标题、段落和
+ * 列表照它们的皮肤画，没有层里样式的标签回到浏览器默认。与 .vp-doc 的正文规则同档，所以引在主题之后、组件皮肤之前：
+ * 胜过 VitePress 的正文排版，又让同档的组件皮肤（UI 无层版、报表查看器与设计器）排在后面照旧生效。不列表单控件。
+ */
+
+.report-demo__stage :is(h1, h2, h3, h4, h5, h6, p, blockquote, ul, ol, li, table, tr, th, td, hr, a, code) {
+  margin: revert-layer;
+  padding: revert-layer;
+  border: revert-layer;
+  background: revert-layer;
+  color: revert-layer;
+  font: revert-layer;
+  letter-spacing: revert-layer;
+  line-height: revert-layer;
+  text-align: revert-layer;
+  list-style: revert-layer;
+  text-decoration: revert-layer;
+  display: revert-layer;
+  overflow: revert-layer;
+}

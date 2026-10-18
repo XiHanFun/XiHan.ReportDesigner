@@ -3,10 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-/*
- * 示例舞台：边框与留白只用 @xihan-ui 设计令牌；舞台里 VitePress .vp-doc 写在这些标签上的正文排版退回浏览器默认。
- * 重置与 .vp-doc 的正文规则同档、写在后面，不列表单控件。
- */
+/* 示例舞台：边框与留白只用 @xihan-ui 设计令牌；正文排版的复位在 demo-reset.css。 */
 
 .report-demo {
   margin-block: var(--xh-space-4);
@@ -15,22 +12,6 @@
   border-radius: var(--xh-radius-md);
   background: var(--xh-bg-page);
   color: var(--xh-fg-default);
-}
-
-.report-demo__stage :is(h1, h2, h3, h4, h5, h6, p, blockquote, ul, ol, li, table, tr, th, td, hr, a, code) {
-  margin: revert;
-  padding: revert;
-  border: revert;
-  background: revert;
-  color: revert;
-  font: revert;
-  letter-spacing: revert;
-  line-height: revert;
-  text-align: revert;
-  list-style: revert;
-  text-decoration: revert;
-  display: revert;
-  overflow: revert;
 }
 
 .report-demo__missing {
