@@ -39,7 +39,7 @@ declare function createReportModel(extensions?: readonly ReportCoreExtension[]):
 | --- | --- | --- |
 | `controls?` | `Readonly<Record<string, ControlKind>>` | 新的编辑方式，键是 control.kind，不能与内建的重名。 |
 | `id` | `string` | 全局唯一，用包名加功能名：@xihan-flow-pro/simulation。也是模板里扩展数据的键。 |
-| `rules?` | `readonly SchemaRule<ReportDocument, ReportRuleContext>[]` |  |
+| `rules?` | `readonly SchemaRule<ReportDocument, ReportRuleContext>[]` | 校验规则，问题与内置校验的一起进问题列表；问题码以 id 的末段加点开头。 |
 
 ### ReportCardKind {#reportcardkind}
 
@@ -275,12 +275,12 @@ type ReportRendered = RenderedChart | RenderedTable
 | 属性 | 类型 | 说明 |
 | --- | --- | --- |
 | `formats` | `readonly string[]` | 能导出的格式，如 svg、png、xlsx。 |
-| `id` | `string` |  |
-| `label` | `string \| ((context: ReportExportContext) => string)` |  |
+| `id` | `string` | 全局唯一，写法同命令 id；不能与内置或别的扩展的导出器重名。 |
+| `label` | `string \| ((context: ReportExportContext) => string)` | 导出项的名称，列导出入口时显示；给函数时现取，随语言变。 |
 
 | 方法 | 说明 |
 | --- | --- |
-| `export(format: string, context: ReportExportContext): Promise<string \| Blob>` |  |
+| `export(format: string, context: ReportExportContext): Promise<string \| Blob>` | 按格式导出，format 是 formats 里的一个；得到文件内容（Blob）或文本。 |
 
 ### ReportExportContext {#reportexportcontext}
 
@@ -337,7 +337,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | --- | --- | --- |
 | `cardRenderers?` | `Readonly<Record<string, ReportCardRenderer>>` | 卡片的渲染，键是卡片种类名。 |
 | `cards?` | `Readonly<Record<string, ReportCardKind<never, unknown>>>` | 卡片种类：键是种类名，扩展登记的带点、以扩展 id 的末段开头。 |
-| `commands?` | `readonly DesignerCommand<ReportDesignerContext>[]` |  |
+| `commands?` | `readonly DesignerCommand<ReportDesignerContext>[]` | 命令：工具栏按钮、右键菜单项与快捷键共用；命令 id 与快捷键不能与内置或别的扩展的重名。 |
 | `controls?` | `Readonly<Record<string, ControlKind>>` | 新的编辑方式，键是 control.kind，不能与内建的重名。 |
 | `dataProvider?` | `ReportDataMiddleware` | 取数中间件，按扩展顺序一层层包在宿主的 dataProvider 外面，后登记的在最外。 |
 | `documentProperties?` | `readonly ReportPropertyDescriptor[]` | 文档级属性，path 相对文档本身，没选中任何对象时属性面板显示它们。 |
@@ -347,9 +347,9 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | `overlays?` | `readonly ReportOverlay[]` | 看板的叠加层；同一层里按扩展顺序，后登记的在上。 |
 | `palette?` | `readonly ReportPaletteItem[]` | 物料面板里的项。 |
 | `paletteGroups?` | `readonly ReportPaletteGroup[]` | 物料面板的组，排在内置的图表、指标、表格之后。 |
-| `panels?` | `readonly DesignerPanel<ReportDesignerContext>[]` |  |
+| `panels?` | `readonly DesignerPanel<ReportDesignerContext>[]` | 面板：各占外框的一个命名区，同一位置按扩展顺序上下排。 |
 | `properties?` | `Readonly<Partial<Record<ReportPropertyTarget, readonly ReportPropertyDescriptor[]>>>` | 追加在内置之后的属性，path 相对那类对象本身。 |
-| `rules?` | `readonly SchemaRule<ReportDocument, ReportRuleContext>[]` |  |
+| `rules?` | `readonly SchemaRule<ReportDocument, ReportRuleContext>[]` | 校验规则，问题与内置校验的一起进问题列表；问题码以 id 的末段加点开头。 |
 | `viewRenderers?` | `Readonly<Record<string, ReportViewRenderer>>` | 作主体的扩展视图的渲染，键是视图种类名。 |
 | `views?` | `Readonly<Record<string, ReportViewKind<never, unknown>>>` | 主体视图种类：键是种类名，规则同卡片。 |
 
@@ -365,7 +365,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | 属性 | 类型 | 说明 |
 | --- | --- | --- |
 | `id` | `string` | 全局唯一；扩展的命令用扩展 id 加点加名字，如 @xihan-flow-pro/simulation.run。 |
-| `label` | `string \| ((context: ReportDesignerContext) => string)` |  |
+| `label` | `string \| ((context: ReportDesignerContext) => string)` | 按钮与菜单项上的文字；给函数时每次刷新现取，随语言变。 |
 | `placement?` | `readonly DesignerCommandPlacement[]` | 缺省排列里出现在哪些位置；不给即只经快捷键或 commandLayout 出现。 |
 | `shortcut?` | `readonly string[]` | 快捷键，写法同 xh-kbd 的 keys：['Mod', 'Shift', 'P']，Mod 在 macOS 上是 ⌘，其余平台是 Ctrl。 |
 | `tone?` | `Tone` | 语气：按钮与菜单项按这族色显示，破坏性命令写 danger。不给即不带语气。 |
@@ -374,7 +374,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | --- | --- |
 | `checked?(context: ReportDesignerContext): boolean` | 给了就是开关式命令，按钮与菜单项显示选中状态。 |
 | `enabled?(context: ReportDesignerContext): boolean` | 不给即总是可用。 |
-| `run(context: ReportDesignerContext): void` |  |
+| `run(context: ReportDesignerContext): void` | 执行命令；按钮、菜单项与快捷键都只在命令此刻可用时调用它。 |
 
 ### ReportDesignerContext {#reportdesignercontext}
 
