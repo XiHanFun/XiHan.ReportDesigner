@@ -16,6 +16,7 @@
 | --- | --- | --- | --- | --- |
 | `value` | <code><a href="#scalarvalue">ScalarValue</a></code> | 是 | 数值 |  |
 | `label` | <code>string</code> | 可省 | — | 显示的文字；不写按取值显示。 |
+| `disabled` | <code>boolean</code> | 可省 | — | 在参数栏里列出但不能选；宿主或缺省值给了这个取值照样认。 |
 
 ### ReportParameter {#reportparameter}
 

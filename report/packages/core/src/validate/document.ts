@@ -679,16 +679,26 @@ function checkReportParameters(c: Checker, document: JsonObject): Map<string, Pa
     const multiple = c.boolean(item, 'multiple', path) ?? false
     if (item.defaultValue !== undefined)
       checkParameterValue(scope, item.defaultValue, [...path, 'defaultValue'], type, multiple)
+    const seen = new Set<string>()
     c.array(item, 'options', path)?.forEach((value, index) => {
       const op = [...path, 'options', index]
       const option = c.object(value, op)
       if (!option)
         return
-      if (!('value' in option))
+      if (!('value' in option)) {
         c.report('required', [...op, 'value'])
-      else
+      }
+      else {
         checkLiteral(scope, option.value, [...op, 'value'], type)
+        if (isScalar(option.value)) {
+          const valueId = JSON.stringify(option.value)
+          if (seen.has(valueId))
+            c.report('duplicate-value', [...op, 'value'])
+          seen.add(valueId)
+        }
+      }
       c.string(option, 'label', op)
+      c.boolean(option, 'disabled', op)
     })
     if (key !== undefined && type !== undefined)
       result.set(key, { type, multiple })

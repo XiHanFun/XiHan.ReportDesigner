@@ -189,6 +189,16 @@ describe('validateDocument：引用与类型', () => {
     expect(issues).toHaveLength(5)
   })
 
+  it('报表参数的固定候选项：取值重复报 duplicate-value，disabled 要是布尔', () => {
+    const issues = check(edit(groupDocument, (d) => {
+      d.parameters = [{ name: 'region', type: 'string', options: [{ value: 'East' }, { value: 'East', label: '东' }, { value: 'West', disabled: 'yes' }, { value: 'North', disabled: true }] }]
+    }))
+    expect(issues).toEqual([
+      { code: 'duplicate-value', path: ['parameters', 'region', 'options', 1, 'value'] },
+      expect.objectContaining({ code: 'invalid-type', path: ['parameters', 'region', 'options', 2, 'disabled'] }),
+    ])
+  })
+
   it('必填的数据集参数没有绑定', () => {
     const document = edit(groupDocument, (d) => {
       d.datasets[0].parameters = [{ name: 'year', type: 'number', required: true }]

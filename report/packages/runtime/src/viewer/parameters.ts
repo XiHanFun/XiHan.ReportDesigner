@@ -43,7 +43,7 @@ function selectControl(parameter: ReportParameter, value: ParameterValue | undef
   const content = uiPart('div', 'content')
   const list = uiPart('div', 'list')
   list.append(...options.map((option, index) => {
-    const item = uiPart('div', 'item', { value: `o${index}` })
+    const item = uiPart('div', 'item', option.disabled === true ? { 'value': `o${index}`, 'aria-disabled': 'true' } : { value: `o${index}` })
     item.append(uiPart('span', 'item-text', {}, optionText(option, parameter, ctx)), uiPart('span', 'item-indicator'))
     return item
   }))

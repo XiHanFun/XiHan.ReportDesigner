@@ -609,6 +609,34 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.canUndo).toBe(true)
   })
 
+  it('取值是文字的报表参数，固定候选项用选项表逐行编辑，重复的取值标在那一格上；数值参数的候选项仍是 JSON', async () => {
+    interface FieldArray extends HTMLElement {
+      items: readonly { readonly key: string }[]
+      readonly updateComplete: Promise<unknown>
+    }
+    const designer = await mount()
+    designer.schema = { ...board, parameters: [
+      { name: 'region', type: 'string', options: [{ value: 'East' }, { value: 'East', label: '东' }] },
+      { name: 'year', type: 'number', options: [{ value: 2025 }] },
+    ] }
+    await designer.updateComplete
+    designer.select({ data: { kind: 'parameter', name: 'region' } })
+    await designer.updateComplete
+    const array = designer.querySelector<FieldArray>('xh-designer-properties [data-path="options"] xh-field-array')!
+    await array.updateComplete
+    await array.updateComplete
+    const cell = (index: number, column: string): HTMLElement & { errorText?: string } =>
+      array.querySelector(`[slot="item-cell:${array.items[index]!.key}:${column}"]`)!
+    expect(array.items).toHaveLength(2)
+    expect([cell(0, 'value').errorText ?? '', cell(1, 'value').errorText]).toEqual(['', 'Duplicate option value'])
+    cell(1, 'value').querySelector('xh-text-field')!.dispatchEvent(new CustomEvent('value-change', { detail: { value: 'West' } }))
+    expect(designer.schema!.parameters![0]!.options).toEqual([{ value: 'East' }, { value: 'West', label: '东' }])
+    designer.select({ data: { kind: 'parameter', name: 'year' } })
+    await designer.updateComplete
+    expect(designer.querySelector('xh-designer-properties [data-path="options"]')).not.toBeNull()
+    expect(designer.querySelector('xh-designer-properties [data-path="options"] xh-field-array')).toBeNull()
+  })
+
   it('问题列表放在画布下方，列出校验问题与所在卡片，错误、警告数在面板头里；点问题选中卡片', async () => {
     const designer = await mount()
     const issues = designer.querySelector('xh-designer-issues')!
