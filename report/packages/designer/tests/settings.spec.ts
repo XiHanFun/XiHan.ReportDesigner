@@ -149,6 +149,20 @@ describe('设置', () => {
     expect([designer.hasAttribute('data-theme'), designer.hasAttribute('data-brand')]).toEqual([false, false])
   })
 
+  it('工具栏显示方式取设置里的 general.toolbarDisplay，缺省只显示图标；换显示方式不重铺按钮', async () => {
+    const designer = await mount()
+    const shell = (): Element => designer.querySelector('xh-tooltip[data-scope="designer-commands"]')!
+    const undo = designer.querySelector('[data-region="toolbar"] button[value="undo"]')
+    expect(shell().getAttribute('data-display')).toBe('icon')
+    designer.settings = { [DESIGNER_SETTING_KEYS.toolbarDisplay]: 'both' }
+    await designer.updateComplete
+    expect(shell().getAttribute('data-display')).toBe('both')
+    designer.settings = { [DESIGNER_SETTING_KEYS.toolbarDisplay]: 'text' }
+    await designer.updateComplete
+    expect(shell().getAttribute('data-display')).toBe('text')
+    expect(designer.querySelector('[data-region="toolbar"] button[value="undo"]')).toBe(undo)
+  })
+
   it('给了 settingsStorageKey：没赋 settings 时从存储读，对话框里改了就写回；读出的不是对象时派发 settings-storage-error', async () => {
     localStorage.setItem('report-settings', JSON.stringify({ [DESIGNER_SETTING_KEYS.theme]: 'dark' }))
     const designer = await mount(element => (element.settingsStorageKey = 'report-settings'))
