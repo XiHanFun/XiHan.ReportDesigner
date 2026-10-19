@@ -241,16 +241,35 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.canRedo).toBe(true)
   })
 
-  it('方向键挪一格（压到的卡片让开），Shift 加方向键改大小；每次按键一步撤销', async () => {
-    const designer = await mount()
-    designer.select({ cards: ['a'] })
-    key(designer, 'ArrowRight')
-    expect((designer.schema!.body as DashboardView).cards[1]!.layout).toMatchObject({ x: 5 })
-    key(designer, 'ArrowLeft', { shiftKey: true })
-    expect((designer.schema!.body as DashboardView).cards[1]!.layout).toMatchObject({ w: 3 })
-    designer.undo()
-    designer.undo()
-    expect(designer.schema).toEqual(board)
+  it('方向键挪一格（压到的卡片让开），Shift 加方向键改大小；同一张卡片相隔不超过 1 秒的连按并成一步撤销，隔久了或换过选中另起一步', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(0)
+      const designer = await mount()
+      const steps = (): number => designer.historyState.entries.length
+      designer.select({ cards: ['a'] })
+      key(designer, 'ArrowRight')
+      expect((designer.schema!.body as DashboardView).cards[1]!.layout).toMatchObject({ x: 5 })
+      vi.setSystemTime(500)
+      key(designer, 'ArrowLeft', { shiftKey: true })
+      expect((designer.schema!.body as DashboardView).cards[1]!.layout).toMatchObject({ w: 3 })
+      expect(steps()).toBe(1)
+      vi.setSystemTime(2000)
+      key(designer, 'ArrowRight')
+      expect(steps()).toBe(2)
+      designer.select({ cards: ['b'] })
+      designer.select({ cards: ['a'] })
+      vi.setSystemTime(2100)
+      key(designer, 'ArrowRight')
+      expect(steps()).toBe(3)
+      designer.undo()
+      designer.undo()
+      designer.undo()
+      expect(designer.schema).toEqual(board)
+    }
+    finally {
+      vi.useRealTimers()
+    }
   })
 
   it('同时选中多张卡片时方向键不挪动', async () => {
@@ -436,6 +455,7 @@ describe('<xh-report-designer>：编辑', () => {
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(designer.schema!.datasets[0]!.fields.some(field => field.name === 'region')).toBe(false)
     expect(cards(designer)[0]).toMatchObject({ query: { dimensions: [] } })
+    expect(designer.historyState.entries.at(-1)!.label).toBe('Delete field "region" and 1 reference')
     designer.undo()
     expect(designer.schema).toEqual(before)
     designer.select({ data: { kind: 'dataset', dataset: 'sales' } })
@@ -465,6 +485,7 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.schema!.datasets[0]!.fields[0]!.name).toBe('area')
     expect(cards(designer)[0]).toMatchObject({ query: { dimensions: [{ field: 'area' }] } })
     expect(designer.getSelection()).toEqual({ cards: [], data: { kind: 'field', dataset: 'sales', name: 'area' } })
+    expect(designer.historyState.entries.map(entry => entry.label)).toEqual(['Rename field "region" to "area"'])
     designer.undo()
     expect(designer.schema).toEqual(board)
   })
@@ -584,6 +605,9 @@ describe('<xh-report-designer>：编辑', () => {
     expect(panel.targets!.map(target => target.kind)).toEqual(['measure'])
     panel.dispatchEvent(new CustomEvent('property-change', { detail: { path: ['aggregate'], value: 'avg', targets: [{ kind: 'measure', id: 'amount' }], merge: 'x' } }))
     expect(cards(designer)[0]).toMatchObject({ query: { measures: [{ id: 'amount', aggregate: 'avg' }] } })
+    const t = DEFAULT_REPORT_DESIGNER_TRANSLATIONS
+    const aggregate = panel.targets![0]!.descriptors.find(descriptor => formatJsonPath(descriptor.path) === 'aggregate')!
+    expect(designer.historyState.entries.at(-1)!.label).toBe(t.historyStep({ action: 'update', kind: t.objectKinds.measure!, name: 'amount', count: 1, property: panel.labelOf!(aggregate) }))
     designer.select({ data: { kind: 'field', dataset: 'sales', name: 'region' } })
     await designer.updateComplete
     expect(panel.targets![0]!.descriptors.map(descriptor => formatJsonPath(descriptor.path))).toEqual(['type', 'title', 'formula'])
@@ -700,7 +724,7 @@ describe('<xh-report-designer>：编辑', () => {
   it('点卡片头的关闭钮收起那块面板：整份布局写进设置的 layout.panels 并派发 settings-change，外框的 layout-change 不冒出来；不登记的报表参数卡片再登记时照样显示', async () => {
     const designer = await mount()
     const frame = designer.querySelector('xh-designer-frame')!
-    const seen = events(designer, 'settings-change') as { key: string, value: { hidden: string[] }, settings: Record<string, unknown> }[]
+    const seen = events(designer, 'settings-change') as { key: string, value: { version: number, hidden: string[] }, settings: Record<string, unknown> }[]
     let fromFrame = 0
     const count = (): void => {
       fromFrame++
@@ -710,7 +734,7 @@ describe('<xh-report-designer>：编辑', () => {
       designer.querySelector<HTMLButtonElement>('[data-region="palette"] [data-part="panel-close"]')!.click()
       await designer.updateComplete
       expect(seen).toHaveLength(1)
-      expect(seen[0]).toMatchObject({ key: DESIGNER_SETTING_KEYS.layout, value: { version: 1, hidden: ['palette'] } })
+      expect([seen[0]!.key, seen[0]!.value.version, [...seen[0]!.value.hidden].sort()]).toEqual([DESIGNER_SETTING_KEYS.layout, 1, ['history', 'palette']])
       expect(seen[0]!.settings).toEqual({ [DESIGNER_SETTING_KEYS.layout]: seen[0]!.value })
       expect(designer.settings).toBe(seen[0]!.settings)
       expect([frame.showsPanel('palette'), frame.showsPanel('parameters')]).toEqual([false, true])
@@ -720,7 +744,7 @@ describe('<xh-report-designer>：编辑', () => {
       expect(frame.regions!.map(region => region.name)).not.toContain('parameters')
       designer.querySelector<HTMLButtonElement>('[data-region="issues"] [data-part="panel-close"]')!.click()
       await designer.updateComplete
-      expect([...seen.at(-1)!.value.hidden].sort()).toEqual(['issues', 'palette'])
+      expect([...seen.at(-1)!.value.hidden].sort()).toEqual(['history', 'issues', 'palette'])
       designer.readonly = false
       await designer.updateComplete
       expect([frame.showsPanel('parameters'), frame.showsPanel('issues'), frame.showsPanel('palette')]).toEqual([true, false, false])
@@ -788,7 +812,7 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.querySelector('[data-region="header"] button[value]')).toBeNull()
   })
 
-  it('「面板」点开一张锚在按钮上的菜单，列出能开关的六块卡片（勾选的显示），再列显示或隐藏所有面板、还原面板显隐与恢复默认布局；选中一块卡片开关它并写进设置', async () => {
+  it('「面板」点开一张锚在按钮上的菜单，列出能开关的七块卡片（勾选的显示，历史记录缺省不勾），再列显示或隐藏所有面板、还原面板显隐与恢复默认布局；选中一块卡片开关它并写进设置', async () => {
     const designer = await mount()
     const frame = designer.querySelector('xh-designer-frame')!
     await frame.updateComplete
@@ -803,12 +827,12 @@ describe('<xh-report-designer>：编辑', () => {
     expect([menu.open, menu.anchor]).toEqual([true, button])
     expect(values.filter(value => value.startsWith('item:')).sort()).toEqual([...all].sort())
     expect(values.filter(value => !value.startsWith('item:'))).toEqual(expect.arrayContaining([expect.stringContaining('panels-toggle-all'), expect.stringContaining('panels-restore'), expect.stringContaining('layout-reset')]))
-    expect([...menu.checkboxValue!].sort()).toEqual([...all].sort())
+    expect([...menu.checkboxValue!].sort()).toEqual(all.filter(value => value !== 'item:history').sort())
     const seen = events(designer, 'settings-change') as { key: string, value: { hidden: string[] } }[]
     menu.dispatchEvent(new CustomEvent('select', { detail: { value: 'item:wells' } }))
     await designer.updateComplete
     await frame.updateComplete
-    expect(seen.map(change => [change.key, change.value.hidden])).toEqual([[DESIGNER_SETTING_KEYS.layout, ['wells']]])
+    expect(seen.map(change => [change.key, change.value.hidden])).toEqual([[DESIGNER_SETTING_KEYS.layout, ['history', 'wells']]])
     expect(frame.showsPanel('wells')).toBe(false)
     expect(menu.checkboxValue).not.toContain('item:wells')
     menu.dispatchEvent(new CustomEvent('select', { detail: { value: 'item:wells' } }))
@@ -834,8 +858,8 @@ describe('<xh-report-designer>：编辑', () => {
     expect(panels.filter(name => frame.showsPanel(name))).toEqual([])
     button('layout-reset').click()
     await designer.updateComplete
-    expect(panels.filter(name => frame.showsPanel(name))).toEqual(panels)
-    expect(designer.settings![DESIGNER_SETTING_KEYS.layout]).toMatchObject({ hidden: [] })
+    expect(panels.filter(name => frame.showsPanel(name))).toEqual(panels.filter(name => name !== 'history'))
+    expect(designer.settings![DESIGNER_SETTING_KEYS.layout]).toMatchObject({ hidden: ['history'] })
   })
 
   it('状态栏左段：没选中时写数据集与卡片数，选中一张卡片写种类与所在的格，几张写已选中 N 个，选中数据面板的对象写属性卡片的那句', async () => {
@@ -894,20 +918,140 @@ describe('<xh-report-designer>：编辑', () => {
     expect(frame.showsPanel('issues')).toBe(false)
   })
 
+  it('历史记录卡片缺省隐藏，打开后在右栏属性下面：零件 headless，列出起点与各步，选一步跳过去；面板头是清空历史，只读时不可用', async () => {
+    const designer = await mount()
+    const frame = designer.querySelector('xh-designer-frame')!
+    expect([frame.showsPanel('history'), designer.querySelector('xh-designer-history')]).toEqual([false, null])
+    expect(frame.resolvedLayout.docks.end).toEqual(['wells', 'properties', 'history'])
+    expect(frame.regions!.find(region => region.name === 'history')).toMatchObject({ title: 'History', icon: expect.anything(), help: DEFAULT_REPORT_DESIGNER_TRANSLATIONS.historyHelp })
+    frame.togglePanel('history')
+    await designer.updateComplete
+    const history = designer.querySelector('xh-designer-history')!
+    expect([history.closest('[data-region="history"]') !== null, history.headless]).toEqual([true, true])
+    designer.select({ cards: ['a'] })
+    designer.deleteSelection()
+    designer.select({ cards: ['b'] })
+    designer.deleteSelection()
+    await designer.updateComplete
+    const snapshot = history.snapshot!
+    expect(snapshot.entries.map(entry => entry.state)).toEqual(['done', 'done'])
+    expect(snapshot).toEqual(designer.historyState)
+    history.dispatchEvent(new CustomEvent('history-go', { detail: { position: snapshot.origin } }))
+    await designer.updateComplete
+    expect(designer.schema).toEqual(board)
+    expect([history.snapshot!.position, history.snapshot!.entries.map(entry => entry.state)]).toEqual([snapshot.origin, ['undone', 'undone']])
+    const clear = (): HTMLButtonElement => designer.querySelector<HTMLButtonElement>('[data-region="history"] button[value="clear-history"]')!
+    expect(clear().disabled).toBe(false)
+    designer.readonly = true
+    await designer.updateComplete
+    expect([clear().disabled, history.readonly]).toEqual([true, true])
+  })
+
+  it('撤销历史的每一步带说明，读的时候按此刻的语言取；history-change 带上与 historyState 相同的快照，撤销、重做的按钮名字写上那一步', async () => {
+    const designer = await mount()
+    const changes = events(designer, 'history-change')
+    designer.select({ cards: ['a'] })
+    designer.deleteSelection()
+    expect(designer.historyState.entries.map(entry => [entry.label, entry.state])).toEqual([['Delete card "a"', 'done']])
+    expect(changes.at(-1)).toEqual(designer.historyState)
+    await designer.updateComplete
+    const button = (command: string): HTMLButtonElement => designer.querySelector(`[data-region="toolbar"] button[value="${command}"]`)!
+    expect(button('undo').getAttribute('aria-label')).toBe('Undo: Delete card "a"')
+    designer.undo()
+    await designer.updateComplete
+    expect([button('undo').getAttribute('aria-label'), button('redo').getAttribute('aria-label')]).toEqual(['Undo', 'Redo: Delete card "a"'])
+    try {
+      setXhConfig(reportZhCN)
+      designer.requestUpdate()
+      await designer.updateComplete
+      expect(designer.historyState.entries[0]!.label).toBe('删除卡片「a」')
+      expect(button('redo').getAttribute('aria-label')).toBe('重做：删除卡片「a」')
+    }
+    finally {
+      setXhConfig({})
+    }
+  })
+
+  it('goToHistory 一次跳到某一步或起点，只读时不跳；clearHistory 清空撤销与重做，报表不变；historyLimit 在下一次装载时生效', async () => {
+    const designer = await mount()
+    designer.select({ cards: ['a'] })
+    designer.deleteSelection()
+    designer.select({ cards: ['b'] })
+    designer.deleteSelection()
+    const { origin, entries } = designer.historyState
+    const changes = events(designer, 'history-change') as { position: number }[]
+    expect(designer.goToHistory(origin)).toBe(true)
+    expect(designer.schema).toEqual(board)
+    expect(changes.map(change => change.position)).toEqual([origin])
+    designer.readonly = true
+    await designer.updateComplete
+    expect(designer.goToHistory(entries[1]!.position)).toBe(false)
+    designer.readonly = false
+    await designer.updateComplete
+    expect(designer.goToHistory(entries[0]!.position)).toBe(true)
+    expect(cards(designer).map(item => item.id)).toEqual(['pie', 'b'])
+    const schema = designer.schema
+    designer.clearHistory()
+    expect([designer.schema, designer.canUndo, designer.canRedo, designer.historyState.entries]).toEqual([schema, false, false, []])
+    designer.setAttribute('history-limit', '1')
+    await designer.updateComplete
+    expect(designer.historyLimit).toBe(1)
+    designer.schema = structuredClone(board)
+    await designer.updateComplete
+    designer.select({ cards: ['a'] })
+    designer.deleteSelection()
+    designer.select({ cards: ['b'] })
+    designer.deleteSelection()
+    expect([designer.historyState.entries.length, designer.historyState.truncated]).toEqual([1, true])
+  })
+
+  it('清空历史是一条命令：先弹确认框，确认后清空并播报，取消不动；只读时不可用。Ctrl+Y 也是重做', async () => {
+    const designer = await mount()
+    designer.commandLayout = { toolbar: [['undo', 'redo', 'clear-history']] }
+    designer.select({ cards: ['a'] })
+    designer.deleteSelection()
+    designer.undo()
+    key(designer, 'y', { ctrlKey: true })
+    expect(cards(designer).map(item => item.id)).toEqual(['pie', 'b'])
+    await designer.updateComplete
+    const clear = (): HTMLButtonElement => designer.querySelector<HTMLButtonElement>('[data-region="toolbar"] button[value="clear-history"]')!
+    const dialog = (): HTMLElement | null => document.querySelector<HTMLElement>('[data-scope="dialog"][data-part="content"][role="alertdialog"]')
+    const footer = (text: string): HTMLButtonElement => [...dialog()!.querySelectorAll<HTMLButtonElement>('[data-part="footer"] button')].find(button => button.textContent === text)!
+    expect(clear().disabled).toBe(false)
+    clear().click()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(dialog()!.textContent).toContain('Clear history?')
+    footer('Cancel').click()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(designer.historyState.entries).toHaveLength(1)
+    const announce = vi.spyOn(designer.querySelector('xh-designer-frame')!, 'announce')
+    clear().click()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    footer('Clear').click()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect([designer.historyState.entries, designer.canUndo]).toEqual([[], false])
+    expect(announce).toHaveBeenCalledWith('History cleared')
+    designer.select({ cards: ['b'] })
+    designer.deleteSelection()
+    designer.readonly = true
+    await designer.updateComplete
+    expect(clear().disabled).toBe(true)
+  })
+
   it('工具栏的容器部件叫 command-bar：设计器自己不再有 toolbar 部件，变换覆盖层的上下文工具条不会被它的样式连带命中', async () => {
     const designer = await mount()
     expect(designer.querySelector('[data-region="toolbar"] > [data-part="command-bar"]')).not.toBeNull()
     expect([...designer.querySelectorAll('[data-part="toolbar"]')].filter(node => !node.closest('xh-designer-transform'))).toEqual([])
   })
 
-  it('工具栏缺省只显示图标：内置命令都带图标，名字与快捷键写在按钮上，删除按危险语气；共用命令的文案取 designer-shell 的命令文案', async () => {
+  it('工具栏缺省只显示图标：内置命令都带图标，名字与快捷键写在按钮上（重做另认 Ctrl+Y），删除按危险语气；共用命令的文案取 designer-shell 的命令文案', async () => {
     const designer = await mount()
     const buttons = (): HTMLButtonElement[] => [...designer.querySelectorAll<HTMLButtonElement>('[data-region="toolbar"] button[value]')]
     const button = (command: string): HTMLButtonElement => buttons().find(item => item.value === command)!
     expect(designer.querySelector('[data-region="toolbar"] [data-display]')!.getAttribute('data-display')).toBe('icon')
     expect(buttons().filter(item => !item.hasAttribute('data-icon')).map(item => item.value)).toEqual([])
     expect(buttons().filter(item => item.dataset.tone === 'danger').map(item => item.value)).toEqual(['delete'])
-    expect([button('undo').getAttribute('aria-label'), button('redo').getAttribute('aria-keyshortcuts')]).toEqual(['Undo', expect.stringMatching(/^(?:Control|Meta)\+Shift\+Z$/)])
+    expect([button('undo').getAttribute('aria-label'), button('redo').getAttribute('aria-keyshortcuts')]).toEqual(['Undo', expect.stringMatching(/^(?:Control|Meta)\+Shift\+Z Control\+Y$/)])
     try {
       setXhConfig(reportZhCN)
       designer.requestUpdate()

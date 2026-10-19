@@ -259,6 +259,15 @@
 | `applyOperation` | 函数 | 以纯函数方式执行编辑操作：不修改传入的文档，返回新文档与逆操作数组；没有改到的部分沿用原引用。 |
 | `applyOperations` | 函数 | 按顺序执行一组编辑操作，整体成功或整体失败（@xihan-ui/designer-kit 的 applyInSequence）；逆操作为各操作逆操作按相反顺序的拼接。 |
 
+### operations/describe
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `describeReportStep` | 函数 | 撤销栈里一步的说明素材：按第一个操作定动作与对象种类，同一步里同动作、同种类的操作合起来计个数；只改了一个对象时带上它的名字（标题，没有时取 id 或字段名）。 |
+| `ReportStep` | 接口 | 一步的说明素材。 |
+| `ReportStepAction` | 类型 | 一步里的动作。 |
+| `ReportStepKind` | 类型 | 一步改的对象种类，与设计器文案 objectKinds 的键同一组。 |
+
 ### operations/errors
 
 | 名称 | 种类 | 说明 |

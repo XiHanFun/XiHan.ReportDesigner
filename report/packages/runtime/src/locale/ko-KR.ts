@@ -178,6 +178,7 @@ const designer: ReportDesignerLocale = {
   wellsHelp: '선택한 카드의 차원, 측정값, 계열, 열입니다. 필드를 끌어 넣고, 끌어서 순서를 바꾸고, ×로 제거합니다.',
   propertiesHelp: '선택한 개체의 속성입니다. 카드를 여러 장 선택하면 공통 속성만 표시됩니다.',
   issuesHelp: '보고서 검증에서 발견된 문제입니다. 클릭하면 문제가 있는 개체가 선택됩니다.',
+  historyHelp: '보고서를 연 뒤의 모든 변경을 오래된 순서로 보여 줍니다. 단계를 선택하면 그 시점으로 돌아가며, 새로 변경하기 전까지 그 뒤의 단계도 남아 있습니다.',
   insertToolbar: '카드 삽입',
   insertCard: label => `${label} 추가`,
   statusDocument: (datasets, cards) => `데이터 세트 ${datasets}개${cards === undefined ? '' : ` · 카드 ${cards}장`}`,
@@ -255,6 +256,7 @@ const designer: ReportDesignerLocale = {
   objectKinds: {
     document: '보고서',
     dashboard: '대시보드',
+    dataset: '데이터 세트',
     card: '카드',
     chart: '차트',
     metric: '지표',
@@ -427,6 +429,25 @@ const designer: ReportDesignerLocale = {
     return `${parts.filter(([count]) => count > 0).map(([count, unit]) => `${unit} ${count}개`).join(', ')}도 함께 삭제됩니다. 실행 취소할 수 있습니다.`
   },
   removeConfirm: '삭제',
+  historyStep: (step) => {
+    const target = step.count > 1 ? `${step.kind} ${step.count}개` : step.name === undefined ? step.kind : `${step.kind} ‘${step.name}’`
+    switch (step.action) {
+      case 'add':
+        return `${target} 추가`
+      case 'remove':
+        return step.cascade ? `${target}와 참조 ${step.cascade}곳 삭제` : `${target} 삭제`
+      case 'move':
+        return `${target} 이동`
+      case 'rename':
+        return `${step.kind} ‘${step.name}’ 이름을 ‘${step.to}’(으)로 변경`
+      case 'layout':
+        return `${target} 배치 변경`
+      case 'replace':
+        return `${target} 바꾸기`
+      case 'update':
+        return step.property === undefined ? `${target} 편집` : `${target}의 ${step.property} 편집`
+    }
+  },
   unknownIssue: code => `문제: ${code}`,
 }
 

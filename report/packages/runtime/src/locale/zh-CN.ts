@@ -178,6 +178,7 @@ const designer: ReportDesignerLocale = {
   wellsHelp: '选中卡片的维度、度量、系列与列。把字段拖进来，拖动换序，点叉移除。',
   propertiesHelp: '选中对象的属性。选中多张卡片时只列它们共有的属性。',
   issuesHelp: '报表的校验问题。点一条选中出问题的对象。',
+  historyHelp: '打开报表以来的每一步修改，先做的在上。点一步回到那里；它后面的几步在做出新的修改之前都还在。',
   insertToolbar: '插入卡片',
   insertCard: label => `添加「${label}」`,
   statusDocument: (datasets, cards) => `${datasets} 个数据集${cards === undefined ? '' : ` · ${cards} 张卡片`}`,
@@ -255,6 +256,7 @@ const designer: ReportDesignerLocale = {
   objectKinds: {
     document: '报表',
     dashboard: '看板',
+    dataset: '数据集',
     card: '卡片',
     chart: '图表',
     metric: '指标',
@@ -427,6 +429,25 @@ const designer: ReportDesignerLocale = {
     return `会一并删掉 ${parts.filter(([count]) => count > 0).map(([count, unit]) => `${count} ${unit}`).join('、')}，可以撤销。`
   },
   removeConfirm: '删除',
+  historyStep: (step) => {
+    const target = step.count > 1 ? `${step.count} 个${step.kind}` : step.name === undefined ? step.kind : `${step.kind}「${step.name}」`
+    switch (step.action) {
+      case 'add':
+        return `新增${target}`
+      case 'remove':
+        return step.cascade ? `删除${target}及 ${step.cascade} 处引用` : `删除${target}`
+      case 'move':
+        return `移动${target}`
+      case 'rename':
+        return `把${step.kind}「${step.name}」改名为「${step.to}」`
+      case 'layout':
+        return `调整${target}的布局`
+      case 'replace':
+        return `更换${target}`
+      case 'update':
+        return step.property === undefined ? `修改${target}` : `修改${target}的${step.property}`
+    }
+  },
   unknownIssue: code => `问题：${code}`,
 }
 

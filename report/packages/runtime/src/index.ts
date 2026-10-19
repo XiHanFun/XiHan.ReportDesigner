@@ -6,7 +6,7 @@
 // @xihan-report/runtime —— 业务页面用的报表查看器 <xh-report-viewer>。导入不注册元素，调用 defineReportViewer() 才注册。
 
 export { DEFAULT_REPORT_DESIGNER_TRANSLATIONS } from './designer-translations'
-export type { ReportDesignerCascade, ReportDesignerIssueDetails, ReportDesignerTranslations } from './designer-translations'
+export type { ReportDesignerCascade, ReportDesignerIssueDetails, ReportDesignerTranslations, ReportHistoryStepText } from './designer-translations'
 export { createReportRuntimeModel, REPORT_RUNTIME_EXTENSION, REPORT_RUNTIME_EXTENSION_ID } from './extensions'
 export type { ReportCardRenderer, ReportDataMiddleware, ReportExportContext, ReportOverlay, ReportOverlayContext, ReportRendered, ReportResults, ReportRuntimeExtension, ReportRuntimeModel, ReportScene, ReportSceneCard, ReportViewRenderer } from './extensions'
 export { DEFAULT_REPORT_VIEWER_TRANSLATIONS } from './translations'

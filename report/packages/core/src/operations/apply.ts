@@ -178,7 +178,7 @@ function viewPath(document: ReportDocument, card: string | undefined, operation:
 }
 
 /** 列表的路径：视图里的列表，带查询的卡片或扩展视图查询里的 dimensions、measures，直角坐标图的 series。 */
-function listPath(document: ReportDocument, card: string | undefined, list: ItemList, operation: ReportOperation): JsonPath {
+export function listPath(document: ReportDocument, card: string | undefined, list: ItemList, operation: ReportOperation): JsonPath {
   let path: JsonPath | undefined
   const base: JsonPath = card === undefined ? ['body'] : ['body', 'cards', cardIndex(document, card, operation)]
   const found = getJsonAt(json(document), base) as { type?: unknown, kind?: unknown, view?: { type?: unknown }, query?: unknown, chart?: { type?: unknown } } | undefined

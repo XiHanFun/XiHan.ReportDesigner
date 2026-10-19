@@ -12,6 +12,7 @@ import type { DashboardCard, DashboardView, DataView, ItemList, PropertyChange, 
 import type { ReportDesignerTranslations } from '@xihan-report/runtime'
 import type { RenderContext } from '@xihan-report/runtime/design'
 import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
+import type { HistoryLabel } from '@xihan-ui/designer-kit'
 import type { PropertyEditorTable, PropertyOption } from '@xihan-ui/designer-kit/properties'
 import type { DesignerPropertiesEventMap, DesignerPropertyDescriptor, DesignerPropertyEditor, DesignerPropertyError, DesignerPropertyTarget, XhDesignerPropertiesElement } from '@xihan-ui/designer-shell'
 import type { DatasetEditing } from './data-editing'
@@ -479,8 +480,10 @@ export class PropertiesPanel {
       return
     }
     this.#rename = undefined
-    if (result.operations.length > 0)
-      editor.execute(result.operations)
+    if (result.operations.length > 0) {
+      const { kind, id } = binding!.target
+      editor.execute(result.operations, { label: () => this.#stepText({ action: 'rename', kind, name: id, to: pending.value, count: 1 }) })
+    }
     this.#host.select(result.select)
   }
 
@@ -515,8 +518,35 @@ export class PropertiesPanel {
       return
     }
     const change: PropertyChange = value === undefined ? { path } : { path, value }
-    const operations = targets.flatMap(ref => this.#bindings.get(`${ref.kind}\u0000${ref.id}`)?.write([change]) ?? [])
+    const bound = targets.flatMap(ref => this.#bindings.get(`${ref.kind}\u0000${ref.id}`) ?? [])
+    const operations = bound.flatMap(binding => binding.write([change]))
     if (operations.length > 0)
-      editor.execute(operations, { merge, mergeWithin: Number.POSITIVE_INFINITY })
+      editor.execute(operations, { merge, mergeWithin: Number.POSITIVE_INFINITY, label: this.#changeLabel(bound, path) })
+  }
+
+  /** 属性修改那一步的说明：对象名在这一刻取好，对象种类与属性名读的时候按语言取。 */
+  #changeLabel(bound: readonly Binding[], path: JsonPath): HistoryLabel | undefined {
+    const first = bound[0]
+    if (!first)
+      return undefined
+    const key = formatJsonPath(path)
+    const descriptor = first.target.descriptors.find(item => formatJsonPath(item.path) === key)
+    const value = first.target.value as { readonly title?: unknown } | null
+    const name = bound.length === 1 ? (typeof value?.title === 'string' && value.title !== '' ? value.title : first.target.id) : undefined
+    return () => this.#stepText({
+      action: 'update',
+      kind: first.target.kind,
+      count: bound.length,
+      ...(name === undefined ? {} : { name }),
+      ...(descriptor === undefined ? {} : { property: this.#label(descriptor) }),
+    })
+  }
+
+  /** 一步的说明：对象种类按此刻的语言取名字。 */
+  #stepText(step: Parameters<ReportDesignerTranslations['historyStep']>[0]): string {
+    const t = this.#t
+    if (!t)
+      return ''
+    return t.historyStep({ ...step, kind: t.objectKinds[step.kind] ?? step.kind })
   }
 }

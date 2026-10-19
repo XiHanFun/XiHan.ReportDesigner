@@ -9,13 +9,13 @@
 // 工具栏与菜单的排列可由 commandLayout 改写。设置对话框（openSettings()）里是基础分区与各扩展的分区，值经 settings 与
 // settings-change 交给宿主。
 
-import type { DashboardCard, DashboardView, ExpressionEngine, ParameterValues, ReportDocument, ReportOperation, ValidationIssue } from '@xihan-report/core'
-import type { ReportDataProvider, ReportDesignerTranslations, ReportFormatter, ReportViewerTranslations, XhReportViewer } from '@xihan-report/runtime'
+import type { DashboardCard, DashboardView, ExpressionEngine, ParameterValues, ReportDocument, ReportOperation, ReportStep, ValidationIssue } from '@xihan-report/core'
+import type { ReportDataProvider, ReportDesignerTranslations, ReportFormatter, ReportHistoryStepText, ReportViewerTranslations, XhReportViewer } from '@xihan-report/runtime'
 import type { JsonValue } from '@xihan-ui/core/json'
 import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
-import type { ExecuteOptions, ExtensionHost, GridRect, HistoryChangeKind, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
+import type { ExecuteOptions, ExtensionHost, GridRect, HistoryChangeKind, HistoryLabel, HistorySnapshot, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertySwatchOption } from '@xihan-ui/designer-kit/properties'
-import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFrameEventMap, DesignerFrameRegion, DesignerLayout, DesignerLayoutPolicy, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
+import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFrameEventMap, DesignerFrameRegion, DesignerHistoryEventMap, DesignerHistoryTranslations, DesignerLayout, DesignerLayoutPolicy, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelActions, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { DialogService } from '@xihan-ui/web-components/services'
 import type { DataRemoval } from './data-editing'
@@ -23,21 +23,24 @@ import type { DataAddKind } from './data-panel'
 import type { LayoutGesture, ReportAddCardInit, ReportClipboard, ReportDataRef, ReportEditor, ReportItemRef, ReportSelection } from './editor'
 import type { ReportCardTemplate, ReportDesignerContext, ReportDesignerExtension, ReportDesignerModel, ReportMenuSubject } from './extensions'
 import type { GridMetrics } from './grid-geometry'
-import { cardTypeOf, planAddCard, planAddFieldItem, resolveParameters } from '@xihan-report/core'
+import { cardTypeOf, describeReportStep, planAddCard, planAddFieldItem, resolveParameters } from '@xihan-report/core'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS, DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter, defineReportViewer } from '@xihan-report/runtime'
 import { createRenderContext } from '@xihan-report/runtime/design'
 import { getLocalTimeZone } from '@xihan-ui/core/date'
 import { detectKbdPlatform } from '@xihan-ui/core/hotkey'
-import { clampZoom, commandForShortcut, createExtensionHost, createIdAllocator, DEFAULT_ZOOM_LIMITS, selectInMarquee, wheelZoomFactor, zoomBy, zoomTo } from '@xihan-ui/designer-kit'
+import { clampZoom, commandForShortcut, createExtensionHost, createIdAllocator, DEFAULT_ZOOM_LIMITS, selectInMarquee, snapshotHistory, wheelZoomFactor, zoomBy, zoomTo } from '@xihan-ui/designer-kit'
 import {
   arrangeCommands,
   createCommandToolbar,
   createDesignerSettingsHost,
+  createPanelActions,
   createPanelHost,
   createStatusItem,
   defineDesignerShellElement,
   DESIGNER_COMMANDS_EN_US,
   DESIGNER_FRAME_REGIONS,
+  DESIGNER_HISTORY_COMMANDS,
+  DESIGNER_HISTORY_EN_US,
   DESIGNER_SETTING_KEYS,
   designerLayoutPolicy,
   registerDropTarget,
@@ -46,13 +49,14 @@ import {
   runCommand,
   toolbarDisplayOf,
   XhDesignerFrameElement,
+  XhDesignerHistoryElement,
   XhDesignerIssuesElement,
   XhDesignerPaletteElement,
   XhDesignerPropertiesElement,
   XhDesignerSettingsElement,
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
-import { CircleAlertIcon, DatabaseIcon, FilterIcon, LayoutGridIcon, ListIcon, SlidersHorizontalIcon } from '@xihan-ui/icons'
+import { CircleAlertIcon, DatabaseIcon, FilterIcon, HistoryIcon, LayoutGridIcon, ListIcon, SlidersHorizontalIcon } from '@xihan-ui/icons'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { defineXhElement, XhButtonElement, XhContextMenuElement, XhSortableElement, XhTagElement, XhToolbarElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import { createDialogService } from '@xihan-ui/web-components/services'
@@ -87,6 +91,11 @@ export interface ReportDesignerEventMap {
   'selection-change': CustomEvent<ReportSelection>
   /** 与保存点相比有没有改动变了。 */
   'dirty-change': CustomEvent<{ dirty: boolean }>
+  /**
+   * 撤销历史变了：执行（含并入上一步）、撤销、重做、跳转、装载、清空与保存之后都派发，拖动等事务进行中不派发。
+   * detail 是此刻的 historyState。
+   */
+  'history-change': CustomEvent<HistorySnapshot>
   /** 报表的校验问题变了。 */
   'issues-change': CustomEvent<{ issues: readonly ValidationIssue[] }>
   /** 在画布上按了 Ctrl+S（macOS 上 ⌘S）；保存由宿主做，存好后调 markSaved()。 */
@@ -120,7 +129,7 @@ const ZOOM_LIMITS = DEFAULT_ZOOM_LIMITS
 const ZOOM_EPSILON = 1e-3
 
 /**
- * 外框的命名区：照外框的缺省区表，左侧在物料上面叠数据集与报表参数，右侧在属性上面叠字段栏。
+ * 外框的命名区：照外框的缺省区表，左侧在物料上面叠数据集与报表参数，右侧在属性上面叠字段栏、下面接历史记录（缺省隐藏）。
  * 同一侧的宽度取该侧第一个区的，所以挪到叠在最上面的那块上。
  */
 const FRAME_REGIONS: readonly DesignerFrameRegion[] = DESIGNER_FRAME_REGIONS.flatMap((region): DesignerFrameRegion[] => {
@@ -128,7 +137,7 @@ const FRAME_REGIONS: readonly DesignerFrameRegion[] = DESIGNER_FRAME_REGIONS.fla
   if (region.name === 'palette')
     return [{ name: 'datasets', position: 'start', ...(size === undefined ? {} : { size }) }, { name: 'parameters', position: 'start' }, rest]
   if (region.name === 'properties')
-    return [{ name: 'wells', position: 'end', ...(size === undefined ? {} : { size }) }, rest]
+    return [{ name: 'wells', position: 'end', ...(size === undefined ? {} : { size }) }, rest, { name: 'history', position: 'end', defaultHidden: true }]
   return [region]
 })
 
@@ -161,6 +170,9 @@ interface Layers {
   readonly wells: Wells
   readonly properties: PropertiesPanel
   readonly issues: IssuesPanel
+  /** 历史记录卡片与它面板头上的清空历史。 */
+  readonly history: XhDesignerHistoryElement
+  readonly historyActions: DesignerPanelActions<ReportDesignerContext>
   /** 设置对话框。 */
   readonly settings: XhDesignerSettingsElement
   /** 状态栏左段：选中对象的信息，没选中时是报表的概况。 */
@@ -190,6 +202,14 @@ interface CardGesture {
 }
 
 const EMPTY_SELECTION: ReportSelection = { cards: [] }
+
+/** 没有报表时的历史快照。 */
+const EMPTY_HISTORY: HistorySnapshot = { entries: [], position: 0, origin: 0, truncated: false, originSaved: false }
+
+/** 撤销步数上限的缺省值。 */
+const DEFAULT_HISTORY_LIMIT = 100
+
+const NUMBER_CONVERTER = { fromAttribute: (value: string | null) => (value == null || value === '' ? undefined : Number(value)) }
 
 const NO_EXTENSIONS: readonly ReportDesignerExtension[] = []
 
@@ -222,6 +242,7 @@ export class XhReportDesigner extends XhReactiveElement {
     settingsStorageKey: { attribute: 'settings-storage-key', converter: { fromAttribute: (value: string | null) => value ?? undefined } },
     brands: { attribute: false },
     registerBrand: { attribute: false },
+    historyLimit: { attribute: 'history-limit', converter: NUMBER_CONVERTER },
   }
 
   /** 报表定义：赋值即装载（清空历史与选择）；赋回当前这一份不重新装载。读取得到当前报表。 */
@@ -270,9 +291,14 @@ export class XhReportDesigner extends XhReactiveElement {
   declare brands: readonly PropertySwatchOption[] | undefined
   /** 注册自定义主题色，形状与 @xihan-ui/tokens 的 registerBrand 相同；给了才许在设置里自定义主题色。 */
   declare registerBrand: ((id: string, color: string) => () => void) | undefined
+  /** 撤销步数上限，缺省 100；在下一次装载（赋 schema）时生效。同名 attribute history-limit。 */
+  declare historyLimit: number | undefined
 
   readonly #config = new XhConfigController(this)
   #editor: ReportEditor | undefined
+  /** 编辑模型建出时用的撤销步数上限；historyLimit 换了，下一次装载时按新的重建。 */
+  #editorLimit = DEFAULT_HISTORY_LIMIT
+  #unsubscribe: (() => void) | undefined
   #layers: Layers | undefined
   #content: CanvasContent | undefined
   #issues: readonly ValidationIssue[] = []
@@ -299,6 +325,8 @@ export class XhReportDesigner extends XhReactiveElement {
   #regionList: readonly DesignerFrameRegion[] = FRAME_REGIONS
   #layoutPolicyKey = ''
   #layoutPolicy: DesignerLayoutPolicy | undefined
+  /** 上一次交给历史记录卡片的快照（JSON）。 */
+  #historyKey = ''
   #settingsHost: DesignerSettingsHost | undefined
   #settingsHostOptions: readonly unknown[] = []
   #settingsDialogKey = ''
@@ -381,6 +409,27 @@ export class XhReportDesigner extends XhReactiveElement {
   /** 重做一步；只读或没有可重做的时返回 false。 */
   redo(): boolean {
     return !this.readonly && (this.#editor?.redo() ?? false)
+  }
+
+  /** 撤销历史的快照：各步的说明按此刻的语言取好；还没有报表时只有起点。 */
+  get historyState(): HistorySnapshot {
+    return this.#editor ? snapshotHistory(this.#editor.history) : EMPTY_HISTORY
+  }
+
+  /** 跳到撤销历史里的一步或起点（historyState 里的位置号）；只读、预览、拖动中或位置号不认识时返回 false。 */
+  goToHistory(position: number): boolean {
+    const editor = this.#editor
+    if (!editor || this.readonly || this.mode === 'preview' || editor.history.inTransaction)
+      return false
+    return editor.history.goTo(position)
+  }
+
+  /** 清空撤销与重做；报表与是否已保存不变。只读或拖动中时什么都不做。 */
+  clearHistory(): void {
+    const editor = this.#editor
+    if (!editor || this.readonly || editor.history.inTransaction)
+      return
+    editor.history.clear()
   }
 
   /** 把当前位置记为保存点。 */
@@ -606,7 +655,16 @@ export class XhReportDesigner extends XhReactiveElement {
 
   /** 交给命令、面板、物料与扩展 setup 的上下文。 */
   #context(t: ReportDesignerTranslations = this.#translations()): ReportDesignerContext {
-    return { designer: this, translations: t, commands: this.#commandTranslations(), settings: this.#resolvedSettings, frame: this.#layers?.frame }
+    return {
+      designer: this,
+      translations: t,
+      commands: this.#commandTranslations(),
+      historyTranslations: this.#historyTranslations(),
+      history: this.#editor?.history,
+      dialogs: this.#dialogService(),
+      settings: this.#resolvedSettings,
+      frame: this.#layers?.frame,
+    }
   }
 
   /** 面板用的文案：问题的说明先问扩展，扩展不给时用设计器的文案。 */
@@ -636,19 +694,38 @@ export class XhReportDesigner extends XhReactiveElement {
     return this.#editor
   }
 
-  /** schema 换了一份时装载：首次建编辑模型，之后换文档并清空历史；赋回当前文档不处理。 */
+  /** 没写说明的一步：按操作取说明素材，读的时候按此刻的语言拼成句子。 */
+  #describeStep(operations: readonly ReportOperation[], before: ReportDocument): HistoryLabel | undefined {
+    const step = describeReportStep(operations, before)
+    return step && (() => this.#stepText(step))
+  }
+
+  /** 一步的说明：对象种类按此刻的语言取名字。 */
+  #stepText(step: ReportStep & Omit<ReportHistoryStepText, 'kind' | 'action'>): string {
+    const t = this.#translations()
+    return t.historyStep({ ...step, kind: t.objectKinds[step.kind] ?? step.kind })
+  }
+
+  #historyTranslations(): DesignerHistoryTranslations {
+    return this.#config.translations<DesignerHistoryTranslations>('xh-designer-history', DESIGNER_HISTORY_EN_US, undefined)
+  }
+
+  /** schema 换了一份时装载：首次建编辑模型，之后换文档并清空历史；historyLimit 换过时重建编辑模型。赋回当前文档不处理。 */
   #load(): void {
     const schema = this.schema
     if (!schema || schema === this.#editor?.document)
       return
-    if (this.#editor) {
+    const limit = this.historyLimit ?? DEFAULT_HISTORY_LIMIT
+    if (this.#editor && limit === this.#editorLimit) {
       this.#editor.load(schema)
       this.#fillMenu('blank')
       return
     }
-    const editor = createReportEditor({ document: schema })
+    this.#unsubscribe?.()
+    const editor = createReportEditor({ document: schema, historyLimit: limit, describe: (operations, before) => this.#describeStep(operations, before) })
     this.#editor = editor
-    editor.subscribe((change) => {
+    this.#editorLimit = limit
+    this.#unsubscribe = editor.subscribe((change) => {
       if (change.kind === 'selection') {
         this.#renderSelection()
         this.#syncData()
@@ -699,6 +776,26 @@ export class XhReportDesigner extends XhReactiveElement {
     }
     this.#syncDirty()
     this.#refreshIssues()
+    if (this.#layers)
+      this.#syncHistory(this.#layers)
+    emitEvent(this, 'history-change', snapshotHistory(history))
+  }
+
+  /** 历史记录卡片：快照按此刻的语言取说明，内容变了才重交；只读时只能看。 */
+  #syncHistory(layers: Layers): void {
+    const snapshot = this.historyState
+    const key = JSON.stringify(snapshot)
+    if (key !== this.#historyKey) {
+      this.#historyKey = key
+      layers.history.snapshot = snapshot
+    }
+    layers.history.readonly = this.readonly === true
+  }
+
+  /** 历史记录卡片里选了一步：跳过去。 */
+  readonly #onHistoryGo = (event: Event): void => {
+    event.stopPropagation()
+    this.goToHistory((event as DesignerHistoryEventMap['history-go']).detail.position)
   }
 
   #syncDirty(): void {
@@ -799,8 +896,13 @@ export class XhReportDesigner extends XhReactiveElement {
     // 问题列表带计数的严重程度开关放进它所在卡片的面板头
     const issueSummary = issues.element.summary
     issueSummary.slot = 'issues-actions'
-    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, data.datasets, data.parameters, palette, workspace, wells.element, properties.element, issues.element, issueSummary]) as XhDesignerFrameElement
+    const history = createGeneratedElement(doc, 'xh-designer-history', { 'data-part': 'history', 'slot': 'history' }) as XhDesignerHistoryElement
+    history.headless = true
+    history.addEventListener('history-go', this.#onHistoryGo)
+    const historyActions = createPanelActions<ReportDesignerContext>(doc, 'history')
+    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, data.datasets, data.parameters, palette, workspace, wells.element, properties.element, issues.element, issueSummary, history, historyActions.element]) as XhDesignerFrameElement
     frame.addEventListener('layout-change', this.#onLayoutChange)
+    history.announce = message => frame.announce(message)
     const selectionStatus = createStatusItem(doc, { value: '' })
     selectionStatus.element.slot = 'status-start'
     const zoomStatus = createStatusItem(doc, { value: '', action: () => this.zoomToActual() })
@@ -839,7 +941,7 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#regionsKey = ''
     this.#viewer = undefined
     this.#settingsDialogKey = ''
-    this.#layers = { frame, toolbar, commandBar, headerBar, panels, menu, menuContent, menuTrigger, canvas, scroller, sizer, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, settings, selectionStatus, zoomStatus }
+    this.#layers = { frame, toolbar, commandBar, headerBar, panels, menu, menuContent, menuTrigger, canvas, scroller, sizer, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, history, historyActions, settings, selectionStatus, zoomStatus }
     panels.assign(this.#model.extensions, this.#context())
     this.#fillMenu('blank')
     return this.#layers
@@ -975,6 +1077,7 @@ export class XhReportDesigner extends XhReactiveElement {
       wells: { title: t.wells, icon: ListIcon, help: t.wellsHelp },
       properties: { title: t.properties, icon: SlidersHorizontalIcon, help: t.propertiesHelp, ...(layers?.properties.element.heading === undefined ? {} : { subtitle: layers.properties.element.heading }) },
       issues: { title: t.issues, icon: CircleAlertIcon, help: t.issuesHelp },
+      history: { title: this.#historyTranslations().title, icon: HistoryIcon, help: t.historyHelp },
     }
     const shown = FRAME_REGIONS.filter(region => this.#registers(region.name))
     const key = JSON.stringify([regions, shown.map(region => region.name), this.#mode()])
@@ -1393,16 +1496,23 @@ export class XhReportDesigner extends XhReactiveElement {
     void this.#confirmRemoval(removal).then((confirmed) => {
       const current = this.#editor
       const next = confirmed && current && this.#canRemoveData(ref) ? planDataRemoval(current.document, ref) : undefined
-      if (current && next)
-        current.execute(next.operations)
+      if (current && next) {
+        const step = { action: 'remove', kind: ref.kind, name: next.label, count: 1, cascade: cascadeCount(next.cascade) } as const
+        current.execute(next.operations, { label: () => this.#stepText(step) })
+      }
     })
     return true
   }
 
+  /** 确认框：用到时才建。 */
+  #dialogService(): DialogService {
+    this.#dialogs ??= createDialogService()
+    return this.#dialogs
+  }
+
   #confirmRemoval(removal: DataRemoval): Promise<boolean> {
     const t = this.#translations()
-    this.#dialogs ??= createDialogService()
-    return this.#dialogs.confirm({ title: t.removeTitle(removal.label), content: t.removeCascade(removal.cascade), tone: 'danger', okText: t.removeConfirm })
+    return this.#dialogService().confirm({ title: t.removeTitle(removal.label), content: t.removeCascade(removal.cascade), tone: 'danger', okText: t.removeConfirm })
   }
 
   /** 新增数据面板对象并选中它。 */
@@ -1445,6 +1555,8 @@ export class XhReportDesigner extends XhReactiveElement {
         layers.headerBar.element.remove()
       }
       layers.panels.update(context)
+      layers.historyActions.update([DESIGNER_HISTORY_COMMANDS.clearHistory], commands, context, context.historyTranslations.title)
+      this.#syncHistory(layers)
       this.#renderStatus(layers, t)
     }
     this.#syncFrame(layers.frame, t)
@@ -1647,7 +1759,7 @@ export class XhReportDesigner extends XhReactiveElement {
   }
 
   /**
-   * 画布上的按键：先找快捷键命中、此刻可用的命令；没有命令占用时，Ctrl / ⌘ + S 派发 save，Ctrl / ⌘ + Y 重做，
+   * 画布上的按键：先找快捷键命中、此刻可用的命令；没有命令占用时，Ctrl / ⌘ + S 派发 save，
    * Backspace 删除选中的对象，= 与按着 Shift 的 + 放大，Escape 清空选择，方向键挪动或改大小卡片。
    */
   readonly #onKeyDown = (event: KeyboardEvent): void => {
@@ -1666,9 +1778,6 @@ export class XhReportDesigner extends XhReactiveElement {
     const key = event.key.toLowerCase()
     if (command && key === 's') {
       emitEvent(this, 'save', {})
-    }
-    else if (command && key === 'y') {
-      this.redo()
     }
     else if (!command && event.key === 'Backspace') {
       this.deleteSelection()
@@ -1689,7 +1798,7 @@ export class XhReportDesigner extends XhReactiveElement {
       event.preventDefault()
   }
 
-  /** 只选中一张卡片时，方向键挪一格，Shift 加方向键改大小一格；每次按键一步撤销。 */
+  /** 只选中一张卡片时，方向键挪一格，Shift 加方向键改大小一格；同一张卡片连续按、相隔不超过 1 秒的并成一步撤销。 */
   #nudge(key: string, resize: boolean): boolean {
     const editor = this.#editor
     const dashboard = this.#dashboard()
@@ -1702,9 +1811,7 @@ export class XhReportDesigner extends XhReactiveElement {
     const dx = key === 'ArrowLeft' ? -1 : key === 'ArrowRight' ? 1 : 0
     const dy = key === 'ArrowUp' ? -1 : key === 'ArrowDown' ? 1 : 0
     const { x, y, w, h } = card.layout
-    const gesture = editor.startLayout()
-    gesture.move(id, resize ? { w: Math.max(1, w + dx), h: Math.max(1, h + dy) } : { x: Math.max(0, x + dx), y: Math.max(0, y + dy) })
-    gesture.end()
+    editor.nudge(id, resize ? { w: Math.max(1, w + dx), h: Math.max(1, h + dy) } : { x: Math.max(0, x + dx), y: Math.max(0, y + dy) })
     return true
   }
 
@@ -1744,6 +1851,7 @@ export function defineReportDesigner(): void {
   defineXhElement('xh-toolbar', XhToolbarElement)
   defineXhElement('xh-tree', XhTreeElement)
   defineDesignerShellElement('xh-designer-frame', XhDesignerFrameElement)
+  defineDesignerShellElement('xh-designer-history', XhDesignerHistoryElement)
   defineDesignerShellElement('xh-designer-issues', XhDesignerIssuesElement)
   defineDesignerShellElement('xh-designer-palette', XhDesignerPaletteElement)
   defineDesignerShellElement('xh-designer-properties', XhDesignerPropertiesElement)

@@ -177,6 +177,7 @@ type ReportFormatter = (value: unknown, format: FormatSpec | undefined, context:
 | `ReportDesignerCascade` | 接口 | 删除数据面板对象时一并删掉的别处的数目。 |
 | `ReportDesignerIssueDetails` | 接口 | 问题文案的入参：校验问题的码与参数。 |
 | `ReportDesignerTranslations` | 接口 | 设计器的内建文案。 |
+| `ReportHistoryStepText` | 接口 | 撤销栈里一步的说明素材：对象种类已按语言取好。 |
 
 ### extensions
 
