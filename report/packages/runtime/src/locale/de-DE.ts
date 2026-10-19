@@ -180,6 +180,7 @@ const designer: ReportDesignerLocale = {
   issuesHelp: 'Prüfprobleme im Bericht. Wähle eines aus, um das betroffene Objekt auszuwählen.',
   insertToolbar: 'Karten einfügen',
   selectionToolbar: 'Ausgewählte Karten',
+  sizeUnit: 'Zellen',
   insertCard: label => `${label} hinzufügen`,
   statusDocument: (datasets, cards) => `${datasets} ${datasets === 1 ? 'Dataset' : 'Datasets'}${cards === undefined ? '' : ` · ${cards} ${cards === 1 ? 'Karte' : 'Karten'}`}`,
   statusCell: (column, row, width, height) => `Spalte ${column}, Zeile ${row} · ${width} × ${height}`,

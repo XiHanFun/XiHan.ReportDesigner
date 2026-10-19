@@ -180,6 +180,7 @@ const designer: ReportDesignerLocale = {
   issuesHelp: '报表的校验问题。点一条选中出问题的对象。',
   insertToolbar: '插入卡片',
   selectionToolbar: '选中的卡片',
+  sizeUnit: '格',
   insertCard: label => `添加「${label}」`,
   statusDocument: (datasets, cards) => `${datasets} 个数据集${cards === undefined ? '' : ` · ${cards} 张卡片`}`,
   statusCell: (column, row, width, height) => `第 ${column} 列第 ${row} 行 · ${width} × ${height} 格`,

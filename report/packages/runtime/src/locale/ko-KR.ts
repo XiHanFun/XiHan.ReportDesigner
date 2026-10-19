@@ -180,6 +180,7 @@ const designer: ReportDesignerLocale = {
   issuesHelp: '보고서 검증에서 발견된 문제입니다. 클릭하면 문제가 있는 개체가 선택됩니다.',
   insertToolbar: '카드 삽입',
   selectionToolbar: '선택한 카드',
+  sizeUnit: '칸',
   insertCard: label => `${label} 추가`,
   statusDocument: (datasets, cards) => `데이터 세트 ${datasets}개${cards === undefined ? '' : ` · 카드 ${cards}장`}`,
   statusCell: (column, row, width, height) => `${column}열 ${row}행 · ${width} × ${height}칸`,

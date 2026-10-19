@@ -149,6 +149,8 @@ export interface ReportEditor {
    * 报表主体不是看板时抛错。
    */
   readonly nudge: (id: string, target: Partial<GridRect>) => void
+  /** 改一张卡片在网格上的位置或大小，压到的卡片让开，记一步撤销；options 同 execute（如合并键）。报表主体不是看板时抛错。 */
+  readonly layoutCard: (id: string, target: Partial<GridRect>, options?: ExecuteOptions) => void
   /** 编辑模型里留着可粘贴的内容。 */
   readonly hasClipboard: boolean
   /** 复制选中的卡片与源卡片、目标都在其中的联动，留作下一次 paste 的内容；没有选中卡片时为 undefined。 */
@@ -414,6 +416,10 @@ export function createReportEditor(options: ReportEditorOptions): ReportEditor {
     nudge(id, target) {
       const dashboard = requireDashboard(history.document)
       execute(planCardLayout(dashboard, id, target, { from: gridItems(dashboard) }), { merge: nudgeMergeKey([id]), mergeWithin: HISTORY_NUDGE_MERGE_WITHIN })
+    },
+    layoutCard(id, target, options) {
+      const dashboard = requireDashboard(history.document)
+      execute(planCardLayout(dashboard, id, target, { from: gridItems(dashboard) }), options)
     },
     get hasClipboard() {
       return clipboard !== undefined

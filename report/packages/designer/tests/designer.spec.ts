@@ -1072,7 +1072,44 @@ describe('<xh-report-designer>：编辑', () => {
     expect(bar()).toBeNull()
   })
 
-  it('按 Alt+F10 把焦点交给选中工具条，在工具条里按 Esc 回到画布', async () => {
+  it('选中框下方常驻尺寸徽标，按格计：像素与格数按网格逐轴换算，单位文字随语言；改宽高按格改卡片，连续步进合成一步撤销，输入的单独一步', async () => {
+    const designer = await mount()
+    placeGrid(designer)
+    designer.select({ cards: ['a'] })
+    await designer.updateComplete
+    const overlay = designer.querySelector('xh-designer-transform')!
+    expect([overlay.measure, overlay.measureOptions?.unitLabel, overlay.measureOptions?.fractionDigits]).toEqual(['selection', 'cells', 0])
+    // placeGrid 的网格：列距 100、行距 40，没有间隙
+    const convert = overlay.measureOptions!.convert!
+    expect([convert.toDisplay(400, 'width'), convert.toDisplay(80, 'height'), convert.toModel(5, 'width'), convert.toModel(3, 'height')]).toEqual([4, 2, 500, 120])
+    const change = (axis: 'width' | 'height', width: number, height: number, source: 'step' | 'input'): void => {
+      overlay.dispatchEvent(new CustomEvent('measure-change', { detail: { id: 'a', axis, source, rect: { x: 400, y: 0, width, height } } }))
+    }
+    change('width', 500, 80, 'step')
+    change('width', 600, 80, 'step')
+    expect(cards(designer).find(item => item.id === 'a')!.layout).toMatchObject({ w: 6, h: 2 })
+    expect(designer.historyState.entries).toHaveLength(1)
+    change('height', 600, 120, 'input')
+    expect([cards(designer).find(item => item.id === 'a')!.layout.h, designer.historyState.entries.length]).toEqual([3, 2])
+    designer.undo()
+    designer.undo()
+    expect(designer.schema).toEqual(board)
+    designer.readonly = true
+    await designer.updateComplete
+    change('width', 500, 80, 'input')
+    expect(designer.schema).toEqual(board)
+    try {
+      setXhConfig(reportZhCN)
+      designer.requestUpdate()
+      await designer.updateComplete
+      expect(overlay.measureOptions!.unitLabel).toBe('格')
+    }
+    finally {
+      setXhConfig({})
+    }
+  })
+
+  it('按 Alt+F10 把焦点交给选中工具条，工具条排列为空时交给尺寸徽标；在里面按 Esc 回到画布', async () => {
     const designer = await mount()
     placeGrid(designer)
     designer.select({ cards: ['a'] })
@@ -1084,6 +1121,10 @@ describe('<xh-report-designer>：编辑', () => {
     expect(toolbar.contains(document.activeElement)).toBe(true)
     document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
     expect(document.activeElement).toBe(canvas)
+    designer.commandLayout = { 'selection:card': [] }
+    await designer.updateComplete
+    key(designer, 'F10', { altKey: true })
+    expect(document.activeElement!.closest('[data-part="measure-field"][data-axis="width"]')).not.toBeNull()
   })
 
   it('工具栏的容器部件叫 command-bar：设计器自己不再有 toolbar 部件，变换覆盖层的上下文工具条不会被它的样式连带命中', async () => {

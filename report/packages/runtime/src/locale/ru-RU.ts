@@ -191,6 +191,7 @@ const designer: ReportDesignerLocale = {
   issuesHelp: 'Ошибки проверки отчёта. Выберите одну, чтобы выделить объект, к которому она относится.',
   insertToolbar: 'Вставка карточек',
   selectionToolbar: 'Выбранные карточки',
+  sizeUnit: 'яч.',
   insertCard: label => `Добавить «${label}»`,
   statusDocument: (datasets, cards) => `${datasets} ${plural(datasets, 'набор данных', 'набора данных', 'наборов данных')}${cards === undefined ? '' : ` · ${cards} ${plural(cards, 'карточка', 'карточки', 'карточек')}`}`,
   statusCell: (column, row, width, height) => `Столбец ${column}, строка ${row} · ${width} × ${height}`,
