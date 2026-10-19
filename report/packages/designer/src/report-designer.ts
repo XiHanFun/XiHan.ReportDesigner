@@ -694,7 +694,7 @@ export class XhReportDesigner extends XhReactiveElement {
     const t = this.#translations()
     this.#syncSettings(layers, changed)
     this.setAttribute('aria-label', t.label)
-    layers.canvas.setAttribute('aria-label', t.canvas)
+    layers.scroller.setAttribute('aria-label', t.canvas)
     if (changed.has('schema'))
       this.#load()
     const mode = this.#mode()
@@ -1001,13 +1001,13 @@ export class XhReportDesigner extends XhReactiveElement {
     const dropPreview = createAuthoredElement(doc, 'div', { 'data-part': 'drop-preview', 'hidden': true })
     const surface = createAuthoredElement(doc, 'div', { 'data-part': 'surface' }, [content, empty, dropPreview])
     const sizer = createAuthoredElement(doc, 'div', { 'data-part': 'sizer' }, [surface])
-    const scroller = createAuthoredElement(doc, 'div', { 'data-part': 'scroller' }, [sizer])
+    const scroller = createAuthoredElement(doc, 'div', { 'data-part': 'scroller', 'role': 'group', 'tabindex': 0 }, [sizer])
     const overlay = createAuthoredElement(doc, 'xh-designer-transform', { 'data-part': 'overlay' }) as XhDesignerTransformElement
     overlay.addEventListener('transform', this.#onTransform)
     overlay.addEventListener('marquee', this.#onMarquee)
     overlay.addEventListener('measure-change', this.#onMeasureChange)
     overlay.measure = 'selection'
-    const canvas = createAuthoredElement(doc, 'div', { 'data-part': 'canvas', 'role': 'group', 'tabindex': 0 }, [scroller, overlay])
+    const canvas = createAuthoredElement(doc, 'div', { 'data-part': 'canvas' }, [scroller, overlay])
     canvas.addEventListener('pan-request', this.#onPanRequest)
     const menuContent = createAuthoredElement(doc, 'div', { 'data-xh-part': 'content' })
     const menuTrigger = createAuthoredElement(doc, 'div', { 'data-xh-part': 'trigger', 'data-report-canvas': '' }, [canvas])
@@ -1594,7 +1594,7 @@ export class XhReportDesigner extends XhReactiveElement {
     const scroller = layers.scroller
     if (event.target === scroller && (event.offsetX >= scroller.clientWidth || event.offsetY >= scroller.clientHeight))
       return
-    layers.canvas.focus({ preventScroll: true })
+    scroller.focus({ preventScroll: true })
     this.#autoFit = false
     const id = this.#cardAt(event.target)
     const additive = event.shiftKey || event.ctrlKey || event.metaKey
@@ -2016,10 +2016,10 @@ export class XhReportDesigner extends XhReactiveElement {
     renderCommandMenu(layers.menuContent, groups, commands, this.#context(), { platform: this.#kbdPlatform() })
   }
 
-  /** 焦点在画布上，或在关闭菜单后接住焦点的菜单触发区上。 */
+  /** 焦点在画布（可聚焦的是滚动区）上，或在关闭菜单后接住焦点的菜单触发区上。 */
   #isCanvasFocus(target: EventTarget | null): boolean {
     const layers = this.#layers
-    return layers !== undefined && (target === layers.canvas || target === layers.menuTrigger)
+    return layers !== undefined && (target === layers.scroller || target === layers.menuTrigger)
   }
 
   readonly #onMenuSelect = (event: Event): void => {
