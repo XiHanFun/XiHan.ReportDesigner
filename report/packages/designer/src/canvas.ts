@@ -6,7 +6,7 @@
 // 设计器的画布内容：看板用查看器的 renderDashboardFrame 搭网格与卡片外壳，卡片内容用 computeCard 与运行时模型里的渲染；
 // 明细表、分组报表与交叉表用 computeView / renderView，作主体的扩展视图按种类计算并交给它的渲染。内容按定义缓存，
 // 改过的卡片才在去抖后重新取数计算；位置大小变了只改卡片的位置变量。没给取数回调时取数的内容画占位，没登记的种类画种类名。
-// 看板上照查看器画扩展的叠加层。
+// 看板上照查看器画扩展的叠加层。卡片内容与表格视图在画布上不接收焦点与指针，点在上面落到卡片外壳。
 
 import type { ComputeOptions, DashboardCard, DashboardView, DatasetData, DatasetRequest, DatasetSchema, ExtensionViewResult, ParameterValues, ReportBody, ReportDocument, ViewResult } from '@xihan-report/core'
 import type { ReportDataProvider, ReportRuntimeModel } from '@xihan-report/runtime'
@@ -143,6 +143,8 @@ export class CanvasContent {
     if (rebuild) {
       this.#frame = renderDashboardFrame(this.#host, dashboard)
       this.#frameKey = frameKey
+      for (const { body } of this.#frame.values())
+        body.toggleAttribute('inert', true)
     }
     else {
       const grid = this.grid!
@@ -219,7 +221,7 @@ export class CanvasContent {
     this.#frame = undefined
     this.#frameKey = undefined
     if (!this.#view || this.#view.parentElement !== this.#host) {
-      this.#view = createAuthoredElement(this.#host.ownerDocument, 'div', { 'data-part': 'view' })
+      this.#view = createAuthoredElement(this.#host.ownerDocument, 'div', { 'data-part': 'view', 'inert': true })
       this.#host.replaceChildren(this.#view)
     }
     for (const id of this.#entries.keys()) {
