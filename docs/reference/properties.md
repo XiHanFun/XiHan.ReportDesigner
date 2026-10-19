@@ -349,8 +349,11 @@
 | `required` | 必填 | 数据 | 布尔 | 可省 |
 | `multiple` | 多选 | 数据 | 布尔 | 可省 |
 | `defaultValue` | 缺省值 | 数据 | 按参数的类型与是否多选取值 | 可省 |
-| `options` | 候选项 | 数据 | [ParameterOption](./schema#parameteroption) 的数组，在设计器里是逐行编辑的选项表（值、文字与禁用），值不能重复；「类型」为 `string`、`date`、`datetime` 之一时显示 | 可省 |
-| `options` | 候选项 | 数据 | [ParameterOption](./schema#parameteroption) 的数组；「类型」为 `number`、`boolean` 之一时显示 | 可省 |
+| `options` | 候选项 | 数据 | [ParameterOption](./schema#parameteroption) 的数组，在设计器里是逐行编辑的选项表（值、文字与禁用），值格是文本框，值不能重复；「类型」为 `string`时显示 | 可省 |
+| `options` | 候选项 | 数据 | [ParameterOption](./schema#parameteroption) 的数组，在设计器里是逐行编辑的选项表（值、文字与禁用），值格是数字框，写数值，值不能重复；「类型」为 `number`时显示 | 可省 |
+| `options` | 候选项 | 数据 | [ParameterOption](./schema#parameteroption) 的数组，在设计器里是逐行编辑的选项表（值、文字与禁用），固定 `true`、`false` 两行，值格只读，不能新增、删除与换序；「类型」为 `boolean`时显示 | 可省 |
+| `options` | 候选项 | 数据 | [ParameterOption](./schema#parameteroption) 的数组，在设计器里是逐行编辑的选项表（值、文字与禁用），值格是日期框，写 `YYYY-MM-DD`，值不能重复；「类型」为 `date`时显示 | 可省 |
+| `options` | 候选项 | 数据 | [ParameterOption](./schema#parameteroption) 的数组，在设计器里是逐行编辑的选项表（值、文字与禁用），值格是日期框，写到分钟（如 `2026-10-19T08:30`），值不能重复；「类型」为 `datetime`时显示 | 可省 |
 
 ## 联动 {#link}
 

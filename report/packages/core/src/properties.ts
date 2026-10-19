@@ -111,9 +111,6 @@ function choices(values: readonly JsonPrimitive[]): ReportPropertyControl {
 const TEXT: ReportPropertyControl = { kind: 'text' }
 const BOOLEAN: ReportPropertyControl = { kind: 'boolean' }
 const JSON_VALUE: ReportPropertyControl = { kind: 'json' }
-/** 参数的固定候选项：取值是文字的类型用内建的选项表编辑；数值与布尔的取值不是文字，仍写成 JSON。 */
-const TEXT_VALUED: PropertyCondition = { path: ['type'], oneOf: ['string', 'date', 'datetime'] satisfies FieldType[] }
-const NOT_TEXT_VALUED: PropertyCondition = { path: ['type'], oneOf: ['number', 'boolean'] satisfies FieldType[] }
 const DIMENSION: ReportPropertyControl = { kind: 'dimension' }
 const MEASURE: ReportPropertyControl = { kind: 'measure' }
 const NUMERIC_FORMAT: ReportPropertyControl = { kind: 'format', kinds: ['number', 'percent'] }
@@ -440,7 +437,7 @@ export function datasetFieldProperties(): ReportPropertyDescriptor[] {
   ]
 }
 
-/** 报表参数的属性，路径相对参数。 */
+/** 报表参数的属性，路径相对参数。固定候选项是内建的选项表，取值的类型跟着参数的类型，每种类型一条描述。 */
 export function parameterProperties(): ReportPropertyDescriptor[] {
   return [
     property(['name'], 'basic', TEXT, { required: true }),
@@ -449,8 +446,7 @@ export function parameterProperties(): ReportPropertyDescriptor[] {
     property(['required'], 'data', BOOLEAN),
     property(['multiple'], 'data', BOOLEAN),
     property(['defaultValue'], 'data', { kind: 'parameterValue' }),
-    property(['options'], 'data', { kind: 'options' }, { visibleWhen: TEXT_VALUED }),
-    property(['options'], 'data', JSON_VALUE, { visibleWhen: NOT_TEXT_VALUED }),
+    ...FIELD_TYPES.map(type => property(['options'], 'data', { kind: 'options', valueType: type }, { visibleWhen: { path: ['type'], equals: type } })),
   ]
 }
 

@@ -39,14 +39,28 @@ function visible(descriptors: readonly ReportPropertyDescriptor[], target: unkno
 const dashboard = dashboardDocument.body as DashboardView
 
 describe('属性描述', () => {
-  it('报表参数的固定候选项：取值是文字的参数用内建的选项表，数值与布尔的仍写成 JSON；选项表查得出重复的取值', () => {
-    const kinds = (type: string): string[] => parameterProperties()
+  it('报表参数的固定候选项用内建的选项表，取值的类型跟着参数的类型；查得出重复与类型不对的取值', () => {
+    const controls = (type: string): unknown[] => parameterProperties()
       .filter(descriptor => descriptor.path[0] === 'options' && isPropertyVisible(descriptor, { name: 'p', type }))
-      .map(descriptor => descriptor.control.kind)
-    expect(['string', 'date', 'datetime', 'number', 'boolean'].map(kinds)).toEqual([['options'], ['options'], ['options'], ['json'], ['json']])
-    expect(issues(parameterProperties(), { name: 'region', type: 'string', options: [{ value: 'East' }, { value: 'East', label: '东' }] }))
+      .map(descriptor => descriptor.control)
+    expect(['string', 'number', 'boolean', 'date', 'datetime'].map(controls)).toEqual([
+      [{ kind: 'options', valueType: 'string' }],
+      [{ kind: 'options', valueType: 'number' }],
+      [{ kind: 'options', valueType: 'boolean' }],
+      [{ kind: 'options', valueType: 'date' }],
+      [{ kind: 'options', valueType: 'datetime' }],
+    ])
+    const codes = (parameter: Record<string, unknown>): unknown[] => issues(parameterProperties(), { name: 'p', ...parameter })
+    expect(codes({ type: 'string', options: [{ value: 'East' }, { value: 'East', label: '东' }] }))
       .toEqual([expect.objectContaining({ code: 'duplicate-value', path: ['options', 1, 'value'] })])
-    expect(issues(parameterProperties(), { name: 'year', type: 'number', options: [{ value: 2025 }, { value: 2026 }] })).toEqual([])
+    expect(codes({ type: 'number', options: [{ value: 2025 }, { value: 2026, disabled: true }] })).toEqual([])
+    expect(codes({ type: 'number', options: [{ value: 2025 }, { value: '2026' }] }))
+      .toEqual([expect.objectContaining({ code: 'invalid-type', path: ['options', 1, 'value'] })])
+    expect(codes({ type: 'number', options: [{ value: 2025 }, { value: 2025, label: '今年' }] }))
+      .toEqual([expect.objectContaining({ code: 'duplicate-value', path: ['options', 1, 'value'] })])
+    expect(codes({ type: 'boolean', options: [{ value: true, label: '是' }, { value: false, label: '否' }] })).toEqual([])
+    expect(codes({ type: 'date', options: [{ value: '2026-10-19' }, { value: '2026-10-20' }] })).toEqual([])
+    expect(codes({ type: 'datetime', options: [{ value: '2026-10-19T08:30' }, { value: '2026-10-19T17:00' }] })).toEqual([])
   })
 
   it('合法的示例文档逐个对象检查都没有问题', () => {
