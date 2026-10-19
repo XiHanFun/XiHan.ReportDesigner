@@ -122,7 +122,7 @@ function press(target: Element, init: MouseEventInit = {}): void {
 }
 
 function key(designer: XhReportDesigner, keyName: string, init: KeyboardEventInit = {}): void {
-  designer.querySelector('[data-part="canvas"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: keyName, bubbles: true, cancelable: true, ...init }))
+  designer.querySelector('[data-part="scroller"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: keyName, bubbles: true, cancelable: true, ...init }))
 }
 
 interface Box { x: number, y: number, width: number, height: number }
@@ -177,6 +177,15 @@ describe('<xh-report-designer>：画布', () => {
     expect(card(designer, 'pie').getAttribute('data-state')).toBe('placeholder')
     expect(card(designer, 'pie').querySelector('[data-part="placeholder"]')!.textContent).toContain('Pie chart')
     expect(designer.getAttribute('aria-label')).toBe('Report designer')
+  })
+
+  it('画布可聚焦的是滚动区：带 group 角色与名字，键盘能滚动它；外壳不占 Tab 位，按下卡片时焦点落到滚动区', async () => {
+    const designer = await mount()
+    const scroller = designer.querySelector<HTMLElement>('[data-part="scroller"]')!
+    expect([scroller.getAttribute('role'), scroller.getAttribute('tabindex'), scroller.getAttribute('aria-label')]).toEqual(['group', '0', 'Canvas'])
+    expect(designer.querySelector('[data-part="canvas"]')!.hasAttribute('tabindex')).toBe(false)
+    press(card(designer, 'a'))
+    expect(document.activeElement).toBe(scroller)
   })
 
   it('给了取数回调画真数据；只有取数请求变了的卡片才重新取数，位置与标题变了不取数', async () => {
@@ -290,7 +299,7 @@ describe('<xh-report-designer>：编辑', () => {
     const designer = await mount()
     designer.select({ cards: ['a', 'b'] })
     const event = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })
-    designer.querySelector('[data-part="canvas"]')!.dispatchEvent(event)
+    designer.querySelector('[data-part="scroller"]')!.dispatchEvent(event)
     expect(event.defaultPrevented).toBe(false)
     expect(designer.schema).toEqual(board)
   })
@@ -1243,13 +1252,13 @@ describe('<xh-report-designer>：编辑', () => {
     placeGrid(designer)
     designer.select({ cards: ['a'] })
     await designer.updateComplete
-    const canvas = designer.querySelector<HTMLElement>('[data-part="canvas"]')!
-    canvas.focus()
+    const scroller = designer.querySelector<HTMLElement>('[data-part="scroller"]')!
+    scroller.focus()
     key(designer, 'F10', { altKey: true })
     const toolbar = designer.querySelector('xh-designer-transform [data-part="toolbar"]')!
     expect(toolbar.contains(document.activeElement)).toBe(true)
     document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
-    expect(document.activeElement).toBe(canvas)
+    expect(document.activeElement).toBe(scroller)
     designer.commandLayout = { 'selection:card': [] }
     await designer.updateComplete
     key(designer, 'F10', { altKey: true })

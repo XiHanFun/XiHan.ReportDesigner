@@ -196,7 +196,7 @@ describe('<xh-report-designer>：扩展', () => {
     card(designer, 'lanes').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
     expect(menuEntries(designer)).toEqual(['cut', 'copy', 'paste', 'duplicate', 'delete', '@acme/lanes.count'])
     designer.querySelector('xh-context-menu')!.dispatchEvent(new CustomEvent('select', { detail: { value: '@acme/lanes.count' } }))
-    designer.querySelector('[data-part="canvas"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'L', ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }))
+    designer.querySelector('[data-part="scroller"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'L', ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }))
     expect(probe.runs).toEqual([['lanes'], ['lanes']])
 
     designer.commandLayout = { toolbar: [['undo', '@acme/lanes.count']] }

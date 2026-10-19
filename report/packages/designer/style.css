@@ -53,7 +53,7 @@ xh-report-designer [data-report-canvas-menu][hidden] {
 }
 
 /*
- * 画布：可聚焦的外壳里是滚动区 scroller 与叠在可见区上的覆盖层；滚动区里的 surface 是世界坐标的原点。
+ * 画布：外壳里是滚动区 scroller 与叠在可见区上的覆盖层；可聚焦的是滚动区，键盘能滚动它；滚动区里的 surface 是世界坐标的原点。
  * surface 按 --xh-report-designer-zoom 从左上角缩放，宽除以倍数，缩放之后仍铺满可见区的宽；最小高与外面 sizer 的高由设计器
  * 按可见区与缩放之后的大小写上，sizer 裁掉缩放前的布局盒，滚动范围只随缩放之后的画布走。
  */
@@ -63,15 +63,10 @@ xh-report-designer [data-part='canvas'] {
   flex: 1 1 auto;
   min-block-size: 0;
   background: var(--xh-bg-canvas);
-  outline: none;
 }
 
 xh-report-designer [data-part='canvas'][hidden] {
   display: none;
-}
-
-xh-report-designer [data-part='canvas']:focus-visible {
-  box-shadow: inset 0 0 0 var(--xh-ring-width) var(--xh-ring-focus);
 }
 
 xh-report-designer [data-part='scroller'] {
@@ -79,6 +74,11 @@ xh-report-designer [data-part='scroller'] {
   min-inline-size: 0;
   overflow: auto;
   padding: var(--xh-space-4);
+  outline: none;
+}
+
+xh-report-designer [data-part='scroller']:focus-visible {
+  box-shadow: inset 0 0 0 var(--xh-ring-width) var(--xh-ring-focus);
 }
 
 xh-report-designer [data-part='sizer'] {
