@@ -15,7 +15,7 @@ import type { JsonValue } from '@xihan-ui/core/json'
 import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
 import type { ExecuteOptions, ExtensionHost, GridRect, HistoryChangeKind, HistoryLabel, HistorySnapshot, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertySwatchOption } from '@xihan-ui/designer-kit/properties'
-import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFrameEventMap, DesignerFrameRegion, DesignerHistoryTranslations, DesignerLayout, DesignerLayoutPolicy, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
+import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFrameEventMap, DesignerFrameRegion, DesignerHistoryTranslations, DesignerLayout, DesignerLayoutPolicy, DesignerMeasureConvert, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { DialogService } from '@xihan-ui/web-components/services'
 import type { DataRemoval } from './data-editing'
@@ -305,6 +305,8 @@ export class XhReportDesigner extends XhReactiveElement {
   #gesture: CardGesture | undefined
   #hoverId: string | undefined
   #viewport: Viewport | undefined
+  /** 尺寸徽标换算用的网格度量：每次画选中框时量一次。 */
+  #measureMetrics: GridMetrics | undefined
   /** 画布的缩放倍数，1 为实际尺寸；是视图状态，不进报表。 */
   #zoom = 1
   /** 适合窗口之后画布或内容的尺寸变了就重新适配，直到改了缩放、设置视口或在画布上按下指针。 */
@@ -835,6 +837,8 @@ export class XhReportDesigner extends XhReactiveElement {
     const overlay = createAuthoredElement(doc, 'xh-designer-transform', { 'data-part': 'overlay' }) as XhDesignerTransformElement
     overlay.addEventListener('transform', this.#onTransform)
     overlay.addEventListener('marquee', this.#onMarquee)
+    overlay.addEventListener('measure-change', this.#onMeasureChange)
+    overlay.measure = 'selection'
     const canvas = createAuthoredElement(doc, 'div', { 'data-part': 'canvas', 'role': 'group', 'tabindex': 0 }, [scroller, overlay])
     canvas.addEventListener('pan-request', this.#onPanRequest)
     const menuContent = createAuthoredElement(doc, 'div', { 'data-xh-part': 'content' })
@@ -1297,6 +1301,8 @@ export class XhReportDesigner extends XhReactiveElement {
     const selected = this.#editor?.selection.cards ?? []
     const metrics = this.#gridMetrics()
     const minSize = metrics ? cellSize(metrics) : undefined
+    this.#measureMetrics = metrics
+    this.#syncMeasure(layers.overlay)
     const items: DesignerTransformItem[] = []
     for (const id of selected) {
       const rect = this.#cardRect(id)
@@ -1309,6 +1315,42 @@ export class XhReportDesigner extends XhReactiveElement {
       layers.overlay.hover = hover
     for (const section of layers.content.querySelectorAll<HTMLElement>('[data-part="card"]'))
       section.toggleAttribute('data-selected', selected.includes(section.dataset.card ?? ''))
+  }
+
+  /** 尺寸徽标按格计：像素与格数按此刻的网格度量逐轴换算，单位文字取设计器文案，换了语言才重交。 */
+  #syncMeasure(overlay: XhDesignerTransformElement): void {
+    const label = this.#translations().sizeUnit
+    if (overlay.measureOptions?.unitLabel !== label)
+      overlay.measureOptions = { convert: this.#measureConvert, unitLabel: label, fractionDigits: 0 }
+  }
+
+  /** 卡片的像素宽高与格数互换：格数 = (像素 + 间隙) / 距；还没量出网格时原样返回。 */
+  readonly #measureConvert: DesignerMeasureConvert = {
+    toDisplay: (value, axis) => {
+      const metrics = this.#measureMetrics
+      if (!metrics)
+        return value
+      return axis === 'width' ? (value + metrics.columnGap) / metrics.column : (value + metrics.rowGap) / metrics.row
+    },
+    toModel: (value, axis) => {
+      const metrics = this.#measureMetrics
+      if (!metrics)
+        return value
+      return axis === 'width' ? value * metrics.column - metrics.columnGap : value * metrics.row - metrics.rowGap
+    },
+  }
+
+  /** 在尺寸徽标里改了宽或高：换成格数改卡片大小；连续点加减钮或按方向键并成一步撤销（合并键按卡片与边），输入后确认的单独一步。 */
+  readonly #onMeasureChange = (event: Event): void => {
+    const { id, rect, axis, source } = (event as DesignerTransformEventMap['measure-change']).detail
+    const editor = this.#editor
+    const metrics = this.#measureMetrics
+    const columns = this.#dashboard()?.grid.columns
+    if (!editor || this.readonly || this.#mode() === 'preview' || !metrics || columns === undefined)
+      return
+    this.#autoFit = false
+    const cell = clipCell(rectToCell(rect, metrics), columns)
+    editor.layoutCard(id, axis === 'width' ? { w: cell.w } : { h: cell.h }, source === 'step' ? { merge: `measure:${id}:${axis}` } : {})
   }
 
   #dashboard(): DashboardView | undefined {
@@ -1764,7 +1806,7 @@ export class XhReportDesigner extends XhReactiveElement {
     if (!editor || !this.#isCanvasFocus(event.target) || this.#gesture)
       return
     if (event.altKey && event.key === 'F10') {
-      // Alt+F10 把焦点交给选中工具条（没有时交给尺寸徽标），在里面按 Esc 回到画布
+      // Alt+F10 把焦点交给选中工具条（排列为空时交给尺寸徽标），在里面按 Esc 回到画布
       if (this.#layers?.overlay.focusToolbar() || this.#layers?.overlay.focusMeasure())
         event.preventDefault()
       return
