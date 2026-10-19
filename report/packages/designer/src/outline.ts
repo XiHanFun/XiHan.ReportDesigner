@@ -4,13 +4,13 @@
  */
 
 // 页面结构：报表的大纲。看板按阅读顺序（先行后列）列出卡片，卡片下面是它的列表（维度、度量、系列、列、分组、行），
-// 列表下面是项；主体不是看板时顶层是那一个视图。卡片的位置由网格坐标定，不能在树里挪；列表项能在同一列表里换序，
-// 交叉表的行与列之间能互换。数据集与参数在数据面板里，联动在字段栏里，大纲不列。
+// 列表下面是项；主体不是看板时顶层是那一个视图。卡片可以多选，列表项一次选一个，与画布的选择是同一份。卡片的位置由网格坐标定，
+// 不能在树里挪；列表项能在同一列表里换序，交叉表的行与列之间能互换。数据集与参数在数据面板里，联动在字段栏里，大纲不列。
 
 import type { DashboardCard, ItemList, MoveItemOperation, ReportDocument } from '@xihan-report/core'
 import type { ReportDesignerTranslations } from '@xihan-report/runtime'
 import type { DesignerOutlineAdapter, DesignerOutlineMove, DesignerOutlineNode } from '@xihan-ui/designer-shell'
-import type { ReportItemRef } from './editor'
+import type { ReportItemRef, ReportSelection } from './editor'
 import type { ReportDesignerContext } from './extensions'
 import type { WellsOwner } from './wells'
 import { cardTypeOf, isDataView } from '@xihan-report/core'
@@ -119,6 +119,46 @@ function ownerOf(document: ReportDocument, card: string | undefined): WellsOwner
   return found && cardOwner(found)
 }
 
+/** 此刻的选择在大纲里对应的行：选了列表项时是那一项，选了数据面板的对象时没有，否则是选中的卡片。 */
+function selectedRows(selection: ReportSelection): string[] {
+  if (selection.item)
+    return [itemId(selection.item.card, selection.item.list, selection.item.id)]
+  return selection.data ? [] : selection.cards.map(cardId)
+}
+
+function itemRef(ref: Extract<OutlineRef, { kind: 'item' }>): ReportItemRef {
+  return { ...(ref.card === undefined ? {} : { card: ref.card }), list: ref.list, id: ref.id }
+}
+
+/**
+ * 树上要换成的选中（整份，可能为空）换成报表的选择：卡片可以多选，列表项一次只选一个。新选上的行里有卡片就选 ids 里的
+ * 全部卡片；只新选上了列表项就选新选上的最后一项；没有新选上的（只取消了几行）留下剩下的。reveal 是要滚进可见区的那张卡片：
+ * 新选上的第一张卡片或新选上那一项所在的卡片，只取消了几行时没有。
+ */
+export function reportOutlineSelection(current: ReportSelection, ids: readonly string[]): { readonly selection: ReportSelection, readonly reveal?: string } {
+  const before = new Set(selectedRows(current))
+  const rows = ids.flatMap((id) => {
+    const ref = parseId(id)
+    return ref === undefined ? [] : [{ id, ref }]
+  })
+  const added = rows.filter(row => !before.has(row.id))
+  const cards = rows.flatMap(({ ref }) => ref.kind === 'card' ? [ref.card] : [])
+  const addedCard = added.find(({ ref }) => ref.kind === 'card')
+  if (addedCard?.ref.kind === 'card')
+    return { selection: { cards }, reveal: addedCard.ref.card }
+  const addedItem = added.filter(({ ref }) => ref.kind === 'item').at(-1)
+  if (addedItem?.ref.kind === 'item') {
+    const item = itemRef(addedItem.ref)
+    return item.card === undefined ? { selection: { cards: [], item } } : { selection: { cards: [item.card], item }, reveal: item.card }
+  }
+  const kept = rows.find(({ ref }) => ref.kind === 'item')
+  if (kept?.ref.kind === 'item') {
+    const item = itemRef(kept.ref)
+    return { selection: { cards: item.card === undefined ? [] : [item.card], item } }
+  }
+  return { selection: { cards } }
+}
+
 /** 挪动的起点与落点：起点是一项，落点是同一个编辑对象的列表。 */
 function moveEnds(move: DesignerOutlineMove): { readonly from: Extract<OutlineRef, { kind: 'item' }>, readonly to: Extract<OutlineRef, { kind: 'list' }> } | undefined {
   const from = parseId(move.id)
@@ -126,30 +166,15 @@ function moveEnds(move: DesignerOutlineMove): { readonly from: Extract<OutlineRe
   return from?.kind === 'item' && to?.kind === 'list' && from.card === to.card ? { from, to } : undefined
 }
 
-/** 页面结构的适配器：树、选择、标出、删除与列表项的挪动都翻成设计器的公开方法。 */
+/** 页面结构的适配器：树、选择（照 reportOutlineSelection 换，新选上的卡片滚进可见区）、标出、删除与列表项的挪动都翻成设计器的公开方法。 */
 export const REPORT_OUTLINE_ADAPTER: DesignerOutlineAdapter<ReportDesignerContext> = {
   nodes: ({ designer, translations }) => designer.schema ? outlineNodes(designer.schema, translations) : [],
-  selection: ({ designer }) => {
-    const selection = designer.getSelection()
-    if (selection.item)
-      return [itemId(selection.item.card, selection.item.list, selection.item.id)]
-    return selection.data ? [] : selection.cards.map(cardId)
-  },
+  selection: ({ designer }) => selectedRows(designer.getSelection()),
   select: ({ designer }, ids) => {
-    const refs = ids.map(parseId).filter(ref => ref !== undefined)
-    const first = refs[0]
-    if (first?.kind === 'item') {
-      designer.revealItem({ ...(first.card === undefined ? {} : { card: first.card }), list: first.list, id: first.id } satisfies ReportItemRef)
-      return
-    }
-    if (first?.kind === 'body') {
-      designer.select({ cards: [] })
-      return
-    }
-    const cards = refs.flatMap(ref => ref.kind === 'card' ? [ref.card] : [])
-    designer.select({ cards })
-    if (cards[0] !== undefined)
-      designer.revealCard(cards[0])
+    const { selection, reveal } = reportOutlineSelection(designer.getSelection(), ids)
+    designer.select(selection)
+    if (reveal !== undefined)
+      designer.revealCard(reveal)
   },
   highlight: ({ designer }, id) => {
     const ref = parseId(id)

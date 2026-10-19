@@ -1165,6 +1165,29 @@ describe('<xh-report-designer>：编辑', () => {
     expect([outline.readonly, outline.allowMove]).toEqual([true, undefined])
   })
 
+  it('页面结构多选：卡片可以多选、列表项一次一个，整份换上树交来的选中，空数组全部取消；只把新选上的卡片滚进可见区', async () => {
+    const designer = await mount()
+    const outline = designer.querySelector('xh-designer-outline')!
+    const reveal = vi.spyOn(designer, 'revealCard')
+    const id = (...parts: (string | null)[]): string => JSON.stringify(parts)
+    const pick = async (...ids: string[]): Promise<void> => {
+      outline.dispatchEvent(new CustomEvent('node-select', { detail: { ids } }))
+      await designer.updateComplete
+    }
+    const revealed = (): string[] => reveal.mock.calls.map(call => call[0])
+    await pick(id('card', 'a'))
+    await pick(id('card', 'a'), id('card', 'b'))
+    expect([designer.getSelection(), revealed(), outline.selection]).toEqual([{ cards: ['a', 'b'] }, ['a', 'b'], [id('card', 'a'), id('card', 'b')]])
+    await pick(id('card', 'b'))
+    expect([designer.getSelection(), revealed()]).toEqual([{ cards: ['b'] }, ['a', 'b']])
+    await pick(id('card', 'b'), id('item', 'pie', 'measures', 'amount'))
+    expect([designer.getSelection(), revealed().at(-1)]).toEqual([{ cards: ['pie'], item: { card: 'pie', list: 'measures', id: 'amount' } }, 'pie'])
+    await pick()
+    expect(designer.getSelection()).toEqual({ cards: [] })
+    await pick(id('card', 'pie'), id('item', 'pie', 'dimensions', 'region'), id('card', 'a'))
+    expect([designer.getSelection(), revealed().at(-1)]).toEqual([{ cards: ['pie', 'a'] }, 'pie'])
+  })
+
   it('导入的入口在数据集与报表参数两块卡片的面板头，按 datasetEditing 出现：fields 只能导入参数，full 还能导入数据集与字段；只读时都没有', async () => {
     const designer = await mount()
     const button = (region: string, command: string): HTMLButtonElement | null => designer.querySelector(`[data-region="${region}"] button[value="${command}"]`)
