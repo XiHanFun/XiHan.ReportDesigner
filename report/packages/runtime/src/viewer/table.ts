@@ -17,9 +17,6 @@ export const VIRTUAL_ROW_THRESHOLD = 200
 /** 没写宽度的列取的列宽：各行的单元格按同一列宽排，表头与表体对齐。 */
 export const COLUMN_WIDTH = '8rem'
 
-/** 虚拟滚动时每行的估算高度（px），只用于首帧排布，之后按实测。 */
-const ESTIMATED_ROW_SIZE = 36
-
 /** xh-table 的列定义。 */
 export type TableColumnDef = NonNullable<XhTableElement['columns']>[number]
 
@@ -99,7 +96,8 @@ export function fillTableBody(shell: TableShell, count: number, rowAt: (index: n
   shell.root.dataset.virtual = ''
   const virtualizer = document.createElement('xh-virtualizer') as XhVirtualizerElement
   virtualizer.setAttribute('count', String(count))
-  virtualizer.setAttribute('estimate-size', String(ESTIMATED_ROW_SIZE))
+  // 还没渲染的行按已量到的行高估算，行高随尺寸、密度与皮肤变也跟得上
+  virtualizer.setAttribute('estimate-from-measured', '')
   virtualizer.setAttribute('scroll-container', 'ancestor')
   const virtualRoot = uiPart('div', 'root')
   const viewport = uiPart('div', 'viewport')
@@ -138,9 +136,10 @@ export function fillTableBody(shell: TableShell, count: number, rowAt: (index: n
         content.insertBefore(slot, content.children[position] ?? null)
     })
     slots = next
-    virtualizer.requestUpdate()
+    // 先让表格认领新挂上的行、排成表格行，虚拟列表再量行高
     shell.table.virtualizer = virtualizer.collectionVirtualizer ?? undefined
     shell.table.requestUpdate()
+    virtualizer.requestUpdate()
   }
   if (virtualizer.isConnected && typeof virtualizer.requestUpdate === 'function')
     render(virtualizer.virtualItems)
