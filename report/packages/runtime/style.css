@@ -35,11 +35,6 @@ xh-report-viewer > [data-part='body'] {
   inline-size: 100%;
 }
 
-/* 虚拟条目彼此不是兄弟节点，行之间的分隔线写在行上 */
-:is(xh-report-viewer, xh-report-designer) xh-table [data-virtual] xh-virtualizer [data-xh-part='row'] {
-  border-block-end: var(--xh-stroke-thin) solid var(--xh-border-subtle);
-}
-
 /* 分组报表的组头、小计与交叉表的小计、总计行加重 */
 :is(xh-report-viewer, xh-report-designer) xh-table [data-kind='group'] [data-xh-part='cell'],
 :is(xh-report-viewer, xh-report-designer) xh-table [data-kind='subtotal'] [data-xh-part='cell'],

@@ -41,6 +41,10 @@ describe('style.css：查看器不按内容撑宽宿主', () => {
     expect(() => rule(':is(xh-report-viewer, xh-report-designer) xh-table [data-virtual] xh-virtualizer [data-xh-part=\'viewport\']')).toThrow()
   })
 
+  it('虚拟表体的行间线由 UI 的表格皮肤画，查看器不另写', () => {
+    expect(() => rule(':is(xh-report-viewer, xh-report-designer) xh-table [data-virtual] xh-virtualizer [data-xh-part=\'row\']')).toThrow()
+  })
+
   it('查看器自己的层只选直接子元素，不波及 UI 元素同名的部件', () => {
     for (const part of ['header', 'status'])
       expect(() => rule(`xh-report-viewer > [data-part='${part}']`)).not.toThrow()
