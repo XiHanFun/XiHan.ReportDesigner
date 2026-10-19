@@ -80,7 +80,7 @@ export interface ReportPaletteDrop {
 
 /**
  * 报表设计器层的扩展：运行时层的全部字段，加上属性编辑器、命令、面板、物料、物料来源与 setup。
- * 物料来源（paletteSources）的条目拖到看板上放下时，落点是 ReportPaletteDrop。导出器在运行时层，导入暂不支持。
+ * 物料来源（paletteSources）的条目拖到看板上放下时，落点是 ReportPaletteDrop。导出器在运行时层；设计器层不收导入器（importers）。
  */
 export interface ReportDesignerExtension extends ReportRuntimeExtension, Omit<DesignerShellExtension<ReportDesignerContext, ReportPropertyEditor, ReportDocument, ReportRuleContext, ReportPaletteDrop>, keyof DesignerExtensionCore | 'exporters' | 'importers'> {
   /** 物料面板的组，排在内置的图表、指标、表格之后。 */
