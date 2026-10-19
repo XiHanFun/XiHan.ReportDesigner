@@ -83,12 +83,12 @@ function pages(): string[] {
 }
 
 describe('设置', () => {
-  it('openSettings 打开设置对话框：报表没有自己那一页，只有基础分区，里面有主题与状态栏', async () => {
+  it('openSettings 打开设置对话框：报表没有自己那一页，基础分区里有主题与状态栏，后面是外框的布局一页', async () => {
     const designer = await mount()
     expect(designer.querySelector('xh-designer-settings')!.parentElement).toBe(designer)
     designer.openSettings()
     await settle(designer)
-    expect(pages()).toEqual(['general'])
+    expect(pages()).toEqual(['general', 'layout'])
     expect([row(DESIGNER_SETTING_KEYS.theme) !== null, row(DESIGNER_SETTING_KEYS.statusBar) !== null]).toEqual([true, true])
   })
 
@@ -96,7 +96,7 @@ describe('设置', () => {
     const designer = await mount(element => (element.extensions = [{ id: 'acme', settings: [acme] }]))
     designer.openSettings('acme')
     await settle(designer)
-    expect(pages()).toEqual(['general', 'acme'])
+    expect(pages()).toEqual(['general', 'layout', 'acme'])
     expect(row('acme.token')!.querySelector('xh-password-input')).not.toBeNull()
     const before = designer.extensions
     expect(() => (designer.extensions = [{ id: 'acme', settings: [{ ...acme, id: 'general' }] }])).toThrow(DesignerExtensionError)
@@ -111,7 +111,7 @@ describe('设置', () => {
     })
     designer.openSettings()
     await settle(designer)
-    expect(pages()).toEqual(['acme'])
+    expect(pages()).toEqual(['layout', 'acme'])
     expect(row('acme.token')!.querySelector('xh-field')!.hasAttribute('read-only')).toBe(true)
   })
 
@@ -133,6 +133,20 @@ describe('设置', () => {
     expect(designer.settings).toEqual({ [DESIGNER_SETTING_KEYS.statusBar]: false })
     designer.querySelector<HTMLButtonElement>('[data-region="toolbar"] button[value="probe.read"]')!.click()
     expect(seen[0]).toEqual({ [DESIGNER_SETTING_KEYS.statusBar]: false, 'probe.level': 3 })
+  })
+
+  it('布局页的面板表列出报表的卡片，关掉一块的显示开关：外框隐藏它，整份布局写进设置的 layout.panels 并派发 settings-change', async () => {
+    const designer = await mount()
+    designer.openSettings('layout')
+    await settle(designer)
+    const rows = Array.from(document.querySelectorAll('[data-part="panel-row"][data-panel]'), node => node.getAttribute('data-panel'))
+    expect([...rows].sort()).toEqual(['datasets', 'issues', 'palette', 'parameters', 'properties', 'wells'])
+    const changes: { key: string, value: { hidden: string[] } }[] = []
+    designer.addEventListener('settings-change', event => changes.push((event as CustomEvent).detail))
+    document.querySelector('[data-part="panel-row"][data-panel="wells"] [data-part="panel-visible"]')!.dispatchEvent(new CustomEvent('checked-change', { detail: { checked: false }, bubbles: true }))
+    await settle(designer)
+    expect(changes.map(change => [change.key, change.value.hidden])).toEqual([[DESIGNER_SETTING_KEYS.layout, ['wells']]])
+    expect(designer.querySelector('xh-designer-frame')!.showsPanel('wells')).toBe(false)
   })
 
   it('主题与主题色落在设计器元素上：亮暗写 data-theme，预设主题色写 data-brand，跟随页面时去掉', async () => {

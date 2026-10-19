@@ -1001,6 +1001,7 @@ function viewerPage() {
 function designerPage() {
   const designer = packageSource('designer', 'src', 'report-designer.ts')
   const editor = packageSource('designer', 'src', 'editor.ts')
+  const extensions = packageSource('designer', 'src', 'extensions.ts')
   const translations = packageSource('runtime', 'src', 'designer-translations.ts')
   const root = packageSource('designer', 'src')
   return page('设计器', `${code('@xihan-report/designer')} 的公开接口。样式在 ${code('@xihan-report/designer/style.css')}，还要同时引入 ${code('@xihan-ui/designer-shell/style.css')} 与 ${code('@xihan-report/runtime/style.css')}。`, [
@@ -1015,7 +1016,7 @@ function designerPage() {
     typeSection(designer, 'ReportDesignerMode'),
     typeSection(designer, 'ReportDatasetEditing'),
     typeSection(designer, 'ReportSchemaChangeKind'),
-    constantSection(designer, 'REPORT_DESIGNER_PANELS'),
+    constantSection(extensions, 'REPORT_DESIGNER_PANELS'),
     interfaceSection(editor, 'ReportSelection'),
     interfaceSection(editor, 'ReportItemRef'),
     typeSection(editor, 'ReportDataRef'),

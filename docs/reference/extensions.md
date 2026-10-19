@@ -347,7 +347,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | `overlays?` | `readonly ReportOverlay[]` | 看板的叠加层；同一层里按扩展顺序，后登记的在上。 |
 | `palette?` | `readonly ReportPaletteItem[]` | 物料面板里的项。 |
 | `paletteGroups?` | `readonly ReportPaletteGroup[]` | 物料面板的组，排在内置的图表、指标、表格之后。 |
-| `panels?` | `readonly DesignerPanel<ReportDesignerContext>[]` | 面板：各占外框的一个命名区，同一位置按扩展顺序上下排。 |
+| `panels?` | `readonly DesignerPanel<ReportDesignerContext>[]` | 面板：各占外框的一个命名区，同一栏按扩展顺序上下排。 |
 | `properties?` | `Readonly<Partial<Record<ReportPropertyTarget, readonly ReportPropertyDescriptor[]>>>` | 追加在内置之后的属性，path 相对那类对象本身。 |
 | `rules?` | `readonly SchemaRule<ReportDocument, ReportRuleContext>[]` | 校验规则，问题与内置校验的一起进问题列表；问题码以 id 的末段加点开头。 |
 | `settings?` | `readonly DesignerSettingsSection[]` | 设置分区：放进设置对话框，分区 id 不能与内置的 general 或别的扩展的重名，见 collectSettingsSections。 |
@@ -365,6 +365,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 
 | 属性 | 类型 | 说明 |
 | --- | --- | --- |
+| `alternateShortcuts?` | `readonly (readonly string[])[]` | 另外几组也能触发这条命令的快捷键，写法同 shortcut，如重做在 Mod+Shift+Z 之外再认 ['Ctrl', 'Y']。与 shortcut 一样查重、一样由 commandForShortcut 命中；提示里只显示 shortcut，快捷键表与 aria-keyshortcuts 全部列出（见 commandShortcuts）。 |
 | `icon?` | `IconRecord` | 按钮与菜单项上的图标，图标集见 @xihan-ui/icons；工具栏按图标显示时，没有图标的命令退回显示短文字。 |
 | `id` | `string` | 全局唯一；扩展的命令用扩展 id 加点加名字，如 @xihan-flow-pro/simulation.run。 |
 | `label` | `string \| ((context: ReportDesignerContext) => string)` | 按钮与菜单项上的文字；给函数时每次刷新现取，随语言变。 |

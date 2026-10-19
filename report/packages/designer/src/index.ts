@@ -18,6 +18,6 @@ export type {
   ReportPaletteItem,
   ReportPropertyEditor,
 } from './extensions'
-export { createReportDesignerModel, REPORT_DESIGNER_EXTENSION, REPORT_DESIGNER_HELP_URL, REPORT_MENU_LAYOUT, REPORT_TOOLBAR_LAYOUT } from './extensions'
-export { defineReportDesigner, REPORT_DESIGNER_PANELS, REPORT_DESIGNER_TAG, XhReportDesigner } from './report-designer'
-export type { ReportDatasetEditing, ReportDesignerEventMap, ReportDesignerMode, ReportDesignerPanel, ReportSchemaChangeKind } from './report-designer'
+export { createReportDesignerModel, REPORT_DESIGNER_EXTENSION, REPORT_DESIGNER_HELP_URL, REPORT_DESIGNER_PANELS, REPORT_MENU_LAYOUT, REPORT_TOOLBAR_LAYOUT } from './extensions'
+export { defineReportDesigner, REPORT_DESIGNER_TAG, XhReportDesigner } from './report-designer'
+export type { ReportDatasetEditing, ReportDesignerEventMap, ReportDesignerMode, ReportSchemaChangeKind } from './report-designer'

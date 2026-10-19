@@ -3,10 +3,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 设计器的设置：宿主管着主题，用户偏好存在宿主自己那里；独立使用时交给本机存储；从工具栏外的按钮打开设置。
+// 设计器的设置：宿主管着主题，用户偏好存在宿主自己那里；独立使用时交给本机存储；从工具栏外的按钮打开设置；面板布局的缺省与管控。
 // 键都用常量，不手写字符串。
 
 import type { XhReportDesigner } from '@xihan-report/designer'
+import { REPORT_DESIGNER_PANELS } from '@xihan-report/designer'
 import { DESIGNER_SETTING_KEYS } from '@xihan-ui/designer-shell'
 
 type ReportSettings = NonNullable<XhReportDesigner['settings']>
@@ -36,3 +37,11 @@ export function openSettings(designer: XhReportDesigner): void {
   designer.openSettings()
 }
 // #endregion open
+
+// #region layout
+export function wireLayout(designer: XhReportDesigner): void {
+  // 缺省收起问题列表；宿主用不到物料面板，也不许用户把它开出来
+  designer.defaultLayout = { version: 1, hidden: [REPORT_DESIGNER_PANELS.issues] }
+  designer.settingsPolicy = { [`${DESIGNER_SETTING_KEYS.layout}.${REPORT_DESIGNER_PANELS.palette}`]: 'hidden' }
+}
+// #endregion layout

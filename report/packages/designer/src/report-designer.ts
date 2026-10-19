@@ -4,7 +4,7 @@
  */
 
 // <xh-report-designer>：报表设计器元素。编辑模型（历史、选择、剪贴板、布局手势）在 createReportEditor 里，
-// 画布内容复用查看器的计算与渲染；整体版式用 @xihan-ui/designer-shell 的外框，panels 决定显示哪些区，面板用 designer-shell 的零件。
+// 画布内容复用查看器的计算与渲染；整体版式用 @xihan-ui/designer-shell 的外框，面板布局存进设置的 layout.panels，面板用 designer-shell 的零件。
 // 卡片与视图种类、渲染、属性编辑器、命令、面板与物料都从 extensions 来，内置命令与物料也是一个扩展；
 // 工具栏与菜单的排列可由 commandLayout 改写。设置对话框（openSettings()）里是基础分区与各扩展的分区，值经 settings 与
 // settings-change 交给宿主。
@@ -15,7 +15,7 @@ import type { JsonValue } from '@xihan-ui/core/json'
 import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
 import type { ExecuteOptions, ExtensionHost, GridRect, HistoryChangeKind, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertySwatchOption } from '@xihan-ui/designer-kit/properties'
-import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFrameEventMap, DesignerFrameRegion, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
+import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFrameEventMap, DesignerFrameRegion, DesignerLayout, DesignerLayoutPolicy, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { DialogService } from '@xihan-ui/web-components/services'
 import type { DataRemoval } from './data-editing'
@@ -39,7 +39,7 @@ import {
   DESIGNER_COMMANDS_EN_US,
   DESIGNER_FRAME_REGIONS,
   DESIGNER_SETTING_KEYS,
-  parseDesignerPanels,
+  designerLayoutPolicy,
   registerDropTarget,
   renderCommandMenu,
   resolveSettings,
@@ -52,6 +52,7 @@ import {
   XhDesignerSettingsElement,
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
+import { CircleAlertIcon, DatabaseIcon, FilterIcon, LayoutGridIcon, ListIcon, SlidersHorizontalIcon } from '@xihan-ui/icons'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { defineXhElement, XhButtonElement, XhContextMenuElement, XhSortableElement, XhTagElement, XhToolbarElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import { createDialogService } from '@xihan-ui/web-components/services'
@@ -68,12 +69,6 @@ import { fieldList, Wells, wellsOwner, withFilledBindings } from './wells'
 
 /** 设计器的标签名。 */
 export const REPORT_DESIGNER_TAG = 'xh-report-designer'
-
-/** 可以收起的面板，画布常驻、不在其中。 */
-export const REPORT_DESIGNER_PANELS = ['toolbar', 'datasets', 'parameters', 'palette', 'wells', 'properties', 'issues', 'status'] as const
-
-/** 可以收起的面板之一。 */
-export type ReportDesignerPanel = (typeof REPORT_DESIGNER_PANELS)[number]
 
 /** 设计或预览。 */
 export type ReportDesignerMode = 'design' | 'preview'
@@ -104,11 +99,9 @@ export interface ReportDesignerEventMap {
   'card-contextmenu': CustomEvent<{ id: string, x: number, y: number }>
   /** 可取消；不取消时弹内建右键菜单。 */
   'blank-contextmenu': CustomEvent<{ x: number, y: number }>
-  /** 点了面板头的关闭钮，设计器已收起这块面板：panels 是收起之后要显示的面板（空格分隔），设计器的 panels 已换成它。 */
-  'panels-change': CustomEvent<{ panels: string }>
   /**
-   * 在设置对话框里改了一条设置：设计器已换成新的 settings 并生效（主题、主题色与扩展读的值）；
-   * value 为 undefined 表示删掉这个键、回到缺省值。宿主存起来，下次赋回 settings。
+   * 在设置对话框里改了一条设置，或在外框上挪了面板（键是 layout.panels，值是整份布局）：设计器已换成新的 settings 并生效
+   * （主题、主题色、扩展读的值与面板布局）；value 为 undefined 表示删掉这个键、回到缺省值。宿主存起来，下次赋回 settings。
    */
   'settings-change': CustomEvent<{ key: string, value: JsonValue | undefined, settings: DesignerSettings }>
   /** 读写 settingsStorageKey 指的本机存储失败（内容不是对象、无痕窗口、配额满）；设置留在内存里。 */
@@ -222,7 +215,7 @@ export class XhReportDesigner extends XhReactiveElement {
     timeZone: { attribute: 'time-zone' },
     readonly: { converter: BOOLEAN_CONVERTER },
     mode: { attribute: 'mode' },
-    panels: { converter: { fromAttribute: (value: string | null) => value ?? undefined } },
+    defaultLayout: { attribute: false },
     datasetEditing: { attribute: 'dataset-editing' },
     settings: { attribute: false },
     settingsPolicy: { attribute: false },
@@ -254,10 +247,11 @@ export class XhReportDesigner extends XhReactiveElement {
   /** design 或 preview，缺省 design。 */
   declare mode: ReportDesignerMode | undefined
   /**
-   * 空格分隔的可收起面板：toolbar datasets parameters palette wells properties issues status；不写即全部显示，写空串只留画布。
-   * 点了面板头的关闭钮时设计器改写它并派发 panels-change。
+   * 面板布局的缺省：设置里还没有 layout.panels 时用它，「恢复默认布局」也回到它；不给时各面板停在登记的位置，全部显示。
+   * 面板 id 见 REPORT_DESIGNER_PANELS，另有扩展登记的面板。用户挪了面板、改了显隐或大小，
+   * 整份布局写进设置的 layout.panels（DESIGNER_SETTING_KEYS.layout）并派发 settings-change。
    */
-  declare panels: string | undefined
+  declare defaultLayout: DesignerLayout | undefined
   /** 缺省 fields。 */
   declare datasetEditing: ReportDatasetEditing | undefined
   /**
@@ -303,6 +297,8 @@ export class XhReportDesigner extends XhReactiveElement {
   #regionsKey = ''
   #regionsModel: ReportDesignerModel | undefined
   #regionList: readonly DesignerFrameRegion[] = FRAME_REGIONS
+  #layoutPolicyKey = ''
+  #layoutPolicy: DesignerLayoutPolicy | undefined
   #settingsHost: DesignerSettingsHost | undefined
   #settingsHostOptions: readonly unknown[] = []
   #settingsDialogKey = ''
@@ -804,7 +800,7 @@ export class XhReportDesigner extends XhReactiveElement {
     const issueSummary = issues.element.summary
     issueSummary.slot = 'issues-actions'
     const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, data.datasets, data.parameters, palette, workspace, wells.element, properties.element, issues.element, issueSummary]) as XhDesignerFrameElement
-    frame.addEventListener('panels-change', this.#onPanelsChange)
+    frame.addEventListener('layout-change', this.#onLayoutChange)
     const selectionStatus = createStatusItem(doc, { value: '' })
     selectionStatus.element.slot = 'status-start'
     const zoomStatus = createStatusItem(doc, { value: '', action: () => this.zoomToActual() })
@@ -849,7 +845,7 @@ export class XhReportDesigner extends XhReactiveElement {
     return this.#layers
   }
 
-  /** panels 原样交给外框；区名换成文案，供分隔条的无障碍名称使用，文案没变时不重设。 */
+  /** 此刻是设计态还是预览态。 */
   #mode(): ReportDesignerMode {
     return this.mode === 'preview' ? 'preview' : 'design'
   }
@@ -900,21 +896,46 @@ export class XhReportDesigner extends XhReactiveElement {
       dialog.sections = sections
     if (dialog.settings !== this.settings)
       dialog.settings = this.settings
+    if (dialog.frame !== layers.frame)
+      dialog.frame = layers.frame
   }
 
-  /** 设置对话框里改了一条：换成新的 settings，给了存储键就存起来，再派发 settings-change。 */
+  /** 设置对话框里改了一条：换成新的 settings。 */
   readonly #onSettingsChange = (event: Event): void => {
     event.stopPropagation()
-    const detail = (event as DesignerSettingsEventMap['settings-change']).detail
+    this.#commitSettings((event as DesignerSettingsEventMap['settings-change']).detail)
+  }
+
+  /** 换成新的 settings，给了存储键就存起来，再派发 settings-change。 */
+  #commitSettings(detail: DesignerSettingsEventMap['settings-change']['detail']): void {
     this.settings = detail.settings
     this.#settingsHost?.save(detail.settings, this.#model.settings)
     emitEvent(this, 'settings-change', detail)
   }
 
-  /** panels 列出了这块面板（不写 panels 即全部显示）。 */
-  #shows(panel: string): boolean {
-    const shown = parseDesignerPanels(this.panels)
-    return shown === undefined || shown.has(panel)
+  /** 外框改了面板布局：整份写进设置的 layout.panels。 */
+  readonly #onLayoutChange = (event: Event): void => {
+    event.stopPropagation()
+    const value = (event as DesignerFrameEventMap['layout-change']).detail.layout as unknown as JsonValue
+    const key = DESIGNER_SETTING_KEYS.layout
+    this.#commitSettings({ key, value, settings: { ...this.settings, [key]: value } })
+  }
+
+  /** 设置里存的面板布局。 */
+  #storedLayout(): DesignerLayout | undefined {
+    const value = this.settings?.[DESIGNER_SETTING_KEYS.layout]
+    return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as unknown as DesignerLayout : undefined
+  }
+
+  /** 宿主对布局的管控，从 settingsPolicy 换算；内容不变时沿用同一个对象。 */
+  #frameLayoutPolicy(): DesignerLayoutPolicy | undefined {
+    const policy = designerLayoutPolicy(this.settingsPolicy)
+    const key = JSON.stringify(policy ?? null)
+    if (key !== this.#layoutPolicyKey) {
+      this.#layoutPolicyKey = key
+      this.#layoutPolicy = policy
+    }
+    return this.#layoutPolicy
   }
 
   /** 报表参数那块卡片有没有东西可看可做：有参数，或者能新增参数。 */
@@ -927,61 +948,49 @@ export class XhReportDesigner extends XhReactiveElement {
     return this.#resolvedSettings[DESIGNER_SETTING_KEYS.statusBar] !== false
   }
 
-  /**
-   * 交给外框的 panels：设计态原样转交，没有报表参数又不能新增时收起那块卡片，设置里关了状态栏时去掉 status；
-   * 预览态只留工具栏。
-   */
-  #framePanels(): string | undefined {
+  /** 这个区此刻登记不登记：预览态只登记顶栏、工具栏与画布；没有报表参数又不能新增时不登记那块卡片，设置里关了状态栏时不登记状态栏。 */
+  #registers(name: string): boolean {
     if (this.#mode() === 'preview')
-      return this.#shows('toolbar') ? 'toolbar' : ''
-    const hidden = [...(this.#hasParameters() ? [] : ['parameters']), ...(this.#statusBarOn() ? [] : ['status'])]
-    if (hidden.length === 0)
-      return this.panels
-    const names = this.panels === undefined ? this.#regionList.map(region => region.name) : this.panels.split(/\s+/)
-    return names.filter(name => name !== '' && !hidden.includes(name)).join(' ')
+      return name === 'header' || name === 'toolbar' || name === 'canvas'
+    if (name === 'parameters')
+      return this.#hasParameters()
+    if (name === 'status')
+      return this.#statusBarOn()
+    return true
   }
 
   /**
    * 外框的区：工具栏与画布带上本地化的区名（分隔条的无障碍名称要用）；数据集、报表参数、物料、字段栏、属性与问题画成卡片，
-   * 面板头写标题与帮助，属性卡片的副标题是当前编辑的对象。后面接扩展面板的区；内容与扩展都没变时不重设。
+   * 面板头写标题、图标与帮助，属性卡片的副标题是当前编辑的对象。设计态后面接扩展面板的区；内容与扩展都没变时不重设。
+   * 面板布局取设置里的 layout.panels，缺省取 defaultLayout，管控从 settingsPolicy 换算。
    */
   #syncFrame(frame: XhDesignerFrameElement, t: ReportDesignerTranslations): void {
     const layers = this.#layers
     const regions: Readonly<Record<string, Partial<DesignerFrameRegion>>> = {
       toolbar: { label: this.#commandTranslations().toolbar },
-      datasets: { title: t.datasets, help: t.datasetsHelp },
-      parameters: { title: t.parameters, help: t.parametersHelp },
-      palette: { title: t.palette, help: t.paletteHelp },
+      datasets: { title: t.datasets, icon: DatabaseIcon, help: t.datasetsHelp },
+      parameters: { title: t.parameters, icon: FilterIcon, help: t.parametersHelp },
+      palette: { title: t.palette, icon: LayoutGridIcon, help: t.paletteHelp },
       canvas: { label: t.canvas },
-      wells: { title: t.wells, help: t.wellsHelp },
-      properties: { title: t.properties, help: t.propertiesHelp, ...(layers?.properties.element.heading === undefined ? {} : { subtitle: layers.properties.element.heading }) },
-      issues: { title: t.issues, help: t.issuesHelp },
+      wells: { title: t.wells, icon: ListIcon, help: t.wellsHelp },
+      properties: { title: t.properties, icon: SlidersHorizontalIcon, help: t.propertiesHelp, ...(layers?.properties.element.heading === undefined ? {} : { subtitle: layers.properties.element.heading }) },
+      issues: { title: t.issues, icon: CircleAlertIcon, help: t.issuesHelp },
     }
-    const key = JSON.stringify(regions)
+    const shown = FRAME_REGIONS.filter(region => this.#registers(region.name))
+    const key = JSON.stringify([regions, shown.map(region => region.name), this.#mode()])
     if (key !== this.#regionsKey || this.#regionsModel !== this.#model) {
       this.#regionsKey = key
       this.#regionsModel = this.#model
       this.#regionList = [
-        ...FRAME_REGIONS.map(region => ({ ...region, ...regions[region.name] })),
-        ...this.#model.extensions.flatMap(extension => (extension.panels ?? []).map(panel => panel.region)),
+        ...shown.map(region => ({ ...region, ...regions[region.name] })),
+        ...(this.#mode() === 'preview' ? [] : this.#model.extensions.flatMap(extension => (extension.panels ?? []).map(panel => panel.region))),
       ]
     }
     if (frame.regions !== this.#regionList)
       frame.regions = this.#regionList
-    frame.panels = this.#framePanels()
-  }
-
-  /** 外框收起了一块面板：外框没在显示的报表参数卡片（没有参数又不能新增）与被设置关掉的状态栏照 panels 原样留着。 */
-  readonly #onPanelsChange = (event: Event): void => {
-    event.stopPropagation()
-    const names = (event as DesignerFrameEventMap['panels-change']).detail.panels.split(' ').filter(Boolean)
-    if (!this.#hasParameters() && this.#shows('parameters'))
-      names.push('parameters')
-    if (!this.#statusBarOn() && this.#shows('status'))
-      names.push('status')
-    const panels = names.join(' ')
-    this.panels = panels
-    emitEvent(this, 'panels-change', { panels })
+    frame.layout = this.#storedLayout()
+    frame.defaultLayout = this.defaultLayout
+    frame.layoutPolicy = this.#frameLayoutPolicy()
   }
 
   /** 设计态画画布；预览态把当前报表交给查看器，画布不取数。 */

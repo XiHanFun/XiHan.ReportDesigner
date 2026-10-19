@@ -15,7 +15,7 @@ import type { XhReportDesigner } from './report-designer'
 import { cardTemplate, REPORT_CARD_TYPES } from '@xihan-report/core'
 import { createReportRuntimeModel } from '@xihan-report/runtime'
 import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
-import { collectSettingsSections, designerShellCommands } from '@xihan-ui/designer-shell'
+import { collectSettingsSections, designerPanelCommands, designerShellCommands } from '@xihan-ui/designer-shell'
 import { ChartBarIcon, ChartPieIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EyeIcon, GridIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TableIcon, TrashIcon, TrendingUpIcon, UndoIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 
 /** 命令、面板、物料与扩展装上时拿到的上下文。 */
@@ -69,8 +69,10 @@ export interface ReportDesignerExtension extends ReportRuntimeExtension, Omit<De
   readonly palette?: readonly ReportPaletteItem[]
 }
 
-/** 取值是字符串的文案键。 */
-function shared(key: keyof DesignerCommandsTranslations): (context: ReportDesignerContext) => string {
+/** 命令文案桶里取值是文字的那些键。 */
+type SharedLabelKey = { [K in keyof DesignerCommandsTranslations]: DesignerCommandsTranslations[K] extends string ? K : never }[keyof DesignerCommandsTranslations]
+
+function shared(key: SharedLabelKey): (context: ReportDesignerContext) => string {
   return context => context.commands[key]
 }
 
@@ -114,7 +116,20 @@ const QUICK_INSERT_COMMANDS: readonly ReportDesignerCommand[] = QUICK_INSERT.map
 /** 内置命令 help 打开的帮助页：报表文档站的设计器一页。 */
 export const REPORT_DESIGNER_HELP_URL = 'https://report.docs.xihanfun.com/guide/designer'
 
-/** 内置命令：撤销重做、剪贴板、创建副本与删除、全选、缩放、设计与预览，以及 designer-shell 内置的面板、设置与帮助，各带图标。 */
+/** 设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.<面板 id>）与 commandLayout（panel:<面板 id>）时用。 */
+export const REPORT_DESIGNER_PANELS = {
+  datasets: 'datasets',
+  parameters: 'parameters',
+  palette: 'palette',
+  wells: 'wells',
+  properties: 'properties',
+  issues: 'issues',
+} as const
+
+/**
+ * 内置命令：撤销重做、剪贴板、创建副本与删除、全选、缩放、设计与预览，designer-shell 内置的面板、显示或隐藏所有面板、
+ * 还原面板显隐、恢复默认布局、设置与帮助，以及每块内置面板一条开关命令 panel:<面板 id>。
+ */
 const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
   { id: 'undo', label: shared('undo'), icon: UndoIcon, shortcut: ['Mod', 'Z'], enabled: context => designing(context) && context.designer.canUndo, run: ({ designer }) => designer.undo() },
   { id: 'redo', label: shared('redo'), icon: RedoIcon, shortcut: ['Mod', 'Shift', 'Z'], enabled: context => designing(context) && context.designer.canRedo, run: ({ designer }) => designer.redo() },
@@ -141,6 +156,7 @@ const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
     helpUrl: () => REPORT_DESIGNER_HELP_URL,
     icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon },
   }),
+  ...designerPanelCommands<ReportDesignerContext>({ panels: Object.values(REPORT_DESIGNER_PANELS), frame: context => context.frame }),
   ...QUICK_INSERT_COMMANDS,
 ]
 

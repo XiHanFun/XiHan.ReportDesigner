@@ -23,7 +23,7 @@
 | `timeZone` | `time-zone` | `string \| undefined` | IANA 时区；缺省取运行环境所在的时区。 |
 | `readonly` | `readonly` | `boolean \| undefined` | 只读：可选择、浏览与预览，不能修改；缺省可修改。attribute 写 "false" 是可修改，其余写法是只读。 |
 | `mode` | `mode` | `ReportDesignerMode \| undefined` | design 或 preview，缺省 design。 |
-| `panels` | `panels` | `string \| undefined` | 空格分隔的可收起面板：toolbar datasets parameters palette wells properties issues status；不写即全部显示，写空串只留画布。点了面板头的关闭钮时设计器改写它并派发 panels-change。 |
+| `defaultLayout` | — | `DesignerLayout \| undefined` | 面板布局的缺省：设置里还没有 layout.panels 时用它，「恢复默认布局」也回到它；不给时各面板停在登记的位置，全部显示。面板 id 见 REPORT_DESIGNER_PANELS，另有扩展登记的面板。用户挪了面板、改了显隐或大小，整份布局写进设置的 layout.panels（DESIGNER_SETTING_KEYS.layout）并派发 settings-change。 |
 | `datasetEditing` | `dataset-editing` | `ReportDatasetEditing \| undefined` | 缺省 fields。 |
 | `settings` | — | `DesignerSettings \| undefined` | 设置的值：扁平的键值，键是「分区 id.条目 id」，如 general.theme；没写的键取条目的缺省值。赋值即生效；用户在设置对话框里改了以后设计器换成新的一份并派发 settings-change。 |
 | `settingsPolicy` | — | `DesignerSettingsPolicy \| undefined` | 宿主对设置条目的管控：键是条目键或分区 id，hidden 不显示，locked 只读、说明换成「由所在系统管理」。 |
@@ -88,8 +88,7 @@
 | `card-dblclick` | `{ id: string }` | 双击了一张卡片。 |
 | `card-contextmenu` | `{ id: string, x: number, y: number }` | 可取消；不取消时弹内建右键菜单。 |
 | `blank-contextmenu` | `{ x: number, y: number }` | 可取消；不取消时弹内建右键菜单。 |
-| `panels-change` | `{ panels: string }` | 点了面板头的关闭钮，设计器已收起这块面板：panels 是收起之后要显示的面板（空格分隔），设计器的 panels 已换成它。 |
-| `settings-change` | `{ key: string, value: JsonValue \| undefined, settings: DesignerSettings }` | 在设置对话框里改了一条设置：设计器已换成新的 settings 并生效（主题、主题色与扩展读的值）；value 为 undefined 表示删掉这个键、回到缺省值。宿主存起来，下次赋回 settings。 |
+| `settings-change` | `{ key: string, value: JsonValue \| undefined, settings: DesignerSettings }` | 在设置对话框里改了一条设置，或在外框上挪了面板（键是 layout.panels，值是整份布局）：设计器已换成新的 settings 并生效（主题、主题色、扩展读的值与面板布局）；value 为 undefined 表示删掉这个键、回到缺省值。宿主存起来，下次赋回 settings。 |
 | `settings-storage-error` | `VisualEnvironmentStorageError` | 读写 settingsStorageKey 指的本机存储失败（内容不是对象、无痕窗口、配额满）；设置留在内存里。 |
 | `viewport-change` | `{ viewport: Viewport }` | 视口变了：缩放、适合窗口、setViewport 与滚动画布都会派发。 |
 
@@ -147,10 +146,17 @@ type ReportSchemaChangeKind = 'execute' | 'undo' | 'redo' | 'load'
 
 ### REPORT_DESIGNER_PANELS {#report_designer_panels}
 
-可以收起的面板，画布常驻、不在其中。
+设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.&lt;面板 id&gt;）与 commandLayout（panel:&lt;面板 id&gt;）时用。
 
 ```ts
-const REPORT_DESIGNER_PANELS = ['toolbar', 'datasets', 'parameters', 'palette', 'wells', 'properties', 'issues', 'status'] as const
+const REPORT_DESIGNER_PANELS = {
+  datasets: 'datasets',
+  parameters: 'parameters',
+  palette: 'palette',
+  wells: 'wells',
+  properties: 'properties',
+  issues: 'issues',
+} as const
 ```
 
 ### ReportSelection {#reportselection}
@@ -291,6 +297,7 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `createReportDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。 |
 | `REPORT_DESIGNER_EXTENSION` | 常量 | 设计器的内置扩展：内置命令与物料。 |
 | `REPORT_DESIGNER_HELP_URL` | 常量 | 内置命令 help 打开的帮助页：报表文档站的设计器一页。 |
+| `REPORT_DESIGNER_PANELS` | 常量 | 设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.&lt;面板 id&gt;）与 commandLayout（panel:&lt;面板 id&gt;）时用。 |
 | `REPORT_MENU_LAYOUT` | 常量 | 右键菜单的缺省排列。 |
 | `REPORT_TOOLBAR_LAYOUT` | 常量 | 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。 |
 | `ReportCardTemplate` | 类型 | 新卡片的模板：不写 id，新建时按种类分配；layout 只需写大小。 |
@@ -308,11 +315,9 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
 | `defineReportDesigner` | 函数 | 注册 &lt;xh-report-designer&gt; 与它用到的查看器、UI 元素与 designer-shell 零件；import 时不注册。 |
-| `REPORT_DESIGNER_PANELS` | 常量 | 可以收起的面板，画布常驻、不在其中。 |
 | `REPORT_DESIGNER_TAG` | 常量 | 设计器的标签名。 |
 | `ReportDatasetEditing` | 类型 | 数据集能改到什么程度：none 只读；fields 能改字段的标题、类型与计算字段公式，增删报表参数；full 另能增删数据集与字段。 |
 | `ReportDesignerEventMap` | 接口 | 设计器派发的事件。 |
 | `ReportDesignerMode` | 类型 | 设计或预览。 |
-| `ReportDesignerPanel` | 类型 | 可以收起的面板之一。 |
 | `ReportSchemaChangeKind` | 类型 | schema-change 的来由。 |
 | `XhReportDesigner` | 类 | 报表设计器 &lt;xh-report-designer&gt;：编辑报表定义，画布与预览按 dataProvider 取数显示示例数据。 |
