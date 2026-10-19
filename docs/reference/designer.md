@@ -73,7 +73,7 @@
 | `highlightCard(id: string \| null): void` | 在画布上标出一张卡片（画悬停框），null 撤掉；不改选择、不滚动。页面结构面板悬停或聚焦到一行时用它。 |
 | `canImportData(kind: ReportDataImportKind): boolean` | 这种导入此刻能不能做：只读、预览态或 datasetEditing 不够时不能（导入数据集与字段要 full，导入参数要 fields 起）；导入字段还要在数据面板里选中一个数据集或它的字段。 |
 | `openDataImport(kind: ReportDataImportKind): boolean` | 打开导入对话框：dataset 从 JSON 样例或 JSON Schema 新建一个数据集，fields 往选中的数据集里加字段，parameters 从 JSON Schema（也可以是样例）加报表参数。对话框里还有扩展登记的字段来源页（fieldSources）。导入的字段只取值字段，同名的保留现有的，一次导入记一步撤销。此刻不能做时返回 false。 |
-| `startTour(): boolean` | 从头开始新手引导：通用步骤加报表与扩展的步骤；预览态、还没有报表或没有能走的步骤时返回 false。 |
+| `startTour(): boolean` | 从头开始新手引导：通用步骤加报表与扩展的步骤；同一页别的设计器的引导开着时先收起那一个。预览态、还没有报表或没有能走的步骤时返回 false。 |
 | `openJsonEditor(): boolean` | 打开编辑整份报表定义 JSON 的对话框：写出当前报表，边改边按当前扩展与表达式引擎校验、报问题（文字与问题列表的一致）；没有错误时「应用」整份换上，记一步撤销，说明是「编辑 JSON」。只读或预览态时只能看、不能应用。还没有报表时返回 false。 |
 | `importTemplate(): boolean` | 导入模板：弹出选文件对话框（accept 取各导入器的 fileTypes），选中的文件按扩展顺序交给第一个接下的导入器，给出的整份模板换上当前报表、清空选择，记一步撤销（说明是「导入模板」）。没有导入器接下、导入器抛错或给出的不是报表对象时派发 import-error。此刻不能导入（见 canImportTemplate）时什么都不做，返回 false。 |
 | `revealItem(ref: ReportItemRef): void` | 选中列表项所在的卡片并让它可见。 |
