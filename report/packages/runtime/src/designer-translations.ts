@@ -40,6 +40,15 @@ export interface ReportHistoryStepText {
   readonly cascade?: number
 }
 
+/** 新手引导里报表自己的几步：数据面板、字段栏、卡片、联动与预览。 */
+export type ReportTourStepKey = 'datasets' | 'wells' | 'cards' | 'links' | 'preview'
+
+/** 引导一步的标题与说明。 */
+export interface ReportTourStepText {
+  readonly title: string
+  readonly description: string
+}
+
 /** 设计器的内建文案。 */
 export interface ReportDesignerTranslations {
   /** 设计器的可及名。 */
@@ -80,6 +89,14 @@ export interface ReportDesignerTranslations {
   readonly importDataset: string
   /** 命令「导入参数」的文字，也是这时导入对话框的标题。 */
   readonly importParameters: string
+  /** 新手引导里报表自己的几步，各一个标题与说明；键见 ReportTourStepKey。 */
+  readonly tourSteps: Readonly<Record<ReportTourStepKey, ReportTourStepText>>
+  /** 设置对话框「帮助」页的几段操作说明。 */
+  readonly helpNotes: readonly string[]
+  /** 快捷键表里 Shift 加方向键那一行：把选中的卡片改大或改小一格。 */
+  readonly shortcutResize: string
+  /** 快捷键表里 Ctrl / ⌘ + S 那一行。 */
+  readonly shortcutSave: string
   /** 顶栏插入钮的名字与提示，label 是物料名。 */
   readonly insertCard: (label: string) => string
   /** 状态栏左段没选中时：数据集数，主体是看板时再写卡片数（不是看板时 cards 为 undefined）。 */
@@ -615,6 +632,20 @@ export const REPORT_DESIGNER_EN_US: ReportDesignerLocale = {
   sizeUnit: 'cells',
   importDataset: 'Import dataset',
   importParameters: 'Import parameters',
+  tourSteps: {
+    datasets: { title: 'Data', description: 'Datasets with their fields, and the report parameters. Drag a field onto a card to show it there.' },
+    wells: { title: 'Fields', description: 'What the selected card shows: dimensions, measures, series or columns. Drag fields in, drag to reorder, and remove them with ×.' },
+    cards: { title: 'Cards', description: 'Drag a card to move it and drag its edges to resize it; it snaps to the grid. When a card is selected, the bar above copies or deletes it and the badge below shows its size in cells.' },
+    links: { title: 'Links', description: 'Below the fields of a selected card, link it to other cards: clicking a value in this card then filters the cards it links to.' },
+    preview: { title: 'Preview', description: 'Run the report with data and parameters, the way its users will see it.' },
+  },
+  helpNotes: [
+    'Drag fields from the Data panel onto a card or into its fields to choose what the card shows. Number fields become measures; the others become dimensions.',
+    'On a dashboard, drag cards to move them and drag their edges to resize them; they snap to the grid. The size badge below a selected card changes its width and height in cells.',
+    'Switch to Preview to run the report with data and parameters. Press Ctrl+S (⌘S on macOS) to save; where the report is stored is up to the system you use it in.',
+  ],
+  shortcutResize: 'Resize the selected card by one cell',
+  shortcutSave: 'Save',
   insertCard: label => `Add ${label}`,
   statusDocument: (datasets, cards) => `${datasets} ${datasets === 1 ? 'dataset' : 'datasets'}${cards === undefined ? '' : ` · ${cards} ${cards === 1 ? 'card' : 'cards'}`}`,
   statusCell: (column, row, width, height) => `Column ${column}, row ${row} · ${width} × ${height}`,

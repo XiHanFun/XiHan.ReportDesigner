@@ -24,3 +24,4 @@ export { createReportDesignerModel, REPORT_DESIGNER_EXTENSION, REPORT_DESIGNER_H
 export type { ReportDataImportKind } from './field-import'
 export { defineReportDesigner, REPORT_DESIGNER_TAG, XhReportDesigner } from './report-designer'
 export type { ReportDatasetEditing, ReportDesignerEventMap, ReportDesignerMode, ReportSchemaChangeKind } from './report-designer'
+export { REPORT_VERSION } from './version'

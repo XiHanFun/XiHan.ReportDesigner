@@ -327,7 +327,7 @@ type ReportDataMiddleware = (next: ReportDataProvider) => ReportDataProvider
 declare function createReportDesignerModel(extensions: readonly ReportDesignerExtension[]): ReportDesignerModel
 ```
 
-合出设计器用的模型；任何一处重名都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。同一个数组只合一次。
+合出设计器用的模型；任何一处重名（含设置分区与引导步骤）都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。同一个数组只合一次。
 
 ### ReportDesignerExtension {#reportdesignerextension}
 
@@ -498,3 +498,4 @@ const REPORT_SELECTION_LAYOUT = {
 | `paletteGroups` | `readonly ReportPaletteGroup[]` | 物料面板的组，内置的在前。 |
 | `palette` | `ReadonlyMap<string, ReportPaletteItem>` | 物料项 id 到物料项的对照。 |
 | `settings` | `readonly DesignerSettingsSection[]` | 各扩展登记的设置分区，按登记顺序；分区 id 不与基础分区或彼此重名。 |
+| `tourSteps` | `readonly DesignerTourStep<ReportDesignerContext>[]` | 新手引导里报表与各扩展的步骤，按登记顺序；id 不重名。 |

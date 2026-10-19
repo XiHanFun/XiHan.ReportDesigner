@@ -6,10 +6,11 @@
 
 import type { ReportDocument } from '@xihan-report/core'
 import type { ReportDesignerContext, ReportDesignerExtension, XhReportDesigner } from '../src'
+import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS } from '@xihan-report/runtime'
 import { DesignerExtensionError } from '@xihan-ui/designer-kit'
-import { DESIGNER_SETTING_KEYS } from '@xihan-ui/designer-shell'
+import { DESIGNER_COMMANDS_EN_US, DESIGNER_SETTING_KEYS } from '@xihan-ui/designer-shell'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineReportDesigner, REPORT_TOOLBAR_LAYOUT } from '../src'
+import { defineReportDesigner, REPORT_DESIGNER_HELP_URL, REPORT_TOOLBAR_LAYOUT, REPORT_VERSION } from '../src'
 
 const board: ReportDocument = {
   schemaVersion: 1,
@@ -59,6 +60,8 @@ afterEach(() => {
 
 async function mount(setup?: (element: XhReportDesigner) => void): Promise<XhReportDesigner> {
   const designer = document.createElement('xh-report-designer')
+  // 用例里不自动开始新手引导，引导的用例自己打开
+  designer.autoTour = false
   designer.schema = board
   setup?.(designer)
   document.body.append(designer)
@@ -83,12 +86,12 @@ function pages(): string[] {
 }
 
 describe('设置', () => {
-  it('openSettings 打开设置对话框：报表没有自己那一页；基础、布局、工具栏三页，基础列出主题与状态栏，工具栏页列出按钮显示方式、显示工具栏与按钮表', async () => {
+  it('openSettings 打开设置对话框：报表没有自己那一页；基础、布局、工具栏三页在前、帮助、快捷键、关于三页在后，基础列出主题与状态栏，工具栏页列出按钮显示方式、显示工具栏与按钮表', async () => {
     const designer = await mount()
     expect(designer.querySelector('xh-designer-settings')!.parentElement).toBe(designer)
     designer.openSettings()
     await settle(designer)
-    expect(pages()).toEqual(['general', 'layout', 'toolbar'])
+    expect(pages()).toEqual(['general', 'layout', 'toolbar', 'help', 'shortcuts', 'about'])
     expect([DESIGNER_SETTING_KEYS.theme, DESIGNER_SETTING_KEYS.statusBar, 'general.toolbarDisplay'].map(key => row(key) !== null)).toEqual([true, true, false])
     designer.openSettings('toolbar')
     await settle(designer)
@@ -99,7 +102,7 @@ describe('设置', () => {
     const designer = await mount(element => (element.extensions = [{ id: 'acme', settings: [acme] }]))
     designer.openSettings('acme')
     await settle(designer)
-    expect(pages()).toEqual(['general', 'layout', 'toolbar', 'acme'])
+    expect(pages()).toEqual(['general', 'layout', 'toolbar', 'acme', 'help', 'shortcuts', 'about'])
     expect(row('acme.token')!.querySelector('xh-password-input')).not.toBeNull()
     const before = designer.extensions
     expect(() => (designer.extensions = [{ id: 'acme', settings: [{ ...acme, id: 'general' }] }])).toThrow(DesignerExtensionError)
@@ -114,7 +117,7 @@ describe('设置', () => {
     })
     designer.openSettings()
     await settle(designer)
-    expect(pages()).toEqual(['layout', 'toolbar', 'acme'])
+    expect(pages()).toEqual(['layout', 'toolbar', 'acme', 'help', 'shortcuts', 'about'])
     expect(row('acme.token')!.querySelector('xh-field')!.hasAttribute('read-only')).toBe(true)
   })
 
@@ -199,6 +202,33 @@ describe('设置', () => {
     await settle(designer)
     await frame.updateComplete
     expect(frame.showsPanel('toolbar')).toBe(false)
+  })
+
+  it('帮助、快捷键、关于三页：帮助页是操作说明与开始引导、帮助两颗钮，点钮先关上对话框再跑命令；快捷键表按命令表生成并带上报表自己的按键；关于页写报表设计器的版本与许可证，后面接扩展给的几行', async () => {
+    const t = DEFAULT_REPORT_DESIGNER_TRANSLATIONS
+    const designer = await mount(element => (element.extensions = [{ id: 'acme', about: [{ label: 'Acme', value: '2.0' }], commands: [{ id: 'acme.go', label: 'Go', shortcut: ['Mod', 'G'], run: () => {} }] }]))
+    const dialog = designer.querySelector<HTMLElement & {
+      help?: { notes: readonly string[], actions: readonly { command: string, label: string }[] }
+      shortcuts?: { groups: readonly { id: string, rows: readonly { label: string, keys: readonly (readonly string[])[] }[] }[] }
+      about?: unknown
+      open?: boolean
+    }>('xh-designer-settings')!
+    expect(dialog.help).toEqual({ notes: t.helpNotes, actions: [{ command: 'start-tour', label: DESIGNER_COMMANDS_EN_US.startTour }, { command: 'help', label: DESIGNER_COMMANDS_EN_US.help }] })
+    const groups = new Map(dialog.shortcuts!.groups.map(group => [group.id, group.rows]))
+    expect([...groups.keys()]).toEqual(['common', 'edit', 'designer', 'extensions'])
+    expect(groups.get('edit')).toContainEqual({ label: 'Undo', keys: [['Mod', 'Z']] })
+    expect(groups.get('designer')!.slice(-3)).toEqual([
+      { label: t.shortcutResize, keys: [['Shift', 'ArrowUp'], ['Shift', 'ArrowDown'], ['Shift', 'ArrowLeft'], ['Shift', 'ArrowRight']] },
+      { label: DESIGNER_COMMANDS_EN_US.delete, keys: [['Backspace']] },
+      { label: t.shortcutSave, keys: [['Mod', 'S']] },
+    ])
+    expect(groups.get('extensions')).toEqual([{ label: 'Go', keys: [['Mod', 'G']] }])
+    expect(dialog.about).toEqual({ product: t.label, version: REPORT_VERSION, license: 'MIT', rows: [{ label: 'Acme', value: '2.0' }] })
+    designer.openSettings('help')
+    await settle(designer)
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    dialog.dispatchEvent(new CustomEvent('settings-command', { detail: { command: 'help' } }))
+    expect([dialog.open, open.mock.calls[0]?.[0]]).toEqual([false, REPORT_DESIGNER_HELP_URL])
   })
 
   it('给了 settingsStorageKey：没赋 settings 时从存储读，对话框里改了就写回；读出的不是对象时派发 settings-storage-error', async () => {

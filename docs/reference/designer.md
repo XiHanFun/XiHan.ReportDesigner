@@ -23,6 +23,7 @@
 | `timeZone` | `time-zone` | `string \| undefined` | IANA 时区；缺省取运行环境所在的时区。 |
 | `readonly` | `readonly` | `boolean \| undefined` | 只读：可选择、浏览与预览，不能修改；缺省可修改。attribute 写 "false" 是可修改，其余写法是只读。 |
 | `mode` | `mode` | `ReportDesignerMode \| undefined` | design 或 preview，缺省 design。 |
+| `autoTour` | `auto-tour` | `boolean \| undefined` | 第一次铺好画布后自动开始新手引导，缺省开；设置里记过 help.tourDone（走完、跳过或关上过一次）时不再自动开始。写 false 关掉，start-tour 命令、帮助页的「开始引导」与 startTour() 照样能开始。同名 attribute auto-tour，写 "false" 是关。 |
 | `defaultLayout` | — | `DesignerLayout \| undefined` | 面板布局的缺省：设置里还没有 layout.panels 时用它，「恢复默认布局」也回到它；不给时各面板停在登记的位置，全部显示。面板 id 见 REPORT_DESIGNER_PANELS，另有扩展登记的面板。用户挪了面板、改了显隐或大小，整份布局写进设置的 layout.panels（DESIGNER_SETTING_KEYS.layout）并派发 settings-change。 |
 | `datasetEditing` | `dataset-editing` | `ReportDatasetEditing \| undefined` | 缺省 fields。 |
 | `settings` | — | `DesignerSettings \| undefined` | 设置的值：扁平的键值，键是「分区 id.条目 id」，如 general.theme；没写的键取条目的缺省值。赋值即生效；用户在设置对话框里改了以后设计器换成新的一份并派发 settings-change。 |
@@ -71,6 +72,7 @@
 | `highlightCard(id: string \| null): void` | 在画布上标出一张卡片（画悬停框），null 撤掉；不改选择、不滚动。页面结构面板悬停或聚焦到一行时用它。 |
 | `canImportData(kind: ReportDataImportKind): boolean` | 这种导入此刻能不能做：只读、预览态或 datasetEditing 不够时不能（导入数据集与字段要 full，导入参数要 fields 起）；导入字段还要在数据面板里选中一个数据集或它的字段。 |
 | `openDataImport(kind: ReportDataImportKind): boolean` | 打开导入对话框：dataset 从 JSON 样例或 JSON Schema 新建一个数据集，fields 往选中的数据集里加字段，parameters 从 JSON Schema（也可以是样例）加报表参数。对话框里还有扩展登记的字段来源页（fieldSources）。导入的字段只取值字段，同名的保留现有的，一次导入记一步撤销。此刻不能做时返回 false。 |
+| `startTour(): boolean` | 从头开始新手引导：通用步骤加报表与扩展的步骤；预览态、还没有报表或没有能走的步骤时返回 false。 |
 | `revealItem(ref: ReportItemRef): void` | 选中列表项所在的卡片并让它可见。 |
 | `getViewport(): Viewport` | 视口：屏幕坐标（画布可见区的左上角为原点）= 画布坐标 × zoom + (x, y)；画布坐标是实际尺寸下画布里的像素，zoom 为 1 时是实际尺寸。画布还没有布局时 x、y 为 0。 |
 | `setViewport(viewport: Viewport): void` | 设置视口：缩放夹进 10%–400%，平移落在画布能滚到的范围里；此后尺寸变化不再自动适配。 |
@@ -261,6 +263,10 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `sizeUnit` | `string` | 尺寸徽标里卡片宽高的单位：看板按格计。 | 格 |
 | `importDataset` | `string` | 命令「导入数据集」的文字，也是这时导入对话框的标题。 | 导入数据集 |
 | `importParameters` | `string` | 命令「导入参数」的文字，也是这时导入对话框的标题。 | 导入参数 |
+| `tourSteps` | `Readonly<Record<ReportTourStepKey, ReportTourStepText>>` | 新手引导里报表自己的几步，各一个标题与说明；键见 ReportTourStepKey。 | （按键对照） |
+| `helpNotes` | `readonly string[]` | 设置对话框「帮助」页的几段操作说明。 | （按键对照） |
+| `shortcutResize` | `string` | 快捷键表里 Shift 加方向键那一行：把选中的卡片改大或改小一格。 | 把选中的卡片改大或改小一格 |
+| `shortcutSave` | `string` | 快捷键表里 Ctrl / ⌘ + S 那一行。 | 保存 |
 | `insertCard` | `(label: string): string` | 顶栏插入钮的名字与提示，label 是物料名。 | （按参数生成） |
 | `statusDocument` | `(datasets: number, cards: number \| undefined): string` | 状态栏左段没选中时：数据集数，主体是看板时再写卡片数（不是看板时 cards 为 undefined）。 | （按参数生成） |
 | `statusCell` | `(column: number, row: number, width: number, height: number): string` | 状态栏左段选中一张卡片时：它左上角所在的列与行（从 1 数起）和占的格数。 | （按参数生成） |
@@ -315,8 +321,8 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
-| `createReportDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。 |
-| `REPORT_DESIGNER_EXTENSION` | 常量 | 设计器的内置扩展：内置命令、物料、页面结构与历史记录面板。 |
+| `createReportDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名（含设置分区与引导步骤）都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。 |
+| `REPORT_DESIGNER_EXTENSION` | 常量 | 设计器的内置扩展：内置命令、物料、页面结构与历史记录面板、新手引导的报表步骤。 |
 | `REPORT_DESIGNER_HELP_URL` | 常量 | 内置命令 help 打开的帮助页：报表文档站的设计器一页。 |
 | `REPORT_DESIGNER_PANELS` | 常量 | 设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.&lt;面板 id&gt;）与 commandLayout（panel:&lt;面板 id&gt;）时用。 |
 | `REPORT_MENU_LAYOUT` | 常量 | 右键菜单的缺省排列。 |
@@ -350,3 +356,9 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `ReportDesignerMode` | 类型 | 设计或预览。 |
 | `ReportSchemaChangeKind` | 类型 | schema-change 的来由。 |
 | `XhReportDesigner` | 类 | 报表设计器 &lt;xh-report-designer&gt;：编辑报表定义，画布与预览按 dataProvider 取数显示示例数据。 |
+
+### version
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `REPORT_VERSION` | 常量 | @xihan-report/designer 的版本号。 |

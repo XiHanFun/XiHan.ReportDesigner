@@ -25,6 +25,8 @@ export function mount(host: HTMLElement): () => void {
   designer.dataProvider = async () => ({ kind: 'rows', rows })
   designer.schema = schema
   // #endregion render
+  // 文档页里的示例不自动开始新手引导，免得盖住正文
+  designer.autoTour = false
 
   const status = document.createElement('output')
   status.textContent = '没有改动'

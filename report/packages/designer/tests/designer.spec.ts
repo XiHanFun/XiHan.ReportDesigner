@@ -98,6 +98,8 @@ function events(element: HTMLElement, name: string): unknown[] {
 
 async function mount(options: { provider?: (request: DatasetRequest) => void } = {}): Promise<XhReportDesigner> {
   const designer = document.createElement('xh-report-designer')
+  // 用例里不自动开始新手引导，引导的用例自己打开
+  designer.autoTour = false
   if (options.provider) {
     const record = options.provider
     designer.dataProvider = async (request) => {
@@ -1241,6 +1243,34 @@ describe('<xh-report-designer>：编辑', () => {
     await designer.updateComplete
     key(designer, 'F10', { altKey: true })
     expect(document.activeElement!.closest('[data-part="measure-field"][data-axis="width"]')).not.toBeNull()
+  })
+
+  it('新手引导：缺省在第一次铺好画布后自动开始，通用步骤之后接报表的几步；收起时设置里记下 help.tourDone，记过的不再自动开始；autoTour 为 false 时不自动开始，startTour() 照样能开始', async () => {
+    const create = async (setup: (element: XhReportDesigner) => void): Promise<XhReportDesigner> => {
+      const element = document.createElement('xh-report-designer')
+      setup(element)
+      element.schema = board
+      document.body.append(element)
+      await element.updateComplete
+      await element.updateComplete
+      return element
+    }
+    const designer = await create(() => {})
+    const tour = designer.querySelector('xh-designer-tour')!
+    expect(tour.running).toBe(true)
+    expect(tour.steps!.map(step => step.id)).toEqual(['report.datasets', 'report.wells', 'report.cards', 'report.links', 'report.preview'])
+    expect(tour.steps![0]).toMatchObject({ title: DEFAULT_REPORT_DESIGNER_TRANSLATIONS.tourSteps.datasets.title, target: { panel: 'datasets' } })
+    expect(tour.plannedSteps().map(step => step.id)).toEqual(expect.arrayContaining(['shell.welcome', 'report.datasets', 'report.cards', 'report.preview']))
+    const changes = events(designer, 'settings-change')
+    tour.stop()
+    expect(changes).toEqual([{ key: 'help.tourDone', value: true, settings: { 'help.tourDone': true } }])
+    document.body.replaceChildren()
+    const done = await create(element => (element.settings = { 'help.tourDone': true }))
+    expect(done.querySelector('xh-designer-tour')!.running).toBe(false)
+    const quiet = await create(element => (element.autoTour = false))
+    expect(quiet.querySelector('xh-designer-tour')!.running).toBe(false)
+    expect(quiet.startTour()).toBe(true)
+    expect(quiet.querySelector('xh-designer-tour')!.running).toBe(true)
   })
 
   it('工具栏的容器部件叫 command-bar：设计器自己不再有 toolbar 部件，变换覆盖层的上下文工具条不会被它的样式连带命中', async () => {
