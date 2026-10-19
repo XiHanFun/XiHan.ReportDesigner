@@ -183,6 +183,7 @@ const designer: ReportDesignerLocale = {
   sizeUnit: '格',
   importDataset: '导入数据集',
   importParameters: '导入参数',
+  importTemplate: '导入模板',
   tourSteps: {
     datasets: { title: '数据', description: '数据集与它们的字段，以及报表参数。把字段拖到卡片上，卡片就显示它。' },
     wells: { title: '字段', description: '选中的卡片显示什么：维度、度量、系列或列。把字段拖进来，拖动换序，点叉移除。' },

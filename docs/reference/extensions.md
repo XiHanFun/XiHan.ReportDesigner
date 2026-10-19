@@ -346,6 +346,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | `exporters?` | `readonly DesignerExporter<ReportExportContext>[]` | 导出成文件；内置的 xlsx 在最前。 |
 | `fieldSources?` | `readonly DesignerFieldSource[]` | 字段来源：导入字段的对话框里，排在内置的 JSON 样例与 JSON Schema 两页之后。 |
 | `id` | `string` | 全局唯一，用包名加功能名：@xihan-flow-pro/simulation。也是模板里扩展数据的键。 |
+| `importers?` | `readonly ReportDesignerImporter[]` | 导入器：命令「导入模板」选中的文件按扩展顺序问 accepts，第一个接下的导入，结果整份换上当前报表、记一步撤销。一个导入器都没有登记时没有这条命令。 |
 | `overlays?` | `readonly ReportOverlay[]` | 看板的叠加层；同一层里按扩展顺序，后登记的在上。 |
 | `palette?` | `readonly ReportPaletteItem[]` | 物料面板里的项。 |
 | `paletteGroups?` | `readonly ReportPaletteGroup[]` | 物料面板的组，排在内置的图表、指标、表格之后。 |
@@ -452,7 +453,7 @@ type ReportCardTemplate = ReportAddCardInit & { readonly id?: never }
 
 ### REPORT_TOOLBAR_LAYOUT {#report_toolbar_layout}
 
-工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。
+工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。登记了导入器时最前面多一组导入模板（REPORT_IMPORT_TEMPLATE_COMMAND）。
 
 ```ts
 const REPORT_TOOLBAR_LAYOUT = [
@@ -495,9 +496,10 @@ const REPORT_SELECTION_LAYOUT = {
 | `list` | `readonly ReportDesignerExtension[]` | 设计器内置扩展在前、传入的在后；校验、计算与查看器都拿这一份。 |
 | `extensions` | `readonly ReportDesignerExtension[]` | 再加上 core 与 runtime 层内置扩展的全部扩展，面板与命令按它的顺序。 |
 | `runtime` | `ReportRuntimeModel` | 运行时层的模型：种类、渲染、导出器与取数中间件。 |
-| `commands` | `DesignerCommandTable<ReportDesignerContext>` | 命令 id 到命令的对照：内置的在前，扩展的按登记顺序。 |
+| `commands` | `DesignerCommandTable<ReportDesignerContext>` | 命令 id 到命令的对照：内置的在前，扩展的按登记顺序；没有导入器时不含导入模板。 |
 | `paletteGroups` | `readonly ReportPaletteGroup[]` | 物料面板的组，内置的在前。 |
 | `palette` | `ReadonlyMap<string, ReportPaletteItem>` | 物料项 id 到物料项的对照。 |
 | `settings` | `readonly DesignerSettingsSection[]` | 各扩展登记的设置分区，按登记顺序；分区 id 不与基础分区或彼此重名。 |
 | `tourSteps` | `readonly DesignerTourStep<ReportDesignerContext>[]` | 新手引导里报表与各扩展的步骤，按登记顺序；id 不重名。 |
+| `importers` | `readonly ReportDesignerImporter[]` | 各扩展的导入器，按扩展顺序；没有时命令表里没有导入模板。 |
 | `paletteSources` | `readonly DesignerPaletteSource<ReportDesignerContext, ReportPaletteDrop>[]` | 各扩展的物料来源，按 order 排；分组接在内置物料组后面。 |

@@ -183,6 +183,7 @@ const designer: ReportDesignerLocale = {
   sizeUnit: '칸',
   importDataset: '데이터 세트 가져오기',
   importParameters: '매개변수 가져오기',
+  importTemplate: '템플릿 가져오기',
   tourSteps: {
     datasets: { title: '데이터', description: '데이터 세트와 그 필드, 보고서 매개변수입니다. 필드를 카드로 끌어 놓으면 카드에 표시됩니다.' },
     wells: { title: '필드', description: '선택한 카드에 표시할 내용입니다. 차원, 측정값, 계열, 열을 여기서 다루며, 끌어서 추가하고 순서를 바꾸고 ×로 제거합니다.' },

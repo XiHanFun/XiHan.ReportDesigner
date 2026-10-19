@@ -183,6 +183,7 @@ const designer: ReportDesignerLocale = {
   sizeUnit: 'マス',
   importDataset: 'データセットをインポート',
   importParameters: 'パラメーターをインポート',
+  importTemplate: 'テンプレートをインポート',
   tourSteps: {
     datasets: { title: 'データ', description: 'データセットとそのフィールド、レポートパラメーターです。フィールドをカードにドラッグすると、カードに表示されます。' },
     wells: { title: 'フィールド', description: '選択したカードに表示する内容です。ディメンション、メジャー、系列、列をここで扱い、ドラッグで追加と並べ替え、×で削除します。' },

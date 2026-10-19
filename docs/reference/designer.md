@@ -44,6 +44,7 @@
 | `canPaste` | 只读 | `boolean` | 编辑模型里留着可粘贴的内容。 |
 | `canDelete` | 只读 | `boolean` | deleteSelection() 此刻能删掉东西：选中了卡片、列表项或联动，或 datasetEditing 允许删的数据面板对象。 |
 | `historyState` | 只读 | `HistorySnapshot` | 撤销历史的快照：各步的说明按此刻的语言取好；还没有报表时只有起点。 |
+| `canImportTemplate` | 只读 | `boolean` | 此刻能不能导入模板：登记了导入器、有报表、在设计态且不是只读。 |
 
 ### 方法
 
@@ -74,6 +75,7 @@
 | `openDataImport(kind: ReportDataImportKind): boolean` | 打开导入对话框：dataset 从 JSON 样例或 JSON Schema 新建一个数据集，fields 往选中的数据集里加字段，parameters 从 JSON Schema（也可以是样例）加报表参数。对话框里还有扩展登记的字段来源页（fieldSources）。导入的字段只取值字段，同名的保留现有的，一次导入记一步撤销。此刻不能做时返回 false。 |
 | `startTour(): boolean` | 从头开始新手引导：通用步骤加报表与扩展的步骤；预览态、还没有报表或没有能走的步骤时返回 false。 |
 | `openJsonEditor(): boolean` | 打开编辑整份报表定义 JSON 的对话框：写出当前报表，边改边按当前扩展与表达式引擎校验、报问题（文字与问题列表的一致）；没有错误时「应用」整份换上，记一步撤销，说明是「编辑 JSON」。只读或预览态时只能看、不能应用。还没有报表时返回 false。 |
+| `importTemplate(): boolean` | 导入模板：弹出选文件对话框（accept 取各导入器的 fileTypes），选中的文件按扩展顺序交给第一个接下的导入器，给出的整份模板换上当前报表、清空选择，记一步撤销（说明是「导入模板」）。没有导入器接下、导入器抛错或给出的不是报表对象时派发 import-error。此刻不能导入（见 canImportTemplate）时什么都不做，返回 false。 |
 | `revealItem(ref: ReportItemRef): void` | 选中列表项所在的卡片并让它可见。 |
 | `getViewport(): Viewport` | 视口：屏幕坐标（画布可见区的左上角为原点）= 画布坐标 × zoom + (x, y)；画布坐标是实际尺寸下画布里的像素，zoom 为 1 时是实际尺寸。画布还没有布局时 x、y 为 0。 |
 | `setViewport(viewport: Viewport): void` | 设置视口：缩放夹进 10%–400%，平移落在画布能滚到的范围里；此后尺寸变化不再自动适配。 |
@@ -102,6 +104,7 @@
 | `settings-change` | `{ key: string, value: JsonValue \| undefined, settings: DesignerSettings }` | 在设置对话框里改了一条设置，或在外框上挪了面板（键是 layout.panels，值是整份布局）：设计器已换成新的 settings 并生效（主题、主题色、扩展读的值与面板布局）；value 为 undefined 表示删掉这个键、回到缺省值。宿主存起来，下次赋回 settings。 |
 | `settings-storage-error` | `VisualEnvironmentStorageError` | 读写 settingsStorageKey 指的本机存储失败（内容不是对象、无痕窗口、配额满）；设置留在内存里。 |
 | `viewport-change` | `{ viewport: Viewport }` | 视口变了：缩放、适合窗口、setViewport 与滚动画布都会派发。 |
+| `import-error` | `{ importer?: string, source: DesignerImportSource, error: unknown }` | 导入模板没有成功：导入器抛了错，或给出的不是报表对象，importer 是导入器的 id；选中的文件没有导入器接下时也派发，此时没有 importer。 |
 
 ## 函数
 
@@ -264,6 +267,7 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `sizeUnit` | `string` | 尺寸徽标里卡片宽高的单位：看板按格计。 | 格 |
 | `importDataset` | `string` | 命令「导入数据集」的文字，也是这时导入对话框的标题。 | 导入数据集 |
 | `importParameters` | `string` | 命令「导入参数」的文字，也是这时导入对话框的标题。 | 导入参数 |
+| `importTemplate` | `string` | 命令「导入模板」的文字，也是导入后那一步撤销的说明；登记了导入器才有这条命令。 | 导入模板 |
 | `tourSteps` | `Readonly<Record<ReportTourStepKey, ReportTourStepText>>` | 新手引导里报表自己的几步，各一个标题与说明；键见 ReportTourStepKey。 | （按键对照） |
 | `helpNotes` | `readonly string[]` | 设置对话框「帮助」页的几段操作说明。 | （按键对照） |
 | `shortcutResize` | `string` | 快捷键表里 Shift 加方向键那一行：把选中的卡片改大或改小一格。 | 把选中的卡片改大或改小一格 |
@@ -326,14 +330,17 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `REPORT_DESIGNER_EXTENSION` | 常量 | 设计器的内置扩展：内置命令、物料、页面结构与历史记录面板、新手引导的报表步骤。 |
 | `REPORT_DESIGNER_HELP_URL` | 常量 | 内置命令 help 打开的帮助页：报表文档站的设计器一页。 |
 | `REPORT_DESIGNER_PANELS` | 常量 | 设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.&lt;面板 id&gt;）与 commandLayout（panel:&lt;面板 id&gt;）时用。 |
+| `REPORT_IMPORT_TEMPLATE_COMMAND` | 常量 | 命令「导入模板」的 id：登记了导入器才进命令表，工具栏缺省排列的最前面多这一组。 |
 | `REPORT_MENU_LAYOUT` | 常量 | 右键菜单的缺省排列：空白处的末尾是编辑 JSON。 |
 | `REPORT_SELECTION_LAYOUT` | 常量 | 选中工具条（命令落点 selection:&lt;主体&gt;）的缺省排列：创建副本、复制与删除。 |
 | `REPORT_TOOLBAR_LAYOUT` | 常量 | 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。 |
 | `ReportCardTemplate` | 类型 | 新卡片的模板：不写 id，新建时按种类分配；layout 只需写大小。 |
 | `ReportDesignerCommand` | 类型 | 设计器的命令。 |
 | `ReportDesignerContext` | 接口 | 命令、面板、物料与扩展装上时拿到的上下文。 |
-| `ReportDesignerExtension` | 接口 | 报表设计器层的扩展：运行时层的全部字段，加上属性编辑器、命令、面板、物料、物料来源与 setup。 |
+| `ReportDesignerExtension` | 接口 | 报表设计器层的扩展：运行时层的全部字段，加上属性编辑器、命令、面板、物料、物料来源、导入器与 setup。 |
+| `ReportDesignerImporter` | 类型 | 报表的导入器：命令「导入模板」（import-template）选中的文件交给它，换成一份整份的报表模板；给出 undefined 表示这次不载入。 |
 | `ReportDesignerModel` | 接口 | 一组设计器扩展合出的东西。 |
+| `ReportImportResult` | 接口 | 导入器给出的结果：一份整份的报表模板。 |
 | `ReportMenuSubject` | 类型 | 右键菜单落在哪类对象上。 |
 | `ReportPaletteDrop` | 接口 | 物料来源的条目拖到看板上放下的落点：指针所在的格，x 是列、y 是行，都从 0 起。 |
 | `ReportPaletteGroup` | 接口 | 物料面板的一组。 |

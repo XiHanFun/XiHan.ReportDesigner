@@ -6,10 +6,10 @@
 
 import type { DashboardView, QueryResult, ReportDocument } from '@xihan-report/core'
 import type { XhReportViewer } from '@xihan-report/runtime'
-import type { ReportDesignerContext, ReportDesignerExtension, XhReportDesigner } from '../src'
+import type { ReportDesignerContext, ReportDesignerExtension, ReportDesignerImporter, XhReportDesigner } from '../src'
 import { formatJsonPath } from '@xihan-ui/core/json'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createReportDesignerModel, defineReportDesigner, REPORT_DESIGNER_EXTENSION } from '../src'
+import { createReportDesignerModel, defineReportDesigner, REPORT_DESIGNER_EXTENSION, REPORT_IMPORT_TEMPLATE_COMMAND } from '../src'
 
 const board: ReportDocument = {
   schemaVersion: 1,
@@ -164,6 +164,124 @@ describe('createReportDesignerModel', () => {
       .toThrow(expect.objectContaining({ code: 'designer.extension-conflict', space: 'palette-item' }))
     expect(() => createReportDesignerModel([lanes, { id: '@acme/again', commands: [{ id: 'undo', label: 'Undo', run: () => {} }] }]))
       .toThrow(expect.objectContaining({ code: 'designer.extension-conflict', space: 'command' }))
+  })
+})
+
+describe('<xh-report-designer>：导入模板', () => {
+  const template: ReportDocument = { ...board, id: 'imported', title: '导入的模板', body: { ...(board.body as DashboardView), cards: [] } }
+
+  /** 读出文件的文字（jsdom 的 Blob 没有 text()）。 */
+  function readText(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.addEventListener('load', () => resolve(String(reader.result)))
+      reader.addEventListener('error', () => reject(reader.error))
+      reader.readAsText(blob)
+    })
+  }
+
+  /** 读 .json 文件、把内容当成整份报表模板的导入器。 */
+  const jsonImporter: ReportDesignerImporter = {
+    id: '@acme/templates.json',
+    fileTypes: ['.json', 'application/json'],
+    accepts: source => source.kind === 'file' && (source.name?.endsWith('.json') ?? false),
+    import: async source => ({ document: JSON.parse(await readText(source.file!)) as ReportDocument }),
+  }
+
+  function withImporters(...importers: ReportDesignerImporter[]): ReportDesignerExtension {
+    return { id: '@acme/templates', importers }
+  }
+
+  /** 挂上选文件对话框，选中给定的文件；accept 是最近一次弹出时对话框的 accept。 */
+  function chooseFile(file: File): { opened: () => number, accept: () => string | undefined } {
+    let opened = 0
+    let accept: string | undefined
+    vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function (this: HTMLInputElement) {
+      opened++
+      accept = this.accept
+      expect(this.type).toBe('file')
+      Object.defineProperty(this, 'files', { value: [file] })
+      this.dispatchEvent(new Event('change'))
+    })
+    return { opened: () => opened, accept: () => accept }
+  }
+
+  const flush = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 0))
+
+  /** 等到 done 成立，最多等 50 个宏任务。 */
+  async function until(done: () => boolean): Promise<void> {
+    for (let i = 0; i < 50 && !done(); i++)
+      await flush()
+  }
+
+  function importErrors(designer: XhReportDesigner): { importer?: string, error: unknown }[] {
+    const seen: { importer?: string, error: unknown }[] = []
+    designer.addEventListener('import-error', event => seen.push((event as CustomEvent<{ importer?: string, error: unknown }>).detail))
+    return seen
+  }
+
+  it('没有登记导入器时命令表里没有导入模板：工具栏、右键菜单都看不到，importTemplate() 不弹对话框', async () => {
+    expect(createReportDesignerModel([]).commands.has(REPORT_IMPORT_TEMPLATE_COMMAND)).toBe(false)
+    const designer = await mount(undefined)
+    const picker = chooseFile(new File(['{}'], 'a.json'))
+    expect(toolbar(designer)).not.toContain(REPORT_IMPORT_TEMPLATE_COMMAND)
+    designer.querySelector('[data-part="surface"]')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
+    expect(menuEntries(designer)).not.toContain(REPORT_IMPORT_TEMPLATE_COMMAND)
+    expect([designer.canImportTemplate, designer.importTemplate(), picker.opened()]).toEqual([false, false, 0])
+  })
+
+  it('登记了导入器：工具栏最前面是导入模板，选文件对话框的 accept 取导入器的 fileTypes；选中的文件交给导入器，模板整份换上、记一步撤销，撤销回到原样', async () => {
+    expect(createReportDesignerModel([withImporters(jsonImporter)]).commands.has(REPORT_IMPORT_TEMPLATE_COMMAND)).toBe(true)
+    const designer = await mount([withImporters(jsonImporter)])
+    const before = designer.schema!
+    designer.select({ cards: ['lanes'] })
+    const kinds: string[] = []
+    designer.addEventListener('schema-change', event => kinds.push((event as CustomEvent<{ kind: string }>).detail.kind))
+    const picker = chooseFile(new File([JSON.stringify(template)], 'sales.json', { type: 'application/json' }))
+    expect(toolbar(designer)[0]).toBe(REPORT_IMPORT_TEMPLATE_COMMAND)
+    designer.querySelector<HTMLButtonElement>(`[data-region="toolbar"] button[value="${REPORT_IMPORT_TEMPLATE_COMMAND}"]`)!.click()
+    await until(() => kinds.length > 0)
+    await designer.updateComplete
+    expect([picker.opened(), picker.accept()]).toEqual([1, '.json,application/json'])
+    expect([designer.schema, kinds, designer.getSelection()]).toEqual([template, ['execute'], { cards: [] }])
+    expect(designer.historyState.entries.at(-1)!.label).toBe('Import template')
+    expect(designer.undo()).toBe(true)
+    expect(designer.schema).toEqual(before)
+  })
+
+  it('导入不成功时派发 import-error：没有导入器接下的文件不带 importer，导入器抛错或给出的不是报表对象时带上导入器的 id；报表不变', async () => {
+    const failing: ReportDesignerImporter = {
+      id: '@acme/templates.broken',
+      accepts: source => source.name === 'broken.xml',
+      import: () => {
+        throw new Error('bad')
+      },
+    }
+    const shapeless: ReportDesignerImporter = { id: '@acme/templates.shapeless', accepts: source => source.name === 'shapeless.txt', import: () => ({ document: 'x' as unknown as ReportDocument }) }
+    const designer = await mount([withImporters(jsonImporter, failing, shapeless)])
+    const before = designer.schema
+    const errors = importErrors(designer)
+    for (const name of ['other.csv', 'broken.xml', 'shapeless.txt']) {
+      chooseFile(new File(['<x/>'], name))
+      expect(designer.importTemplate()).toBe(true)
+      await flush()
+      vi.restoreAllMocks()
+    }
+    expect(errors.map(error => error.importer)).toEqual([undefined, '@acme/templates.broken', '@acme/templates.shapeless'])
+    expect(designer.schema).toBe(before)
+  })
+
+  it('只读或预览态不能导入：命令不可用，importTemplate() 不弹对话框', async () => {
+    const designer = await mount([withImporters(jsonImporter)])
+    const picker = chooseFile(new File(['{}'], 'a.json'))
+    designer.readonly = true
+    await designer.updateComplete
+    expect([designer.canImportTemplate, designer.importTemplate()]).toEqual([false, false])
+    expect(designer.querySelector<HTMLButtonElement>(`[data-region="toolbar"] button[value="${REPORT_IMPORT_TEMPLATE_COMMAND}"]`)!.disabled).toBe(true)
+    designer.readonly = false
+    designer.mode = 'preview'
+    await designer.updateComplete
+    expect([designer.canImportTemplate, designer.importTemplate(), picker.opened()]).toEqual([false, false, 0])
   })
 })
 

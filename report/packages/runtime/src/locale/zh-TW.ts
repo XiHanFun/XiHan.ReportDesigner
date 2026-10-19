@@ -183,6 +183,7 @@ const designer: ReportDesignerLocale = {
   sizeUnit: '格',
   importDataset: '匯入資料集',
   importParameters: '匯入參數',
+  importTemplate: '匯入範本',
   tourSteps: {
     datasets: { title: '資料', description: '資料集與它們的欄位，以及報表參數。把欄位拖曳到卡片上，卡片就顯示它。' },
     wells: { title: '欄位', description: '選取的卡片顯示什麼：維度、量值、數列或欄。把欄位拖曳進來，拖曳調整順序，點叉移除。' },
