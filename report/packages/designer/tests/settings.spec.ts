@@ -79,7 +79,7 @@ function row(key: string): HTMLElement | null {
 }
 
 function pages(): string[] {
-  return Array.from(document.querySelectorAll('xh-tabs [data-xh-part="list"] > button'), button => button.getAttribute('value')!)
+  return Array.from(document.querySelectorAll('xh-tabs[orientation="vertical"] [data-xh-part="list"] > button'), button => button.getAttribute('value')!)
 }
 
 describe('设置', () => {

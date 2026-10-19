@@ -15,13 +15,14 @@ import type { JsonValue } from '@xihan-ui/core/json'
 import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
 import type { ExecuteOptions, ExtensionHost, GridRect, HistoryChangeKind, HistoryLabel, HistorySnapshot, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertySwatchOption } from '@xihan-ui/designer-kit/properties'
-import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFrameEventMap, DesignerFrameRegion, DesignerHistoryTranslations, DesignerLayout, DesignerLayoutPolicy, DesignerMeasureConvert, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
+import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFieldImportEventMap, DesignerFrameEventMap, DesignerFrameRegion, DesignerHistoryTranslations, DesignerLayout, DesignerLayoutPolicy, DesignerMeasureConvert, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelActions, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { DialogService } from '@xihan-ui/web-components/services'
 import type { DataRemoval } from './data-editing'
 import type { DataAddKind } from './data-panel'
 import type { LayoutGesture, ReportAddCardInit, ReportClipboard, ReportDataRef, ReportEditor, ReportItemRef, ReportSelection } from './editor'
 import type { ReportCardTemplate, ReportDesignerContext, ReportDesignerExtension, ReportDesignerModel, ReportMenuSubject, ReportSelectionSubject } from './extensions'
+import type { ReportDataImportKind } from './field-import'
 import type { GridMetrics } from './grid-geometry'
 import { cardTypeOf, describeReportStep, planAddCard, planAddFieldItem, resolveParameters } from '@xihan-report/core'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS, DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter, defineReportViewer } from '@xihan-report/runtime'
@@ -34,10 +35,12 @@ import {
   arrangeCommands,
   createCommandToolbar,
   createDesignerSettingsHost,
+  createPanelActions,
   createPanelHost,
   createStatusItem,
   defineDesignerShellElement,
   DESIGNER_COMMANDS_EN_US,
+  DESIGNER_FIELD_IMPORT_SOURCES,
   DESIGNER_FRAME_REGIONS,
   DESIGNER_HISTORY_EN_US,
   DESIGNER_SETTING_KEYS,
@@ -50,6 +53,7 @@ import {
   toolbarDisplayOf,
   toolbarSettingsSource,
   toolbarVisibleOf,
+  XhDesignerFieldImportElement,
   XhDesignerFrameElement,
   XhDesignerIssuesElement,
   XhDesignerPaletteElement,
@@ -67,6 +71,7 @@ import { canEditData, cascadeCount, planDataAddition, planDataRemoval } from './
 import { dataFieldPayload, DataPanel } from './data-panel'
 import { createReportEditor, writeReportClipboard } from './editor'
 import { createReportDesignerModel, REPORT_DESIGNER_EXTENSION, REPORT_MENU_LAYOUT, REPORT_SELECTION_LAYOUT, REPORT_TOOLBAR_LAYOUT } from './extensions'
+import { planDatasetImport, planFieldImport, planParameterImport } from './field-import'
 import { cellSize, cellToRect, centeredCell, clipCell, measureGrid, rectToCell } from './grid-geometry'
 import { IssuesPanel } from './issues-panel'
 import { PropertiesPanel } from './properties-panel'
@@ -173,6 +178,11 @@ interface Layers {
   readonly wells: Wells
   readonly properties: PropertiesPanel
   readonly issues: IssuesPanel
+  /** 数据集与报表参数两块卡片面板头上的导入钮。 */
+  readonly datasetActions: DesignerPanelActions<ReportDesignerContext>
+  readonly parameterActions: DesignerPanelActions<ReportDesignerContext>
+  /** 导入字段对话框。 */
+  readonly fieldImport: XhDesignerFieldImportElement
   /** 设置对话框。 */
   readonly settings: XhDesignerSettingsElement
   /** 状态栏左段：选中对象的信息，没选中时是报表的概况。 */
@@ -326,6 +336,8 @@ export class XhReportDesigner extends XhReactiveElement {
   #regionsModel: ReportDesignerModel | undefined
   #regionList: readonly DesignerFrameRegion[] = FRAME_REGIONS
   #layoutPolicyKey = ''
+  /** 导入对话框此刻为谁打开；导入字段时是那个数据集。 */
+  #importTarget: { readonly kind: ReportDataImportKind, readonly dataset?: string } | undefined
   /** 上次交给设置对话框「工具栏」页的按钮表数据（JSON）：内容没变不重设，免得按钮表重铺。 */
   #toolbarSourceKey = ''
   #layoutPolicy: DesignerLayoutPolicy | undefined
@@ -546,6 +558,35 @@ export class XhReportDesigner extends XhReactiveElement {
       return
     this.#hoverId = next
     this.#renderSelection()
+  }
+
+  /**
+   * 这种导入此刻能不能做：只读、预览态或 datasetEditing 不够时不能（导入数据集与字段要 full，导入参数要 fields 起）；
+   * 导入字段还要在数据面板里选中一个数据集或它的字段。
+   */
+  canImportData(kind: ReportDataImportKind): boolean {
+    if (!this.#canImport(kind))
+      return false
+    return kind !== 'fields' || this.#importDataset() !== undefined
+  }
+
+  /**
+   * 打开导入对话框：dataset 从 JSON 样例或 JSON Schema 新建一个数据集，fields 往选中的数据集里加字段，parameters 从 JSON Schema
+   * （也可以是样例）加报表参数。对话框里还有扩展登记的字段来源页（fieldSources）。导入的字段只取值字段，同名的保留现有的，
+   * 一次导入记一步撤销。此刻不能做时返回 false。
+   */
+  openDataImport(kind: ReportDataImportKind): boolean {
+    if (!this.canImportData(kind))
+      return false
+    const dialog = this.#ensureLayers().fieldImport
+    const t = this.#translations()
+    const dataset = kind === 'fields' ? this.#importDataset() : undefined
+    this.#importTarget = dataset === undefined ? { kind } : { kind, dataset }
+    dialog.sources = this.#model.extensions.flatMap(extension => extension.fieldSources ?? [])
+    dialog.offerSample = false
+    dialog.translations = kind === 'dataset' ? { title: t.importDataset } : kind === 'parameters' ? { title: t.importParameters } : undefined
+    dialog.show(kind === 'parameters' ? DESIGNER_FIELD_IMPORT_SOURCES.jsonSchema : DESIGNER_FIELD_IMPORT_SOURCES.sample)
+    return true
   }
 
   /** 选中列表项所在的卡片并让它可见。 */
@@ -919,7 +960,9 @@ export class XhReportDesigner extends XhReactiveElement {
     // 问题列表带计数的严重程度开关放进它所在卡片的面板头
     const issueSummary = issues.element.summary
     issueSummary.slot = 'issues-actions'
-    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, data.datasets, data.parameters, palette, workspace, wells.element, properties.element, issues.element, issueSummary]) as XhDesignerFrameElement
+    const datasetActions = createPanelActions<ReportDesignerContext>(doc, 'datasets')
+    const parameterActions = createPanelActions<ReportDesignerContext>(doc, 'parameters')
+    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, data.datasets, data.parameters, palette, workspace, wells.element, properties.element, issues.element, issueSummary, datasetActions.element, parameterActions.element]) as XhDesignerFrameElement
     frame.addEventListener('layout-change', this.#onLayoutChange)
     const selectionStatus = createStatusItem(doc, { value: '' })
     selectionStatus.element.slot = 'status-start'
@@ -928,7 +971,9 @@ export class XhReportDesigner extends XhReactiveElement {
     frame.append(selectionStatus.element, zoomStatus.element)
     const settings = createGeneratedElement(doc, 'xh-designer-settings', { 'data-part': 'settings' }) as XhDesignerSettingsElement
     settings.addEventListener('settings-change', this.#onSettingsChange)
-    this.replaceChildren(frame, settings)
+    const fieldImport = createGeneratedElement(doc, 'xh-designer-field-import', { 'data-part': 'field-import' }) as XhDesignerFieldImportElement
+    fieldImport.addEventListener('fields-import', this.#onFieldsImport)
+    this.replaceChildren(frame, settings, fieldImport)
     this.#layers?.panels.dispose()
     const panels = createPanelHost<ReportDesignerContext>(frame, { regions: FRAME_REGIONS, commands: () => this.#model.commands })
     canvas.addEventListener('pointerdown', this.#onPointerDown)
@@ -959,7 +1004,7 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#regionsKey = ''
     this.#viewer = undefined
     this.#settingsDialogKey = ''
-    this.#layers = { frame, toolbar, commandBar, selectionBar, headerBar, panels, menu, menuContent, menuTrigger, canvas, scroller, sizer, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, settings, selectionStatus, zoomStatus }
+    this.#layers = { frame, toolbar, commandBar, selectionBar, headerBar, panels, menu, menuContent, menuTrigger, canvas, scroller, sizer, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, datasetActions, parameterActions, fieldImport, settings, selectionStatus, zoomStatus }
     panels.assign(this.#model.extensions, this.#context())
     this.#fillMenu('blank')
     return this.#layers
@@ -1031,6 +1076,40 @@ export class XhReportDesigner extends XhReactiveElement {
     this.settings = detail.settings
     this.#settingsHost?.save(detail.settings, this.#model.settings)
     emitEvent(this, 'settings-change', detail)
+  }
+
+  /** 不看选中的对象，这种导入的权限够不够。 */
+  #canImport(kind: ReportDataImportKind): boolean {
+    if (this.readonly || this.#mode() === 'preview' || !this.#editor)
+      return false
+    return canEditData(kind === 'parameters' ? 'parameter' : 'dataset', this.#datasetEditing())
+  }
+
+  /** 导入字段的目标：数据面板里选中的数据集，或选中的字段所在的数据集。 */
+  #importDataset(): string | undefined {
+    const data = this.#editor?.selection.data
+    return data?.kind === 'dataset' || data?.kind === 'field' ? data.dataset : undefined
+  }
+
+  /** 导入对话框交来字段：按打开时的目标换成一批操作，记一步撤销；导入数据集后选中新数据集。 */
+  readonly #onFieldsImport = (event: Event): void => {
+    const { fields, annotations } = (event as DesignerFieldImportEventMap['fields-import']).detail
+    const target = this.#importTarget
+    this.#importTarget = undefined
+    const editor = this.#editor
+    if (!target || !editor || !this.#canImport(target.kind))
+      return
+    const document = editor.document
+    const plan = target.kind === 'dataset'
+      ? planDatasetImport(document, fields)
+      : target.kind === 'fields'
+        ? planFieldImport(document, target.dataset!, fields)
+        : planParameterImport(document, fields, annotations)
+    if (!plan)
+      return
+    editor.execute(plan.operations)
+    if (plan.dataset !== undefined)
+      editor.select({ data: { kind: 'dataset', dataset: plan.dataset } })
   }
 
   /** 外框改了面板布局：整份写进设置的 layout.panels。 */
@@ -1625,6 +1704,9 @@ export class XhReportDesigner extends XhReactiveElement {
         layers.headerBar.element.remove()
       }
       this.#renderSelectionBar(layers, context)
+      // 面板头的导入钮：datasetEditing 不够或只读时不出现
+      layers.datasetActions.update(this.#canImport('dataset') ? ['import-dataset', 'import-fields'] : [], commands, context, t.datasets)
+      layers.parameterActions.update(this.#canImport('parameters') ? ['import-parameters'] : [], commands, context, t.parameters)
       layers.panels.update(context)
       this.#renderStatus(layers, t)
     }
@@ -1925,6 +2007,7 @@ export function defineReportDesigner(): void {
   defineXhElement('xh-tag', XhTagElement)
   defineXhElement('xh-toolbar', XhToolbarElement)
   defineXhElement('xh-tree', XhTreeElement)
+  defineDesignerShellElement('xh-designer-field-import', XhDesignerFieldImportElement)
   defineDesignerShellElement('xh-designer-frame', XhDesignerFrameElement)
   defineDesignerShellElement('xh-designer-issues', XhDesignerIssuesElement)
   defineDesignerShellElement('xh-designer-palette', XhDesignerPaletteElement)

@@ -181,6 +181,8 @@ const designer: ReportDesignerLocale = {
   insertToolbar: 'Insertar tarjetas',
   selectionToolbar: 'Tarjetas seleccionadas',
   sizeUnit: 'celdas',
+  importDataset: 'Importar conjunto de datos',
+  importParameters: 'Importar parámetros',
   insertCard: label => `Añadir ${label}`,
   statusDocument: (datasets, cards) => `${datasets} ${datasets === 1 ? 'conjunto de datos' : 'conjuntos de datos'}${cards === undefined ? '' : ` · ${cards} ${cards === 1 ? 'tarjeta' : 'tarjetas'}`}`,
   statusCell: (column, row, width, height) => `Columna ${column}, fila ${row} · ${width} × ${height}`,

@@ -12,6 +12,7 @@ import type { XhReportDesigner } from '../src'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS } from '@xihan-report/runtime'
 import { reportZhCN } from '@xihan-report/runtime/locale'
 import { formatJsonPath } from '@xihan-ui/core/json'
+import { inferDataFields } from '@xihan-ui/designer-kit/field-inference'
 import { DESIGNER_HISTORY_EN_US, DESIGNER_SETTING_KEYS, startDrag } from '@xihan-ui/designer-shell'
 import { setXhConfig } from '@xihan-ui/web-components'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -1138,6 +1139,53 @@ describe('<xh-report-designer>：编辑', () => {
     designer.readonly = true
     await designer.updateComplete
     expect([outline.readonly, outline.allowMove]).toEqual([true, undefined])
+  })
+
+  it('导入的入口在数据集与报表参数两块卡片的面板头，按 datasetEditing 出现：fields 只能导入参数，full 还能导入数据集与字段；只读时都没有', async () => {
+    const designer = await mount()
+    const button = (region: string, command: string): HTMLButtonElement | null => designer.querySelector(`[data-region="${region}"] button[value="${command}"]`)
+    expect([button('datasets', 'import-dataset'), button('datasets', 'import-fields'), button('parameters', 'import-parameters') !== null]).toEqual([null, null, true])
+    designer.datasetEditing = 'full'
+    await designer.updateComplete
+    expect([button('datasets', 'import-dataset')!.disabled, button('datasets', 'import-fields')!.disabled]).toEqual([false, true])
+    designer.select({ data: { kind: 'field', dataset: 'sales', name: 'amount' } })
+    await designer.updateComplete
+    expect([designer.canImportData('fields'), button('datasets', 'import-fields')!.disabled]).toEqual([true, false])
+    designer.readonly = true
+    await designer.updateComplete
+    expect([button('datasets', 'import-dataset'), button('parameters', 'import-parameters'), designer.openDataImport('parameters')]).toEqual([null, null, false])
+  })
+
+  it('导入数据集、字段与参数：对话框按目的打开，交来的字段换成一批操作记一步撤销；导入数据集后选中新数据集，导入字段只加还没有的', async () => {
+    const designer = await mount()
+    designer.datasetEditing = 'full'
+    await designer.updateComplete
+    const dialog = designer.querySelector('xh-designer-field-import')!
+    const t = DEFAULT_REPORT_DESIGNER_TRANSLATIONS
+    const send = (sample: unknown, annotations = new Map()): void => {
+      dialog.dispatchEvent(new CustomEvent('fields-import', { detail: { fields: inferDataFields(sample as never).fields, mode: 'replace', source: 'sample', annotations } }))
+    }
+    expect(designer.openDataImport('dataset')).toBe(true)
+    expect([dialog.open, dialog.source, dialog.translations?.title, dialog.offerSample]).toEqual([true, 'sample', t.importDataset, false])
+    send([{ city: '杭州', qty: 2 }])
+    expect(designer.schema!.datasets.map(dataset => [dataset.id, dataset.fields.map(field => `${field.name}:${field.type}`)])).toEqual([['sales', ['region:string', 'amount:number']], ['dataset1', ['city:string', 'qty:number']]])
+    expect(designer.getSelection().data).toEqual({ kind: 'dataset', dataset: 'dataset1' })
+    expect(designer.historyState.entries).toHaveLength(1)
+    designer.select({ data: { kind: 'dataset', dataset: 'sales' } })
+    designer.openDataImport('fields')
+    expect(dialog.translations).toBeUndefined()
+    send({ region: '华东', margin: 0.2 })
+    expect(designer.schema!.datasets[0]!.fields.map(field => field.name)).toEqual(['region', 'amount', 'margin'])
+    designer.openDataImport('parameters')
+    expect([dialog.source, dialog.translations?.title]).toEqual(['json-schema', t.importParameters])
+    send({ year: 2026 }, new Map([['year', { required: true }]]))
+    expect(designer.schema!.parameters).toEqual([{ name: 'year', type: 'number', required: true }])
+    designer.undo()
+    designer.undo()
+    designer.undo()
+    expect(designer.schema).toEqual(board)
+    send({ late: 1 })
+    expect(designer.schema).toEqual(board)
   })
 
   it('选中框下方常驻尺寸徽标，按格计：像素与格数按网格逐轴换算，单位文字随语言；改宽高按格改卡片，连续步进合成一步撤销，输入的单独一步', async () => {

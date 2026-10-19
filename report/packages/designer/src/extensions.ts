@@ -17,7 +17,7 @@ import { cardTemplate, REPORT_CARD_TYPES } from '@xihan-report/core'
 import { createReportRuntimeModel } from '@xihan-report/runtime'
 import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
 import { collectSettingsSections, createHistoryPanel, createOutlinePanel, designerHistoryCommands, designerPanelCommands, designerShellCommands } from '@xihan-ui/designer-shell'
-import { CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, HistoryIcon, ListTreeIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TrashIcon, UndoIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, FilePlusIcon, HistoryIcon, ListTreeIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TrashIcon, UndoIcon, UploadIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { REPORT_CARD_TYPE_ICONS } from './card-icons'
 import { REPORT_OUTLINE_ADAPTER } from './outline'
 
@@ -135,7 +135,7 @@ export const REPORT_DESIGNER_PANELS = {
 
 /**
  * 内置命令：撤销、重做与清空历史，剪贴板、创建副本与删除、全选、缩放、设计与预览，designer-shell 内置的面板、显示或隐藏所有面板、
- * 还原面板显隐、恢复默认布局、设置与帮助，以及每块内置面板一条开关命令 panel:<面板 id>。
+ * 还原面板显隐、恢复默认布局、设置、帮助与导入字段，导入数据集与导入参数，以及每块内置面板一条开关命令 panel:<面板 id>。
  */
 const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
   ...designerHistoryCommands<ReportDesignerContext>({
@@ -168,8 +168,12 @@ const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
     frame: context => context.frame,
     openSettings: ({ designer }) => designer.openSettings(),
     helpUrl: () => REPORT_DESIGNER_HELP_URL,
-    icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon },
+    openFieldImport: ({ designer }) => void designer.openDataImport('fields'),
+    fieldImportDisabled: ({ designer }) => !designer.canImportData('fields'),
+    icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: UploadIcon },
   }),
+  { id: 'import-dataset', label: ({ translations }) => translations.importDataset, icon: FilePlusIcon, enabled: ({ designer }) => designer.canImportData('dataset'), run: ({ designer }) => void designer.openDataImport('dataset') },
+  { id: 'import-parameters', label: ({ translations }) => translations.importParameters, icon: UploadIcon, enabled: ({ designer }) => designer.canImportData('parameters'), run: ({ designer }) => void designer.openDataImport('parameters') },
   ...designerPanelCommands<ReportDesignerContext>({ panels: Object.values(REPORT_DESIGNER_PANELS), frame: context => context.frame }),
   ...QUICK_INSERT_COMMANDS,
 ]

@@ -181,6 +181,8 @@ const designer: ReportDesignerLocale = {
   insertToolbar: '카드 삽입',
   selectionToolbar: '선택한 카드',
   sizeUnit: '칸',
+  importDataset: '데이터 세트 가져오기',
+  importParameters: '매개변수 가져오기',
   insertCard: label => `${label} 추가`,
   statusDocument: (datasets, cards) => `데이터 세트 ${datasets}개${cards === undefined ? '' : ` · 카드 ${cards}장`}`,
   statusCell: (column, row, width, height) => `${column}열 ${row}행 · ${width} × ${height}칸`,

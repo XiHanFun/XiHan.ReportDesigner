@@ -181,6 +181,8 @@ const designer: ReportDesignerLocale = {
   insertToolbar: 'Karten einfügen',
   selectionToolbar: 'Ausgewählte Karten',
   sizeUnit: 'Zellen',
+  importDataset: 'Datensatz importieren',
+  importParameters: 'Parameter importieren',
   insertCard: label => `${label} hinzufügen`,
   statusDocument: (datasets, cards) => `${datasets} ${datasets === 1 ? 'Dataset' : 'Datasets'}${cards === undefined ? '' : ` · ${cards} ${cards === 1 ? 'Karte' : 'Karten'}`}`,
   statusCell: (column, row, width, height) => `Spalte ${column}, Zeile ${row} · ${width} × ${height}`,

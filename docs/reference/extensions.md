@@ -335,6 +335,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 
 | 属性 | 类型 | 说明 |
 | --- | --- | --- |
+| `about?` | `readonly { readonly label: string; readonly value: string; }[]` | 「关于」页里的几行，如附加包的版本与授权；各款把它们接在自己那几行后面。 |
 | `cardRenderers?` | `Readonly<Record<string, ReportCardRenderer>>` | 卡片的渲染，键是卡片种类名。 |
 | `cards?` | `Readonly<Record<string, ReportCardKind<never, unknown>>>` | 卡片种类：键是种类名，扩展登记的带点、以扩展 id 的末段开头。 |
 | `commands?` | `readonly DesignerCommand<ReportDesignerContext>[]` | 命令：工具栏按钮、右键菜单项与快捷键共用；命令 id 与快捷键不能与内置或别的扩展的重名。 |
