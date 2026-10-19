@@ -533,6 +533,15 @@ export class XhReportDesigner extends XhReactiveElement {
       card.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }
 
+  /** 在画布上标出一张卡片（画悬停框），null 撤掉；不改选择、不滚动。页面结构面板悬停或聚焦到一行时用它。 */
+  highlightCard(id: string | null): void {
+    const next = id ?? undefined
+    if (next === this.#hoverId)
+      return
+    this.#hoverId = next
+    this.#renderSelection()
+  }
+
   /** 选中列表项所在的卡片并让它可见。 */
   revealItem(ref: ReportItemRef): void {
     this.select(ref.card === undefined ? { cards: [], item: ref } : { cards: [ref.card], item: ref })
@@ -1082,13 +1091,15 @@ export class XhReportDesigner extends XhReactiveElement {
       issues: { title: t.issues, icon: CircleAlertIcon, help: t.issuesHelp },
     }
     const shown = FRAME_REGIONS.filter(region => this.#registers(region.name))
-    const key = JSON.stringify([regions, shown.map(region => region.name), this.#mode()])
+    const extensionRegions = this.#mode() === 'preview' ? [] : this.#model.extensions.flatMap(extension => (extension.panels ?? []).map(panel => panel.region))
+    // 扩展面板的标题与帮助按语言现取，算进键里，换了语言才会重设区表
+    const key = JSON.stringify([regions, shown.map(region => region.name), this.#mode(), extensionRegions])
     if (key !== this.#regionsKey || this.#regionsModel !== this.#model) {
       this.#regionsKey = key
       this.#regionsModel = this.#model
       this.#regionList = [
         ...shown.map(region => ({ ...region, ...regions[region.name] })),
-        ...(this.#mode() === 'preview' ? [] : this.#model.extensions.flatMap(extension => (extension.panels ?? []).map(panel => panel.region))),
+        ...extensionRegions,
       ]
     }
     if (frame.regions !== this.#regionList)
@@ -1498,7 +1509,7 @@ export class XhReportDesigner extends XhReactiveElement {
     const groups: DesignerPaletteGroup[] = this.#model.paletteGroups.map(group => ({
       id: group.id,
       label: text(group.label),
-      items: items.filter(item => item.group === group.id).map(item => ({ id: item.id, label: text(item.label), payload: item.id })),
+      items: items.filter(item => item.group === group.id).map(item => ({ id: item.id, label: text(item.label), ...(item.icon ? { icon: item.icon } : {}), payload: item.id })),
     }))
     const key = JSON.stringify([t.palette, groups])
     if (key === this.#paletteKey)

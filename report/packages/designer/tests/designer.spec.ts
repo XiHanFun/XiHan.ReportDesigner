@@ -15,7 +15,7 @@ import { formatJsonPath } from '@xihan-ui/core/json'
 import { DESIGNER_HISTORY_EN_US, DESIGNER_SETTING_KEYS, startDrag } from '@xihan-ui/designer-shell'
 import { setXhConfig } from '@xihan-ui/web-components'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineReportDesigner, REPORT_DESIGNER_HELP_URL, REPORT_DESIGNER_PANELS } from '../src'
+import { defineReportDesigner, REPORT_CARD_TYPE_ICONS, REPORT_DESIGNER_HELP_URL, REPORT_DESIGNER_PANELS } from '../src'
 
 function metric(id: string, x: number): DashboardView['cards'][number] {
   return {
@@ -812,7 +812,7 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.querySelector('[data-region="header"] button[value]')).toBeNull()
   })
 
-  it('「面板」点开一张锚在按钮上的菜单，列出能开关的七块卡片（勾选的显示，历史记录缺省不勾），再列显示或隐藏所有面板、还原面板显隐与恢复默认布局；选中一块卡片开关它并写进设置', async () => {
+  it('「面板」点开一张锚在按钮上的菜单，列出能开关的八块卡片（勾选的显示，历史记录缺省不勾），再列显示或隐藏所有面板、还原面板显隐与恢复默认布局；选中一块卡片开关它并写进设置', async () => {
     const designer = await mount()
     const frame = designer.querySelector('xh-designer-frame')!
     await frame.updateComplete
@@ -1070,6 +1070,74 @@ describe('<xh-report-designer>：编辑', () => {
     designer.mode = 'preview'
     await designer.updateComplete
     expect(bar()).toBeNull()
+  })
+
+  it('页面结构面板停在左栏物料下面：看板按先行后列列出卡片，有标题写标题、副文本写种类名，没标题写「种类名 · id」，图标取卡片种类；卡片下面是它的列表与项', async () => {
+    const designer = await mount()
+    const t = DEFAULT_REPORT_DESIGNER_TRANSLATIONS
+    const frame = designer.querySelector('xh-designer-frame')!
+    expect(frame.resolvedLayout.docks.start).toEqual(['datasets', 'parameters', 'palette', 'outline'])
+    expect(frame.regions!.find(region => region.name === 'outline')).toMatchObject({ title: 'Structure', icon: expect.anything() })
+    const outline = designer.querySelector('xh-designer-outline')!
+    expect(outline.headless).toBe(true)
+    const nodes = outline.nodes!
+    expect(nodes.map(node => [node.label, node.description, node.movable])).toEqual([['各区域', t.cardTypes['chart.pie'], false], ['a', t.cardTypes.metric, false], ['b', t.cardTypes.metric, false]])
+    expect([nodes[0]!.icon, nodes[1]!.icon]).toEqual([REPORT_CARD_TYPE_ICONS['chart.pie'], REPORT_CARD_TYPE_ICONS.metric])
+    expect(nodes[0]!.children!.map(list => [list.label, list.selectable, list.movable, list.deletable, list.children!.map(item => item.label)])).toEqual([
+      [t.lists.dimensions, false, false, false, ['region']],
+      [t.lists.measures, false, false, false, ['amount']],
+    ])
+    designer.execute([{ type: 'updateCard', id: 'b', changes: [{ path: ['title'] }] }])
+    await designer.updateComplete
+    expect(outline.nodes![2]!.label).toBe(`${t.cardTypes.metric} · b`)
+  })
+
+  it('页面结构跟着画布的选择：选中卡片或列表项，大纲选中那一行；点一行选中它并让卡片可见，悬停或聚焦到一行标出它所在的卡片', async () => {
+    const designer = await mount()
+    placeGrid(designer)
+    const outline = designer.querySelector('xh-designer-outline')!
+    const overlay = designer.querySelector('xh-designer-transform')!
+    designer.select({ cards: ['a'] })
+    await designer.updateComplete
+    expect(outline.selection).toEqual([JSON.stringify(['card', 'a'])])
+    const item = JSON.stringify(['item', 'pie', 'measures', 'amount'])
+    outline.dispatchEvent(new CustomEvent('node-select', { detail: { ids: [item] } }))
+    expect(designer.getSelection()).toEqual({ cards: ['pie'], item: { card: 'pie', list: 'measures', id: 'amount' } })
+    await designer.updateComplete
+    expect(outline.selection).toEqual([item])
+    outline.dispatchEvent(new CustomEvent('node-select', { detail: { ids: [JSON.stringify(['card', 'b'])] } }))
+    expect(designer.getSelection()).toEqual({ cards: ['b'] })
+    outline.dispatchEvent(new CustomEvent('node-highlight', { detail: { id: item } }))
+    expect(overlay.hover).toMatchObject({ x: 0, y: 0, width: 400, height: 160 })
+    outline.dispatchEvent(new CustomEvent('node-highlight', { detail: { id: null } }))
+    expect(overlay.hover).toBeUndefined()
+  })
+
+  it('页面结构里删除一行走设计器的删除；列表项能在同一列表里换序，交叉表的行与列之间能互换，别的列表与别的卡片不许', async () => {
+    const designer = await mount()
+    const outline = designer.querySelector('xh-designer-outline')!
+    const id = (...parts: (string | null)[]): string => JSON.stringify(parts)
+    outline.dispatchEvent(new CustomEvent('node-delete', { detail: { ids: [id('item', 'pie', 'measures', 'amount')] } }))
+    expect(cards(designer)[0]).toMatchObject({ query: { measures: [] } })
+    designer.undo()
+    designer.execute([{ type: 'addItem', card: 'pie', list: 'dimensions', item: { id: 'r2', field: 'region' } }])
+    await designer.updateComplete
+    const allow = outline.allowMove!
+    expect(allow({ id: id('item', 'pie', 'dimensions', 'r2'), parent: id('list', 'pie', 'dimensions'), index: 0 })).toBe(true)
+    expect(allow({ id: id('item', 'pie', 'dimensions', 'r2'), parent: id('list', 'pie', 'measures'), index: 0 })).toBe(false)
+    expect(allow({ id: id('item', 'pie', 'dimensions', 'r2'), parent: id('list', 'a', 'dimensions'), index: 0 })).toBe(false)
+    outline.dispatchEvent(new CustomEvent('node-move', { detail: { id: id('item', 'pie', 'dimensions', 'r2'), parent: id('list', 'pie', 'dimensions'), index: 0 } }))
+    expect((cards(designer)[0] as unknown as { query: { dimensions: { id: string }[] } }).query.dimensions.map(item => item.id)).toEqual(['r2', 'region'])
+    designer.schema = { ...board, body: { type: 'crosstab', dataset: 'sales', rows: [{ id: 'region', field: 'region' }], columns: [], measures: [{ id: 'amount', aggregate: 'sum', field: 'amount' }] } }
+    await designer.updateComplete
+    expect(outline.nodes!.map(node => [node.label, node.deletable, node.children!.map(list => list.label)])).toEqual([[DEFAULT_REPORT_DESIGNER_TRANSLATIONS.cardTypes['table.crosstab'], false, ['Rows', 'Columns', 'Measures'].map(() => expect.any(String))]])
+    expect(allow({ id: id('item', null, 'rows', 'region'), parent: id('list', null, 'columns'), index: 0 })).toBe(true)
+    expect(allow({ id: id('item', null, 'measures', 'amount'), parent: id('list', null, 'rows'), index: 0 })).toBe(false)
+    outline.dispatchEvent(new CustomEvent('node-move', { detail: { id: id('item', null, 'rows', 'region'), parent: id('list', null, 'columns'), index: 0 } }))
+    expect(designer.schema!.body).toMatchObject({ rows: [], columns: [{ id: 'region' }] })
+    designer.readonly = true
+    await designer.updateComplete
+    expect([outline.readonly, outline.allowMove]).toEqual([true, undefined])
   })
 
   it('选中框下方常驻尺寸徽标，按格计：像素与格数按网格逐轴换算，单位文字随语言；改宽高按格改卡片，连续步进合成一步撤销，输入的单独一步', async () => {

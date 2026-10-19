@@ -343,6 +343,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | `documentProperties?` | `readonly ReportPropertyDescriptor[]` | 文档级属性，path 相对文档本身，没选中任何对象时属性面板显示它们。 |
 | `editors?` | `Partial<PropertyEditorTable<DesignerPropertyEditor>>` | 属性编辑器，按扩展顺序压在设计器内建的之上。 |
 | `exporters?` | `readonly DesignerExporter<ReportExportContext>[]` | 导出成文件；内置的 xlsx 在最前。 |
+| `fieldSources?` | `readonly DesignerFieldSource[]` | 字段来源：导入字段的对话框里，排在内置的 JSON 样例与 JSON Schema 两页之后。 |
 | `id` | `string` | 全局唯一，用包名加功能名：@xihan-flow-pro/simulation。也是模板里扩展数据的键。 |
 | `overlays?` | `readonly ReportOverlay[]` | 看板的叠加层；同一层里按扩展顺序，后登记的在上。 |
 | `palette?` | `readonly ReportPaletteItem[]` | 物料面板里的项。 |
@@ -432,6 +433,7 @@ type ReportSelectionSubject = 'card' | 'multiple'
 | `id` | `string` | 全局唯一；扩展的写扩展 id 末段加点加名字，如 gantt.timeline。 |
 | `group` | `string` | 所在的组：内置的 charts、metrics、tables，或某个扩展登记的组。 |
 | `label` | `string \| ((context: ReportDesignerContext) => string)` | 物料名，可以按此刻的文案生成。 |
+| `icon?` | `IconRecord` | 物料名前的图标；内置的取卡片种类的图标。 |
 
 | 方法 | 说明 |
 | --- | --- |

@@ -68,6 +68,7 @@
 | `refresh(): Promise<void>` | 丢掉缓存的数据，画布重新取数计算。 |
 | `scrollToCard(id: string): void` | 滚动到卡片。 |
 | `revealCard(id: string): void` | 卡片不在画布的可见区时才滚动到它。 |
+| `highlightCard(id: string \| null): void` | 在画布上标出一张卡片（画悬停框），null 撤掉；不改选择、不滚动。页面结构面板悬停或聚焦到一行时用它。 |
 | `revealItem(ref: ReportItemRef): void` | 选中列表项所在的卡片并让它可见。 |
 | `getViewport(): Viewport` | 视口：屏幕坐标（画布可见区的左上角为原点）= 画布坐标 × zoom + (x, y)；画布坐标是实际尺寸下画布里的像素，zoom 为 1 时是实际尺寸。画布还没有布局时 x、y 为 0。 |
 | `setViewport(viewport: Viewport): void` | 设置视口：缩放夹进 10%–400%，平移落在画布能滚到的范围里；此后尺寸变化不再自动适配。 |
@@ -162,6 +163,7 @@ const REPORT_DESIGNER_PANELS = {
   properties: 'properties',
   issues: 'issues',
   history: 'history',
+  outline: 'outline',
 } as const
 ```
 
@@ -284,6 +286,12 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 
 ## 全部导出
 
+### card-icons
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `REPORT_CARD_TYPE_ICONS` | 常量 | 内置卡片种类的图标，图标集见 @xihan-ui/icons；扩展的卡片种类不在其中。 |
+
 ### editor
 
 | 名称 | 种类 | 说明 |
@@ -304,7 +312,7 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
 | `createReportDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。 |
-| `REPORT_DESIGNER_EXTENSION` | 常量 | 设计器的内置扩展：内置命令、物料与历史记录面板。 |
+| `REPORT_DESIGNER_EXTENSION` | 常量 | 设计器的内置扩展：内置命令、物料、页面结构与历史记录面板。 |
 | `REPORT_DESIGNER_HELP_URL` | 常量 | 内置命令 help 打开的帮助页：报表文档站的设计器一页。 |
 | `REPORT_DESIGNER_PANELS` | 常量 | 设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.&lt;面板 id&gt;）与 commandLayout（panel:&lt;面板 id&gt;）时用。 |
 | `REPORT_MENU_LAYOUT` | 常量 | 右键菜单的缺省排列。 |

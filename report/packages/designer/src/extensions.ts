@@ -16,8 +16,10 @@ import type { XhReportDesigner } from './report-designer'
 import { cardTemplate, REPORT_CARD_TYPES } from '@xihan-report/core'
 import { createReportRuntimeModel } from '@xihan-report/runtime'
 import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
-import { collectSettingsSections, createHistoryPanel, designerHistoryCommands, designerPanelCommands, designerShellCommands } from '@xihan-ui/designer-shell'
-import { ChartBarIcon, ChartPieIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, GridIcon, HistoryIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TableIcon, TrashIcon, TrendingUpIcon, UndoIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { collectSettingsSections, createHistoryPanel, createOutlinePanel, designerHistoryCommands, designerPanelCommands, designerShellCommands } from '@xihan-ui/designer-shell'
+import { CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, HistoryIcon, ListTreeIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TrashIcon, UndoIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { REPORT_CARD_TYPE_ICONS } from './card-icons'
+import { REPORT_OUTLINE_ADAPTER } from './outline'
 
 /** 命令、面板、物料与扩展装上时拿到的上下文。 */
 export interface ReportDesignerContext {
@@ -64,6 +66,8 @@ export interface ReportPaletteItem {
   readonly group: string
   /** 物料名，可以按此刻的文案生成。 */
   readonly label: string | ((context: ReportDesignerContext) => string)
+  /** 物料名前的图标；内置的取卡片种类的图标。 */
+  readonly icon?: IconRecord
   /** 新卡片；dataset 是报表的第一个数据集，没有数据集时为空串。 */
   readonly template: (dataset: string) => ReportCardTemplate
 }
@@ -100,21 +104,15 @@ function isDashboard(designer: XhReportDesigner): boolean {
   return designer.schema?.body.type === 'dashboard'
 }
 
-/** 顶栏插入钮的常用物料，按钮依次排开；钮上写物料名，图标取这张表的。 */
-const QUICK_INSERT: readonly (readonly [ReportCardType, IconRecord])[] = [
-  ['chart.cartesian', ChartBarIcon],
-  ['chart.pie', ChartPieIcon],
-  ['metric', TrendingUpIcon],
-  ['table.table', TableIcon],
-  ['table.crosstab', GridIcon],
-]
+/** 顶栏插入钮的常用物料，按钮依次排开；钮上写物料名，图标取卡片种类的图标。 */
+const QUICK_INSERT: readonly ReportCardType[] = ['chart.cartesian', 'chart.pie', 'metric', 'table.table', 'table.crosstab']
 
 /** 顶栏的插入命令：点一下照点物料的做法新建卡片；只读、预览态或主体不是看板时不可用。 */
-const QUICK_INSERT_COMMANDS: readonly ReportDesignerCommand[] = QUICK_INSERT.map(([type, icon]): ReportDesignerCommand => ({
+const QUICK_INSERT_COMMANDS: readonly ReportDesignerCommand[] = QUICK_INSERT.map((type): ReportDesignerCommand => ({
   id: `insert:${type}`,
   label: ({ translations }) => translations.insertCard(translations.cardTypes[type] ?? type),
   shortLabel: ({ translations }) => translations.cardTypes[type] ?? type,
-  icon,
+  icon: REPORT_CARD_TYPE_ICONS[type],
   placement: ['header'],
   enabled: editable(isDashboard),
   run: ({ designer }) => void designer.addPaletteItem(type),
@@ -132,6 +130,7 @@ export const REPORT_DESIGNER_PANELS = {
   properties: 'properties',
   issues: 'issues',
   history: 'history',
+  outline: 'outline',
 } as const
 
 /**
@@ -186,6 +185,7 @@ const BUILTIN_PALETTE: readonly ReportPaletteItem[] = REPORT_CARD_TYPES.map(type
   id: type,
   group: groupOf(type),
   label: ({ translations }: ReportDesignerContext) => translations.cardTypes[type] ?? type,
+  icon: REPORT_CARD_TYPE_ICONS[type],
   template: (dataset: string) => cardTemplate(type, dataset),
 }))
 
@@ -196,11 +196,17 @@ const HISTORY_PANEL = createHistoryPanel<ReportDesignerContext>({
   announce: ({ frame }, message) => frame?.announce(message),
 }, { region: { icon: HistoryIcon }, readonly: ({ designer }) => designer.readonly === true })
 
-/** 设计器的内置扩展：内置命令、物料与历史记录面板。卡片种类、渲染与导出等内置部分在 core 与 runtime 的内置扩展里。 */
+/** 页面结构面板：停在左栏物料下面，列出卡片、卡片的列表与列表项；只读时只能看。 */
+const OUTLINE_PANEL = createOutlinePanel<ReportDesignerContext>(REPORT_OUTLINE_ADAPTER, {
+  region: { icon: ListTreeIcon },
+  readonly: ({ designer }) => designer.readonly === true,
+})
+
+/** 设计器的内置扩展：内置命令、物料、页面结构与历史记录面板。卡片种类、渲染与导出等内置部分在 core 与 runtime 的内置扩展里。 */
 export const REPORT_DESIGNER_EXTENSION: ReportDesignerExtension = {
   id: '@xihan-report/designer',
   commands: BUILTIN_COMMANDS,
-  panels: [HISTORY_PANEL],
+  panels: [OUTLINE_PANEL, HISTORY_PANEL],
   paletteGroups: BUILTIN_GROUPS.map(group => ({ id: group, label: ({ translations }: ReportDesignerContext) => translations.paletteGroups[group] ?? group })),
   palette: BUILTIN_PALETTE,
 }
