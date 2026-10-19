@@ -15,7 +15,7 @@ import type { JsonObject, KeyedItem, ValidationIssue } from './checker'
 import type { FormulaSite } from './common'
 import { isPlainObject } from '@xihan-ui/core/json'
 import { checkExtensionData, extensionIssuePrefix, runExtensionRules } from '@xihan-ui/designer-kit'
-import { checkProperties } from '@xihan-ui/designer-kit/properties'
+import { checkProperties, findPropertyValueIssue } from '@xihan-ui/designer-kit/properties'
 import { withSeverity } from '@xihan-ui/designer-kit/schema'
 import { createReportModel } from '../extensions'
 import { itemKey } from '../operations'
@@ -669,6 +669,25 @@ function checkParameterValue(scope: Scope, value: unknown, path: JsonPath, type:
   checkLiteral(scope, value, path, type)
 }
 
+/** 日期写法的说明，放进 invalid-value 的 expected。 */
+const DATE_LAYOUTS = { date: 'YYYY-MM-DD', datetime: 'YYYY-MM-DDTHH:mm[:ss]' } as const
+
+/**
+ * 候选项的取值：date、datetime 先按 designer-kit 的 options（valueType 同参数类型）查写法，
+ * 通过后与其他类型一样按参数类型查。
+ */
+function checkOptionValue(scope: Scope, value: unknown, path: JsonPath, type: FieldType | undefined): void {
+  if (type === 'date' || type === 'datetime') {
+    const issue = findPropertyValueIssue({ kind: 'options', valueType: type }, [{ value: value as JsonValue }])
+    if (issue !== undefined) {
+      const expected = issue.code === 'invalid-value' ? DATE_LAYOUTS[type] : issue.code === 'invalid-type' ? type : undefined
+      scope.c.report(issue.code, path, expected === undefined ? undefined : { expected })
+      return
+    }
+  }
+  checkLiteral(scope, value, path, type)
+}
+
 function checkReportParameters(c: Checker, document: JsonObject): Map<string, ParameterInfo> {
   const result = new Map<string, ParameterInfo>()
   const scope: Scope = { c, model: createReportModel(), datasets: new Map(), parameters: new Map(), expressionEngine: undefined, variables: new Set() }
@@ -689,7 +708,7 @@ function checkReportParameters(c: Checker, document: JsonObject): Map<string, Pa
         c.report('required', [...op, 'value'])
       }
       else {
-        checkLiteral(scope, option.value, [...op, 'value'], type)
+        checkOptionValue(scope, option.value, [...op, 'value'], type)
         if (isScalar(option.value)) {
           const valueId = JSON.stringify(option.value)
           if (seen.has(valueId))

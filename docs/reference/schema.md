@@ -14,7 +14,7 @@
 
 | 字段 | 类型 | 必填 | 中文名 | 说明 |
 | --- | --- | --- | --- | --- |
-| `value` | <code><a href="#scalarvalue">ScalarValue</a></code> | 是 | 数值 |  |
+| `value` | <code><a href="#scalarvalue">ScalarValue</a></code> | 是 | 数值 | 取值，类型与参数一致：date 写 YYYY-MM-DD，datetime 写不带时区的 YYYY-MM-DDTHH:mm[:ss]。 |
 | `label` | <code>string</code> | 可省 | — | 显示的文字；不写按取值显示。 |
 | `disabled` | <code>boolean</code> | 可省 | — | 在参数栏里列出但不能选；宿主或缺省值给了这个取值照样认。 |
 
