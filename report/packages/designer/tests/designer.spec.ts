@@ -213,6 +213,17 @@ describe('<xh-report-designer>：画布上的表格', () => {
     await settle()
     expect(designer.querySelector('[data-part="surface"] xh-table [data-xh-part="root"]')!.getAttribute('aria-label')).toBe('区域列表')
   })
+
+  it('画布上的表格视图与卡片内容是 inert：表格行、图例与图形不占 Tab 位，点在卡片内容上落到卡片外壳', async () => {
+    const designer = await mount({ provider: () => {} })
+    designer.schema = { ...board, body: { type: 'table', dataset: 'sales', columns: [{ id: 'region', field: 'region' }] } }
+    await settle()
+    expect(designer.querySelector('[data-part="surface"] [data-part="view"]')!.hasAttribute('inert')).toBe(true)
+    designer.schema = board
+    await settle()
+    expect([...designer.querySelectorAll('[data-part="card"] > [data-part="card-body"]')].map(body => body.hasAttribute('inert'))).toEqual([true, true, true])
+    expect([...designer.querySelectorAll('[data-part="card"]')].map(section => section.hasAttribute('inert'))).toEqual([false, false, false])
+  })
 })
 
 describe('<xh-report-designer>：编辑', () => {
