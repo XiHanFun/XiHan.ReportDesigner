@@ -607,7 +607,6 @@ function optionName(key, value) {
 const JSON_SHAPES = {
   parameters: '数据集参数名到[操作数](./schema#operand)的对照，见 [DataBinding](./schema#databinding)',
   sort: '[RowSortRule](./schema#rowsortrule) 的数组',
-  options: '[ParameterOption](./schema#parameteroption) 的数组',
   targets: '[LinkTarget](./schema#linktarget) 的数组',
   annotations: '[CartesianAnnotationSpec](./schema#cartesianannotationspec) 的数组',
   indicators: '[RadarIndicatorSpec](./schema#radarindicatorspec) 的数组',
@@ -620,6 +619,15 @@ const TAG_SHAPES = {
 }
 
 const FORMAT_KIND_NAMES = { number: '数值', percent: '百分比', date: '日期', rmbUpper: '人民币大写' }
+
+/** 选项表的值格：按 valueType 说用什么控件、写出什么。 */
+const OPTION_VALUE_CELLS = {
+  string: '值格是文本框',
+  number: '值格是数字框，写数值',
+  boolean: '固定 `true`、`false` 两行，值格只读，不能新增、删除与换序',
+  date: '值格是日期框，写 `YYYY-MM-DD`',
+  datetime: '值格是日期框，写到分钟（如 `2026-10-19T08:30`）',
+}
 
 function describeControl(control, key) {
   switch (control.kind) {
@@ -649,8 +657,12 @@ function describeControl(control, key) {
       return `[值格式](./schema#formatspec)${control.kinds === undefined ? '' : `，限${control.kinds.map(kind => FORMAT_KIND_NAMES[kind] ?? kind).join('、')}`}`
     case 'filter':
       return '[筛选条件树](./schema#filtergroup)'
-    case 'options':
-      return `[ParameterOption](./schema#parameteroption) 的数组，在设计器里是逐行编辑的选项表（值、文字与禁用），值不能重复${control.requireLabel ? '，每项要写文字' : ''}`
+    case 'options': {
+      const cell = OPTION_VALUE_CELLS[control.valueType ?? 'string']
+      if (cell === undefined)
+        throw new Error(`[gen-reference] unknown option value type: ${control.valueType}`)
+      return `[ParameterOption](./schema#parameteroption) 的数组，在设计器里是逐行编辑的选项表（值、文字与禁用），${cell}${control.valueType === 'boolean' ? '' : '，值不能重复'}${control.requireLabel ? '，每项要写文字' : ''}`
+    }
     case 'json':
       if (JSON_SHAPES[key] === undefined)
         throw new Error(`[gen-reference] no shape for json property ${key}`)
