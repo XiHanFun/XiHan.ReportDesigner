@@ -6,6 +6,8 @@
 // 汇总导出编辑操作。
 
 export { applyOperation, applyOperations } from './apply'
+export { describeReportStep } from './describe'
+export type { ReportStep, ReportStepAction, ReportStepKind } from './describe'
 export { ReportOperationError } from './errors'
 export type { ReportOperationErrorCode } from './errors'
 export { itemKey, readPath } from './path'

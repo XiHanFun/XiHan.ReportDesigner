@@ -30,6 +30,7 @@
 | `settingsStorageKey` | `settings-storage-key` | `string \| undefined` | 设置存在根所在窗口 localStorage 的哪个键下：给了，连上文档时若没赋 settings 就从这里读，用户改了设置就写回去，标了 secret 的条目不存；读写失败派发 settings-storage-error。不给就不读写。同名 attribute settings-storage-key。 |
 | `brands` | — | `readonly PropertySwatchOption[] \| undefined` | 设置里主题色的预设：value 是品牌 id（写成设计器根上的 data-brand），color 是色板格子的颜色。不给且没给 registerBrand 时没有主题色这一项。 |
 | `registerBrand` | — | `((id: string, color: string) => () => void) \| undefined` | 注册自定义主题色，形状与 @xihan-ui/tokens 的 registerBrand 相同；给了才许在设置里自定义主题色。 |
+| `historyLimit` | `history-limit` | `number \| undefined` | 撤销步数上限，缺省 100；在下一次装载（赋 schema）时生效。同名 attribute history-limit。 |
 
 ### 存取器
 
@@ -41,6 +42,7 @@
 | `dirty` | 只读 | `boolean` | 有未保存的修改。 |
 | `canPaste` | 只读 | `boolean` | 编辑模型里留着可粘贴的内容。 |
 | `canDelete` | 只读 | `boolean` | deleteSelection() 此刻能删掉东西：选中了卡片、列表项或联动，或 datasetEditing 允许删的数据面板对象。 |
+| `historyState` | 只读 | `HistorySnapshot` | 撤销历史的快照：各步的说明按此刻的语言取好；还没有报表时只有起点。 |
 
 ### 方法
 
@@ -49,6 +51,8 @@
 | `execute(operations: readonly ReportOperation[], options?: ExecuteOptions): ReportDocument` | 执行一组操作并记为一步撤销；返回新文档。还没有报表时抛错。 |
 | `undo(): boolean` | 撤销一步；只读或没有可撤销的时返回 false。 |
 | `redo(): boolean` | 重做一步；只读或没有可重做的时返回 false。 |
+| `goToHistory(position: number): boolean` | 跳到撤销历史里的一步或起点（historyState 里的位置号）；只读、预览、拖动中或位置号不认识时返回 false。 |
+| `clearHistory(): void` | 清空撤销与重做；报表与是否已保存不变。只读或拖动中时什么都不做。 |
 | `markSaved(): void` | 把当前位置记为保存点。 |
 | `addCard(init: ReportAddCardInit, options?: ExecuteOptions): DashboardCard` | 新增卡片并选中它；报表主体不是看板时抛错。 |
 | `addPaletteItem(id: string): DashboardCard \| undefined` | 照点物料的做法新建一张卡片：放到第一个空位、选中它并滚到看得见的地方，返回新卡片；只读、主体不是看板或没有这个物料项时什么都不做，返回 undefined。顶栏的插入钮调它。 |
@@ -82,6 +86,7 @@
 | `schema-change` | `{ schema: ReportDocument, operations: readonly ReportOperation[], kind: ReportSchemaChangeKind }` | 报表变了：schema 是新的报表，operations 是这一步的操作，kind 说明是执行、撤销、重做还是装载。 |
 | `selection-change` | `ReportSelection` | 选择变了，detail 是新的选择。 |
 | `dirty-change` | `{ dirty: boolean }` | 与保存点相比有没有改动变了。 |
+| `history-change` | `HistorySnapshot` | 撤销历史变了：执行（含并入上一步）、撤销、重做、跳转、装载、清空与保存之后都派发，拖动等事务进行中不派发。detail 是此刻的 historyState。 |
 | `issues-change` | `{ issues: readonly ValidationIssue[] }` | 报表的校验问题变了。 |
 | `save` | `Record<string, never>` | 在画布上按了 Ctrl+S（macOS 上 ⌘S）；保存由宿主做，存好后调 markSaved()。 |
 | `mode-change` | `{ mode: ReportDesignerMode }` | 在设计与预览之间切换了。 |
@@ -156,6 +161,7 @@ const REPORT_DESIGNER_PANELS = {
   wells: 'wells',
   properties: 'properties',
   issues: 'issues',
+  history: 'history',
 } as const
 ```
 
@@ -246,6 +252,7 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `wellsHelp` | `string` | 字段栏卡片的帮助。 | 选中卡片的维度、度量、系列与列。把字段拖进来，拖动换序，点叉移除。 |
 | `propertiesHelp` | `string` | 属性卡片的帮助。 | 选中对象的属性。选中多张卡片时只列它们共有的属性。 |
 | `issuesHelp` | `string` | 问题卡片的帮助。 | 报表的校验问题。点一条选中出问题的对象。 |
+| `historyHelp` | `string` | 历史记录卡片的帮助。 | 打开报表以来的每一步修改，先做的在上。点一步回到那里；它后面的几步在做出新的修改之前都还在。 |
 | `insertToolbar` | `string` | 顶栏那一条插入钮的名字。 | 插入卡片 |
 | `insertCard` | `(label: string): string` | 顶栏插入钮的名字与提示，label 是物料名。 | （按参数生成） |
 | `statusDocument` | `(datasets: number, cards: number \| undefined): string` | 状态栏左段没选中时：数据集数，主体是看板时再写卡片数（不是看板时 cards 为 undefined）。 | （按参数生成） |
@@ -272,6 +279,7 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `removeTitle` | `(name: string): string` | 删除会一并删掉别处时的确认框：标题、说明（各删几处）与确认按钮。 | （按参数生成） |
 | `removeCascade` | `(cascade: ReportDesignerCascade): string` |  | （按参数生成） |
 | `removeConfirm` | `string` |  | 删除 |
+| `historyStep` | `(step: ReportHistoryStepText): string` | 撤销栈里一步的说明：动作加对象名，如「删除卡片「销售额」」「删除 3 个卡片」。 | （按参数生成） |
 
 ## 全部导出
 

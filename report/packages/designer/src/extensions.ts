@@ -9,14 +9,15 @@ import type { ReportCardType, ReportDocument, ReportRuleContext } from '@xihan-r
 import type { ReportDesignerTranslations, ReportRuntimeExtension, ReportRuntimeModel } from '@xihan-report/runtime'
 import type { IconRecord } from '@xihan-ui/core'
 import type { DesignerCommand, DesignerExtensionCore, ExtensionKeySpaces } from '@xihan-ui/designer-kit'
-import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension, XhDesignerFrameElement } from '@xihan-ui/designer-shell'
+import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerHistoryCommandTarget, DesignerHistoryTranslations, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension, XhDesignerFrameElement } from '@xihan-ui/designer-shell'
+import type { DialogService } from '@xihan-ui/web-components/services'
 import type { ReportAddCardInit } from './editor'
 import type { XhReportDesigner } from './report-designer'
 import { cardTemplate, REPORT_CARD_TYPES } from '@xihan-report/core'
 import { createReportRuntimeModel } from '@xihan-report/runtime'
 import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
-import { collectSettingsSections, designerPanelCommands, designerShellCommands } from '@xihan-ui/designer-shell'
-import { ChartBarIcon, ChartPieIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EyeIcon, GridIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TableIcon, TrashIcon, TrendingUpIcon, UndoIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { collectSettingsSections, designerHistoryCommands, designerPanelCommands, designerShellCommands } from '@xihan-ui/designer-shell'
+import { ChartBarIcon, ChartPieIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, GridIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TableIcon, TrashIcon, TrendingUpIcon, UndoIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 
 /** 命令、面板、物料与扩展装上时拿到的上下文。 */
 export interface ReportDesignerContext {
@@ -26,6 +27,12 @@ export interface ReportDesignerContext {
   readonly translations: ReportDesignerTranslations
   /** 四款设计器共用的命令文案，取 designer-shell 语言包的 xh-designer-commands。 */
   readonly commands: DesignerCommandsTranslations
+  /** 历史记录的文案，取 designer-shell 语言包的 xh-designer-history；撤销、重做与清空历史的确认框与播报用。 */
+  readonly historyTranslations: DesignerHistoryTranslations
+  /** 撤销历史；还没有报表时为 undefined。内置的撤销、重做与清空历史命令经它读写。 */
+  readonly history: DesignerHistoryCommandTarget | undefined
+  /** 确认框；内置的清空历史命令清空前用它。 */
+  readonly dialogs: Pick<DialogService, 'confirm'>
   /** 此刻生效的设置：键是「分区 id.条目 id」，各分区没写的条目取了缺省值。 */
   readonly settings: DesignerSettings
   /** 设计器的外框；还没建出来时为 undefined。内置的「面板」命令经它开关面板。 */
@@ -124,15 +131,23 @@ export const REPORT_DESIGNER_PANELS = {
   wells: 'wells',
   properties: 'properties',
   issues: 'issues',
+  history: 'history',
 } as const
 
 /**
- * 内置命令：撤销重做、剪贴板、创建副本与删除、全选、缩放、设计与预览，designer-shell 内置的面板、显示或隐藏所有面板、
+ * 内置命令：撤销、重做与清空历史，剪贴板、创建副本与删除、全选、缩放、设计与预览，designer-shell 内置的面板、显示或隐藏所有面板、
  * 还原面板显隐、恢复默认布局、设置与帮助，以及每块内置面板一条开关命令 panel:<面板 id>。
  */
 const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
-  { id: 'undo', label: shared('undo'), icon: UndoIcon, shortcut: ['Mod', 'Z'], enabled: context => designing(context) && context.designer.canUndo, run: ({ designer }) => designer.undo() },
-  { id: 'redo', label: shared('redo'), icon: RedoIcon, shortcut: ['Mod', 'Shift', 'Z'], enabled: context => designing(context) && context.designer.canRedo, run: ({ designer }) => designer.redo() },
+  ...designerHistoryCommands<ReportDesignerContext>({
+    history: context => context.history,
+    disabled: context => !designing(context) || context.designer.readonly === true,
+    translations: context => context.commands,
+    historyTranslations: context => context.historyTranslations,
+    confirm: (context, options) => context.dialogs.confirm(options),
+    announce: (context, message) => context.frame?.announce(message),
+    icons: { undo: UndoIcon, redo: RedoIcon, clearHistory: EraserIcon },
+  }),
   { id: 'cut', label: shared('cut'), icon: ScissorsIcon, enabled: editable(d => selectedCards(d) > 0), run: ({ designer }) => designer.cut() },
   { id: 'copy', label: shared('copy'), icon: CopyIcon, enabled: context => designing(context) && selectedCards(context.designer) > 0, run: ({ designer }) => designer.copy() },
   { id: 'paste', label: shared('paste'), icon: ClipboardIcon, enabled: editable(d => d.canPaste && isDashboard(d)), run: ({ designer }) => designer.paste() },

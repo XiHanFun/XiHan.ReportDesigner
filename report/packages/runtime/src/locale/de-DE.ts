@@ -178,6 +178,7 @@ const designer: ReportDesignerLocale = {
   wellsHelp: 'Dimensionen, Kennzahlen, Datenreihen und Spalten der ausgewählten Karte. Zieh Felder hinein, zieh sie zum Umsortieren und entferne sie mit dem Kreuz.',
   propertiesHelp: 'Eigenschaften des ausgewählten Objekts. Sind mehrere Karten ausgewählt, stehen hier nur ihre gemeinsamen Eigenschaften.',
   issuesHelp: 'Prüfprobleme im Bericht. Wähle eines aus, um das betroffene Objekt auszuwählen.',
+  historyHelp: 'Alle Änderungen seit dem Öffnen des Berichts, die älteste zuerst. Wähle einen Schritt, um dorthin zurückzukehren; die Schritte danach bleiben erhalten, bis du etwas Neues änderst.',
   insertToolbar: 'Karten einfügen',
   insertCard: label => `${label} hinzufügen`,
   statusDocument: (datasets, cards) => `${datasets} ${datasets === 1 ? 'Dataset' : 'Datasets'}${cards === undefined ? '' : ` · ${cards} ${cards === 1 ? 'Karte' : 'Karten'}`}`,
@@ -255,6 +256,7 @@ const designer: ReportDesignerLocale = {
   objectKinds: {
     document: 'Bericht',
     dashboard: 'Dashboard',
+    dataset: 'Dataset',
     card: 'Karte',
     chart: 'Diagramm',
     metric: 'Metrik',
@@ -428,6 +430,25 @@ const designer: ReportDesignerLocale = {
     return `Dabei wird auch Folgendes gelöscht: ${listed.join(', ')}. Dies lässt sich rückgängig machen.`
   },
   removeConfirm: 'Löschen',
+  historyStep: (step) => {
+    const target = step.count > 1 ? `${step.count} × ${step.kind}` : step.name === undefined ? step.kind : `${step.kind} „${step.name}“`
+    switch (step.action) {
+      case 'add':
+        return `${target} hinzufügen`
+      case 'remove':
+        return step.cascade ? `${target} und ${step.cascade} ${step.cascade === 1 ? 'Verweis' : 'Verweise'} löschen` : `${target} löschen`
+      case 'move':
+        return `${target} verschieben`
+      case 'rename':
+        return `${step.kind} „${step.name}“ in „${step.to}“ umbenennen`
+      case 'layout':
+        return `${target} neu anordnen`
+      case 'replace':
+        return `${target} ersetzen`
+      case 'update':
+        return step.property === undefined ? `${target} bearbeiten` : `${step.property} von ${target} bearbeiten`
+    }
+  },
   unknownIssue: code => `Problem: ${code}`,
 }
 

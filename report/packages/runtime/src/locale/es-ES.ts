@@ -178,6 +178,7 @@ const designer: ReportDesignerLocale = {
   wellsHelp: 'Dimensiones, medidas, series y columnas de la tarjeta seleccionada. Arrastra campos aquí, arrástralos para reordenarlos y quítalos con la cruz.',
   propertiesHelp: 'Propiedades del objeto seleccionado. Con varias tarjetas seleccionadas solo se muestran las propiedades que comparten.',
   issuesHelp: 'Problemas de validación del informe. Selecciona uno para seleccionar el objeto afectado.',
+  historyHelp: 'Todos los cambios desde que se abrió el informe, del más antiguo al más reciente. Selecciona un paso para volver a él; los pasos posteriores se conservan hasta que hagas un cambio nuevo.',
   insertToolbar: 'Insertar tarjetas',
   insertCard: label => `Añadir ${label}`,
   statusDocument: (datasets, cards) => `${datasets} ${datasets === 1 ? 'conjunto de datos' : 'conjuntos de datos'}${cards === undefined ? '' : ` · ${cards} ${cards === 1 ? 'tarjeta' : 'tarjetas'}`}`,
@@ -255,6 +256,7 @@ const designer: ReportDesignerLocale = {
   objectKinds: {
     document: 'Informe',
     dashboard: 'Panel',
+    dataset: 'Conjunto de datos',
     card: 'Tarjeta',
     chart: 'Gráfico',
     metric: 'Métrica',
@@ -427,6 +429,26 @@ const designer: ReportDesignerLocale = {
     return `Esto también eliminará ${parts.filter(([count]) => count > 0).map(([count, one, many]) => `${count} ${count === 1 ? one : many}`).join(', ')}. Puedes deshacerlo.`
   },
   removeConfirm: 'Eliminar',
+  historyStep: (step) => {
+    const kind = step.kind.toLocaleLowerCase('es')
+    const target = step.count > 1 ? `${step.count} × ${kind}` : step.name === undefined ? kind : `${kind} «${step.name}»`
+    switch (step.action) {
+      case 'add':
+        return `Añadir ${target}`
+      case 'remove':
+        return step.cascade ? `Eliminar ${target} y ${step.cascade} ${step.cascade === 1 ? 'referencia' : 'referencias'}` : `Eliminar ${target}`
+      case 'move':
+        return `Mover ${target}`
+      case 'rename':
+        return `Renombrar ${kind} «${step.name}» a «${step.to}»`
+      case 'layout':
+        return `Reorganizar ${target}`
+      case 'replace':
+        return `Reemplazar ${target}`
+      case 'update':
+        return step.property === undefined ? `Editar ${target}` : `Editar ${step.property.toLocaleLowerCase('es')} de ${target}`
+    }
+  },
   unknownIssue: code => `Problema: ${code}`,
 }
 

@@ -24,10 +24,10 @@ import type {
   ValidationIssue,
 } from '@xihan-report/core'
 import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
-import type { DataField, ExecuteOptions, GridRect, History, HistoryChangeKind } from '@xihan-ui/designer-kit'
+import type { DataField, ExecuteOptions, GridRect, History, HistoryChangeKind, HistoryOptions } from '@xihan-ui/designer-kit'
 import { applyOperation, bodyQuery, cardQuery, cardView, gridItems, isDataView, planAddCard, planCardLayout, planRemoveCard, planRemoveItem, validateDocument } from '@xihan-report/core'
 import { formatJsonPath, isPlainObject } from '@xihan-ui/core/json'
-import { createHistory, createIdAllocator, decodeClipboard, encodeClipboard, remapIds } from '@xihan-ui/designer-kit'
+import { createHistory, createIdAllocator, decodeClipboard, encodeClipboard, HISTORY_NUDGE_MERGE_WITHIN, nudgeMergeKey, remapIds } from '@xihan-ui/designer-kit'
 
 /** 剪贴板包的产品名。 */
 export const REPORT_CLIPBOARD_PRODUCT = 'xihan-report'
@@ -88,6 +88,8 @@ export interface ReportEditorOptions {
   /** 同一合并键相隔多少毫秒内并入上一步，缺省 1000。 */
   readonly mergeWithin?: number
   readonly now?: () => number
+  /** 没写说明的一步，按这一步的操作与应用前的报表生成说明（designer-kit createHistory 的 describe）。 */
+  readonly describe?: HistoryOptions<ReportDocument, ReportOperation>['describe']
 }
 
 /**
@@ -142,6 +144,11 @@ export interface ReportEditor {
   readonly deleteSelection: (options?: ExecuteOptions) => boolean
   /** 开始拖动或改大小卡片；报表主体不是看板时抛错。 */
   readonly startLayout: (label?: string) => LayoutGesture
+  /**
+   * 方向键挪一张卡片或改它的大小：同一张卡片连续按、相隔不超过 1 秒的并成一步撤销，选中变了另起一步。
+   * 报表主体不是看板时抛错。
+   */
+  readonly nudge: (id: string, target: Partial<GridRect>) => void
   /** 编辑模型里留着可粘贴的内容。 */
   readonly hasClipboard: boolean
   /** 复制选中的卡片与源卡片、目标都在其中的联动，留作下一次 paste 的内容；没有选中卡片时为 undefined。 */
@@ -215,6 +222,7 @@ export function createReportEditor(options: ReportEditorOptions): ReportEditor {
     limit: options.historyLimit ?? 100,
     mergeWithin: options.mergeWithin ?? 1000,
     ...(options.now === undefined ? {} : { now: options.now }),
+    ...(options.describe === undefined ? {} : { describe: options.describe }),
   })
   const listeners = new Set<(change: ReportEditorChange) => void>()
   let selection: ReportSelection = EMPTY_SELECTION
@@ -229,6 +237,8 @@ export function createReportEditor(options: ReportEditorOptions): ReportEditor {
     if (next.cards.length === selection.cards.length && next.cards.every((id, i) => id === selection.cards[i]) && JSON.stringify(next.item) === JSON.stringify(selection.item) && next.link === selection.link && JSON.stringify(next.data) === JSON.stringify(selection.data))
       return
     selection = next
+    // 选中变了：之后的微移另起一步
+    history.seal()
     emit({ kind: 'selection', selection })
   }
 
@@ -400,6 +410,10 @@ export function createReportEditor(options: ReportEditorOptions): ReportEditor {
           history.rollback()
         },
       }
+    },
+    nudge(id, target) {
+      const dashboard = requireDashboard(history.document)
+      execute(planCardLayout(dashboard, id, target, { from: gridItems(dashboard) }), { merge: nudgeMergeKey([id]), mergeWithin: HISTORY_NUDGE_MERGE_WITHIN })
     },
     get hasClipboard() {
       return clipboard !== undefined

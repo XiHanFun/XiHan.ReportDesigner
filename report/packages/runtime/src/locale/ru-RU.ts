@@ -189,6 +189,7 @@ const designer: ReportDesignerLocale = {
   wellsHelp: 'Измерения, меры, ряды и столбцы выбранной карточки. Перетаскивайте сюда поля, меняйте их порядок перетаскиванием и удаляйте крестиком.',
   propertiesHelp: 'Свойства выбранного объекта. Если выбрано несколько карточек, показаны только их общие свойства.',
   issuesHelp: 'Ошибки проверки отчёта. Выберите одну, чтобы выделить объект, к которому она относится.',
+  historyHelp: 'Все изменения с момента открытия отчёта, от ранних к поздним. Выберите шаг, чтобы вернуться к нему; следующие шаги сохраняются, пока вы не внесёте новое изменение.',
   insertToolbar: 'Вставка карточек',
   insertCard: label => `Добавить «${label}»`,
   statusDocument: (datasets, cards) => `${datasets} ${plural(datasets, 'набор данных', 'набора данных', 'наборов данных')}${cards === undefined ? '' : ` · ${cards} ${plural(cards, 'карточка', 'карточки', 'карточек')}`}`,
@@ -266,6 +267,7 @@ const designer: ReportDesignerLocale = {
   objectKinds: {
     document: 'Отчёт',
     dashboard: 'Дашборд',
+    dataset: 'Набор данных',
     card: 'Карточка',
     chart: 'Диаграмма',
     metric: 'Показатель',
@@ -438,6 +440,26 @@ const designer: ReportDesignerLocale = {
     return `Также будут удалены: ${parts.filter(([count]) => count > 0).map(([count, one, few, many]) => `${count} ${plural(count, one, few, many)}`).join(', ')}. Это можно отменить.`
   },
   removeConfirm: 'Удалить',
+  historyStep: (step) => {
+    const kind = step.kind.toLocaleLowerCase('ru')
+    const target = step.count > 1 ? `${kind} × ${step.count}` : step.name === undefined ? kind : `${kind} «${step.name}»`
+    switch (step.action) {
+      case 'add':
+        return `Добавление: ${target}`
+      case 'remove':
+        return step.cascade ? `Удаление: ${target} и ${step.cascade} ${plural(step.cascade, 'ссылка', 'ссылки', 'ссылок')}` : `Удаление: ${target}`
+      case 'move':
+        return `Перемещение: ${target}`
+      case 'rename':
+        return `Переименование: ${kind} «${step.name}» → «${step.to}»`
+      case 'layout':
+        return `Изменение расположения: ${target}`
+      case 'replace':
+        return `Замена: ${target}`
+      case 'update':
+        return step.property === undefined ? `Изменение: ${target}` : `Изменение: ${target}, ${step.property.toLocaleLowerCase('ru')}`
+    }
+  },
   unknownIssue: code => `Проблема: ${code}`,
 }
 

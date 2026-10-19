@@ -5,7 +5,7 @@
 
 // 报表设计器的内建文案；类型补进 UI 的 XhTranslationOverrides。几张对照表（属性名、选项、卡片种类等）按键整份覆盖。
 
-import type { PARAMETER_ISSUE_CODES, REPORT_ISSUE_CODES, ReportPropertyGroup } from '@xihan-report/core'
+import type { PARAMETER_ISSUE_CODES, REPORT_ISSUE_CODES, ReportPropertyGroup, ReportStepAction } from '@xihan-report/core'
 import type { CommonIssueCode } from '@xihan-ui/designer-kit/schema'
 
 /** 删除数据面板对象时一并删掉的别处的数目。 */
@@ -21,6 +21,23 @@ export interface ReportDesignerCascade {
 export interface ReportDesignerIssueDetails {
   readonly code: string
   readonly params?: Readonly<Record<string, unknown>>
+}
+
+/** 撤销栈里一步的说明素材：对象种类已按语言取好。 */
+export interface ReportHistoryStepText {
+  readonly action: ReportStepAction
+  /** 对象种类的名字，取 objectKinds，如「卡片」。 */
+  readonly kind: string
+  /** 对象名；只改一个对象时才有。 */
+  readonly name?: string
+  /** 这一步里同种对象改了几个。 */
+  readonly count: number
+  /** 改名之后的名字（rename）。 */
+  readonly to?: string
+  /** 改的那个属性的名字（update，在属性面板里改时）。 */
+  readonly property?: string
+  /** 连带删掉的引用处数（remove）。 */
+  readonly cascade?: number
 }
 
 /** 设计器的内建文案。 */
@@ -53,6 +70,8 @@ export interface ReportDesignerTranslations {
   readonly propertiesHelp: string
   /** 问题卡片的帮助。 */
   readonly issuesHelp: string
+  /** 历史记录卡片的帮助。 */
+  readonly historyHelp: string
   /** 顶栏那一条插入钮的名字。 */
   readonly insertToolbar: string
   /** 顶栏插入钮的名字与提示，label 是物料名。 */
@@ -99,6 +118,8 @@ export interface ReportDesignerTranslations {
   readonly removeTitle: (name: string) => string
   readonly removeCascade: (cascade: ReportDesignerCascade) => string
   readonly removeConfirm: string
+  /** 撤销栈里一步的说明：动作加对象名，如「删除卡片「销售额」」「删除 3 个卡片」。 */
+  readonly historyStep: (step: ReportHistoryStepText) => string
 }
 
 const LIST_LABELS = {
@@ -130,6 +151,7 @@ const CARD_TYPES = {
 const OBJECT_KINDS = {
   document: 'Report',
   dashboard: 'Dashboard',
+  dataset: 'Dataset',
   card: 'Card',
   chart: 'Chart',
   metric: 'Metric',
@@ -544,6 +566,27 @@ const ISSUE_TEXTS: ReportDesignerLocale['issueTexts'] = {
   'parameter-option-mismatch': () => 'The value is not one of the options',
 }
 
+function historyStepText(step: ReportHistoryStepText): string {
+  const kind = step.kind.toLocaleLowerCase('en')
+  const target = step.count > 1 ? `${step.count} ${kind} items` : step.name === undefined ? kind : `${kind} "${step.name}"`
+  switch (step.action) {
+    case 'add':
+      return `Add ${target}`
+    case 'remove':
+      return step.cascade ? `Delete ${target} and ${step.cascade} ${step.cascade === 1 ? 'reference' : 'references'}` : `Delete ${target}`
+    case 'move':
+      return `Move ${target}`
+    case 'rename':
+      return `Rename ${kind} "${step.name}" to "${step.to}"`
+    case 'layout':
+      return `Rearrange ${target}`
+    case 'replace':
+      return `Replace ${target}`
+    case 'update':
+      return step.property === undefined ? `Edit ${target}` : `Edit ${step.property.toLocaleLowerCase('en')} of ${target}`
+  }
+}
+
 /** 设计器的英文文案，各语言包按它对键。 */
 export const REPORT_DESIGNER_EN_US: ReportDesignerLocale = {
   label: 'Report designer',
@@ -561,6 +604,7 @@ export const REPORT_DESIGNER_EN_US: ReportDesignerLocale = {
   wellsHelp: 'Dimensions, measures, series and columns of the selected card. Drag fields in, drag to reorder, and use the cross to remove.',
   propertiesHelp: 'Properties of the selected object. With several cards selected, only the properties they share are listed.',
   issuesHelp: 'Validation problems in the report. Select one to select the object it is about.',
+  historyHelp: 'Every change since the report was opened, oldest first. Select a step to go back to it; the steps after it stay until you make a new change.',
   insertToolbar: 'Insert cards',
   insertCard: label => `Add ${label}`,
   statusDocument: (datasets, cards) => `${datasets} ${datasets === 1 ? 'dataset' : 'datasets'}${cards === undefined ? '' : ` · ${cards} ${cards === 1 ? 'card' : 'cards'}`}`,
@@ -586,6 +630,7 @@ export const REPORT_DESIGNER_EN_US: ReportDesignerLocale = {
   removeTitle: name => `Delete "${name}"`,
   removeCascade: cascadeText,
   removeConfirm: 'Delete',
+  historyStep: historyStepText,
   issueTexts: ISSUE_TEXTS,
   unknownIssue: code => `Problem: ${code}`,
 }

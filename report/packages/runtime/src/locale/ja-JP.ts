@@ -178,6 +178,7 @@ const designer: ReportDesignerLocale = {
   wellsHelp: '選択したカードのディメンション、メジャー、系列、列です。フィールドをドラッグして追加し、ドラッグで並べ替え、×で削除します。',
   propertiesHelp: '選択したオブジェクトのプロパティです。複数のカードを選択すると、共通のプロパティだけが表示されます。',
   issuesHelp: 'レポートの検証で見つかった問題です。クリックすると問題のあるオブジェクトが選択されます。',
+  historyHelp: 'レポートを開いてからの変更を古い順に並べています。ステップを選ぶとその時点に戻ります。新しい変更をするまでは、その後のステップも残ります。',
   insertToolbar: 'カードを挿入',
   insertCard: label => `「${label}」を追加`,
   statusDocument: (datasets, cards) => `データセット ${datasets} 件${cards === undefined ? '' : ` · カード ${cards} 枚`}`,
@@ -255,6 +256,7 @@ const designer: ReportDesignerLocale = {
   objectKinds: {
     document: 'レポート',
     dashboard: 'ダッシュボード',
+    dataset: 'データセット',
     card: 'カード',
     chart: 'グラフ',
     metric: '指標',
@@ -427,6 +429,25 @@ const designer: ReportDesignerLocale = {
     return `あわせて${parts.filter(([count]) => count > 0).map(([count, unit]) => `${unit} ${count} 件`).join('、')}も削除されます。元に戻すことができます。`
   },
   removeConfirm: '削除',
+  historyStep: (step) => {
+    const target = step.count > 1 ? `${step.kind} ${step.count} 件` : step.name === undefined ? step.kind : `${step.kind}「${step.name}」`
+    switch (step.action) {
+      case 'add':
+        return `${target}を追加`
+      case 'remove':
+        return step.cascade ? `${target}と参照 ${step.cascade} 件を削除` : `${target}を削除`
+      case 'move':
+        return `${target}を移動`
+      case 'rename':
+        return `${step.kind}「${step.name}」の名前を「${step.to}」に変更`
+      case 'layout':
+        return `${target}の配置を変更`
+      case 'replace':
+        return `${target}を置き換え`
+      case 'update':
+        return step.property === undefined ? `${target}を編集` : `${target}の${step.property}を編集`
+    }
+  },
   unknownIssue: code => `問題：${code}`,
 }
 

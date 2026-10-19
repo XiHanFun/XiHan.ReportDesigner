@@ -392,6 +392,9 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | `designer` | `XhReportDesigner` | 所在的设计器元素。 |
 | `translations` | `ReportDesignerTranslations` | 此刻生效的设计器文案。 |
 | `commands` | `DesignerCommandsTranslations` | 四款设计器共用的命令文案，取 designer-shell 语言包的 xh-designer-commands。 |
+| `historyTranslations` | `DesignerHistoryTranslations` | 历史记录的文案，取 designer-shell 语言包的 xh-designer-history；撤销、重做与清空历史的确认框与播报用。 |
+| `history` | `DesignerHistoryCommandTarget \| undefined` | 撤销历史；还没有报表时为 undefined。内置的撤销、重做与清空历史命令经它读写。 |
+| `dialogs` | `Pick<DialogService, 'confirm'>` | 确认框；内置的清空历史命令清空前用它。 |
 | `settings` | `DesignerSettings` | 此刻生效的设置：键是「分区 id.条目 id」，各分区没写的条目取了缺省值。 |
 | `frame` | `XhDesignerFrameElement \| undefined` | 设计器的外框；还没建出来时为 undefined。内置的「面板」命令经它开关面板。 |
 
