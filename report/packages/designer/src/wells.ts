@@ -33,13 +33,13 @@ export interface WellsOwner {
 }
 
 /** 列表里的一项。 */
-interface WellItem {
+export interface WellItem {
   readonly id: string
   readonly label: string
 }
 
 /** 一个列表：名字、文案键与项。 */
-interface WellList {
+export interface WellList {
   readonly list: ItemList
   readonly label: string
   readonly items: readonly WellItem[]
@@ -82,20 +82,19 @@ function linkSources(card: DashboardCard | undefined): readonly WellItem[] {
   return linkableDimensions(card).map(item => ({ id: item.id, label: item.title ?? item.field ?? item.id }))
 }
 
-/** 字段栏的编辑对象：主体不是看板时是主体的视图；是看板时是唯一选中的那张卡片，否则没有。 */
-export function wellsOwner(document: ReportDocument, selection: ReportSelection): WellsOwner | undefined {
+/** 报表主体不是看板时，主体的视图或查询；是看板或没有可编辑的列表时为 undefined。 */
+export function bodyOwner(document: ReportDocument): WellsOwner | undefined {
   const body = document.body
-  if (body.type !== 'dashboard') {
-    if (isDataView(body))
-      return { dataset: body.dataset, view: body }
-    const query = bodyQuery(body)
-    return query ? { dataset: query.dataset, query: query.query } : undefined
-  }
-  if (selection.cards.length !== 1)
+  if (body.type === 'dashboard')
     return undefined
-  const card = body.cards.find(item => item.id === selection.cards[0])
-  if (!card)
-    return undefined
+  if (isDataView(body))
+    return { dataset: body.dataset, view: body }
+  const query = bodyQuery(body)
+  return query ? { dataset: query.dataset, query: query.query } : undefined
+}
+
+/** 一张卡片的视图或查询；没有取数的卡片为 undefined。 */
+export function cardOwner(card: DashboardCard): WellsOwner | undefined {
   const view = cardView(card)
   if (view)
     return { card: card.id, dataset: view.dataset, view }
@@ -107,7 +106,19 @@ export function wellsOwner(document: ReportDocument, selection: ReportSelection)
     : { card: card.id, dataset: query.dataset, query: query.query }
 }
 
-function wellLists(document: ReportDocument, owner: WellsOwner, t: ReportDesignerTranslations): WellList[] {
+/** 字段栏的编辑对象：主体不是看板时是主体的视图；是看板时是唯一选中的那张卡片，否则没有。 */
+export function wellsOwner(document: ReportDocument, selection: ReportSelection): WellsOwner | undefined {
+  const body = document.body
+  if (body.type !== 'dashboard')
+    return bodyOwner(document)
+  if (selection.cards.length !== 1)
+    return undefined
+  const card = body.cards.find(item => item.id === selection.cards[0])
+  return card && cardOwner(card)
+}
+
+/** 编辑对象的各个列表与项：视图是列、分组或行列度量，查询是维度、度量，直角坐标图另有系列。 */
+export function ownerLists(document: ReportDocument, owner: WellsOwner, t: ReportDesignerTranslations): WellList[] {
   const fields = new Map(document.datasets.find(dataset => dataset.id === owner.dataset)?.fields.map(field => [field.name, field.title ?? field.name]) ?? [])
   const named = (item: { readonly id: string, readonly title?: string, readonly field?: string }): WellItem => ({
     id: item.id,
@@ -178,7 +189,7 @@ export class Wells {
     this.#owner = owner
     setText(this.#hint, t.wellsEmpty)
     this.#hint.hidden = owner !== undefined
-    const lists = owner ? wellLists(document, owner, t) : []
+    const lists = owner ? ownerLists(document, owner, t) : []
     const ownerKey = JSON.stringify([owner?.card, owner?.view?.type, lists.map(list => list.list)])
     if (ownerKey !== this.#ownerKey) {
       this.#ownerKey = ownerKey

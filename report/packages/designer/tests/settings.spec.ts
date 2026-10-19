@@ -140,7 +140,7 @@ describe('设置', () => {
     designer.openSettings('layout')
     await settle(designer)
     const rows = Array.from(document.querySelectorAll('[data-part="panel-row"][data-panel]'), node => node.getAttribute('data-panel'))
-    expect([...rows].sort()).toEqual(['datasets', 'history', 'issues', 'palette', 'parameters', 'properties', 'wells'])
+    expect([...rows].sort()).toEqual(['datasets', 'history', 'issues', 'outline', 'palette', 'parameters', 'properties', 'wells'])
     const changes: { key: string, value: { hidden: string[] } }[] = []
     designer.addEventListener('settings-change', event => changes.push((event as CustomEvent).detail))
     document.querySelector('[data-part="panel-row"][data-panel="wells"] [data-part="panel-visible"]')!.dispatchEvent(new CustomEvent('checked-change', { detail: { checked: false }, bubbles: true }))
