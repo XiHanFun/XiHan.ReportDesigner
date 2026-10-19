@@ -178,7 +178,6 @@ const designer: ReportDesignerLocale = {
   wellsHelp: 'Dimensões, medidas, séries e colunas do cartão selecionado. Arraste campos para cá, arraste para reordenar e remova com o x.',
   propertiesHelp: 'Propriedades do objeto selecionado. Com vários cartões selecionados, só aparecem as propriedades em comum.',
   issuesHelp: 'Problemas de validação do relatório. Selecione um para selecionar o objeto envolvido.',
-  historyHelp: 'Todas as alterações desde que o relatório foi aberto, da mais antiga para a mais recente. Selecione uma etapa para voltar a ela; as etapas seguintes continuam disponíveis até você fazer uma nova alteração.',
   insertToolbar: 'Inserir cartões',
   selectionToolbar: 'Cartões selecionados',
   insertCard: label => `Adicionar ${label}`,

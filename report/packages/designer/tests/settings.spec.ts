@@ -83,12 +83,12 @@ function pages(): string[] {
 }
 
 describe('设置', () => {
-  it('openSettings 打开设置对话框：报表没有自己那一页，基础分区里有主题与状态栏，后面是外框的布局一页', async () => {
+  it('openSettings 打开设置对话框：报表没有自己那一页，基础分区里有主题与状态栏，后面是外框的布局与工具栏两页', async () => {
     const designer = await mount()
     expect(designer.querySelector('xh-designer-settings')!.parentElement).toBe(designer)
     designer.openSettings()
     await settle(designer)
-    expect(pages()).toEqual(['general', 'layout'])
+    expect(pages()).toEqual(['general', 'layout', 'toolbar'])
     expect([row(DESIGNER_SETTING_KEYS.theme) !== null, row(DESIGNER_SETTING_KEYS.statusBar) !== null]).toEqual([true, true])
   })
 
@@ -96,7 +96,7 @@ describe('设置', () => {
     const designer = await mount(element => (element.extensions = [{ id: 'acme', settings: [acme] }]))
     designer.openSettings('acme')
     await settle(designer)
-    expect(pages()).toEqual(['general', 'layout', 'acme'])
+    expect(pages()).toEqual(['general', 'layout', 'toolbar', 'acme'])
     expect(row('acme.token')!.querySelector('xh-password-input')).not.toBeNull()
     const before = designer.extensions
     expect(() => (designer.extensions = [{ id: 'acme', settings: [{ ...acme, id: 'general' }] }])).toThrow(DesignerExtensionError)
@@ -111,7 +111,7 @@ describe('设置', () => {
     })
     designer.openSettings()
     await settle(designer)
-    expect(pages()).toEqual(['layout', 'acme'])
+    expect(pages()).toEqual(['layout', 'toolbar', 'acme'])
     expect(row('acme.token')!.querySelector('xh-field')!.hasAttribute('read-only')).toBe(true)
   })
 

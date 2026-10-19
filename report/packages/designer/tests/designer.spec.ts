@@ -12,7 +12,7 @@ import type { XhReportDesigner } from '../src'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS } from '@xihan-report/runtime'
 import { reportZhCN } from '@xihan-report/runtime/locale'
 import { formatJsonPath } from '@xihan-ui/core/json'
-import { DESIGNER_SETTING_KEYS, startDrag } from '@xihan-ui/designer-shell'
+import { DESIGNER_HISTORY_EN_US, DESIGNER_SETTING_KEYS, startDrag } from '@xihan-ui/designer-shell'
 import { setXhConfig } from '@xihan-ui/web-components'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineReportDesigner, REPORT_DESIGNER_HELP_URL, REPORT_DESIGNER_PANELS } from '../src'
@@ -923,7 +923,7 @@ describe('<xh-report-designer>：编辑', () => {
     const frame = designer.querySelector('xh-designer-frame')!
     expect([frame.showsPanel('history'), designer.querySelector('xh-designer-history')]).toEqual([false, null])
     expect(frame.resolvedLayout.docks.end).toEqual(['wells', 'properties', 'history'])
-    expect(frame.regions!.find(region => region.name === 'history')).toMatchObject({ title: 'History', icon: expect.anything(), help: DEFAULT_REPORT_DESIGNER_TRANSLATIONS.historyHelp })
+    expect(frame.regions!.find(region => region.name === 'history')).toMatchObject({ title: 'History', icon: expect.anything(), help: DESIGNER_HISTORY_EN_US.help })
     frame.togglePanel('history')
     await designer.updateComplete
     const history = designer.querySelector('xh-designer-history')!

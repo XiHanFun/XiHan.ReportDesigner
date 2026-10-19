@@ -252,7 +252,6 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `wellsHelp` | `string` | 字段栏卡片的帮助。 | 选中卡片的维度、度量、系列与列。把字段拖进来，拖动换序，点叉移除。 |
 | `propertiesHelp` | `string` | 属性卡片的帮助。 | 选中对象的属性。选中多张卡片时只列它们共有的属性。 |
 | `issuesHelp` | `string` | 问题卡片的帮助。 | 报表的校验问题。点一条选中出问题的对象。 |
-| `historyHelp` | `string` | 历史记录卡片的帮助。 | 打开报表以来的每一步修改，先做的在上。点一步回到那里；它后面的几步在做出新的修改之前都还在。 |
 | `insertToolbar` | `string` | 顶栏那一条插入钮的名字。 | 插入卡片 |
 | `selectionToolbar` | `string` | 选中卡片时浮在选中框上方那一条工具条的名字。 | 选中的卡片 |
 | `insertCard` | `(label: string): string` | 顶栏插入钮的名字与提示，label 是物料名。 | （按参数生成） |
@@ -304,7 +303,7 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
 | `createReportDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。 |
-| `REPORT_DESIGNER_EXTENSION` | 常量 | 设计器的内置扩展：内置命令与物料。 |
+| `REPORT_DESIGNER_EXTENSION` | 常量 | 设计器的内置扩展：内置命令、物料与历史记录面板。 |
 | `REPORT_DESIGNER_HELP_URL` | 常量 | 内置命令 help 打开的帮助页：报表文档站的设计器一页。 |
 | `REPORT_DESIGNER_PANELS` | 常量 | 设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.&lt;面板 id&gt;）与 commandLayout（panel:&lt;面板 id&gt;）时用。 |
 | `REPORT_MENU_LAYOUT` | 常量 | 右键菜单的缺省排列。 |
