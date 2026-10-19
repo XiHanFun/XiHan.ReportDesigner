@@ -23,7 +23,7 @@
 | `timeZone` | `time-zone` | `string \| undefined` | IANA 时区；缺省取运行环境所在的时区。 |
 | `readonly` | `readonly` | `boolean \| undefined` | 只读：可选择、浏览与预览，不能修改；缺省可修改。attribute 写 "false" 是可修改，其余写法是只读。 |
 | `mode` | `mode` | `ReportDesignerMode \| undefined` | design 或 preview，缺省 design。 |
-| `autoTour` | `auto-tour` | `boolean \| undefined` | 第一次铺好画布后自动开始新手引导，缺省开；设置里记过 help.tourDone（走完、跳过或关上过一次）时不再自动开始。写 false 关掉，start-tour 命令、帮助页的「开始引导」与 startTour() 照样能开始。同名 attribute auto-tour，写 "false" 是关。 |
+| `autoTour` | `auto-tour` | `boolean \| undefined` | 第一次铺好画布、设计器显示出来（画布有宽度）后自动开始新手引导，缺省开；设置里记过 help.tourDone（走完、跳过或关上过一次）时不再自动开始。写 false 关掉，start-tour 命令、帮助页的「开始引导」与 startTour() 照样能开始。同名 attribute auto-tour，写 "false" 是关。 |
 | `defaultLayout` | — | `DesignerLayout \| undefined` | 面板布局的缺省：设置里还没有 layout.panels 时用它，「恢复默认布局」也回到它；不给时各面板停在登记的位置，全部显示。面板 id 见 REPORT_DESIGNER_PANELS，另有扩展登记的面板。用户挪了面板、改了显隐或大小，整份布局写进设置的 layout.panels（DESIGNER_SETTING_KEYS.layout）并派发 settings-change。 |
 | `datasetEditing` | `dataset-editing` | `ReportDatasetEditing \| undefined` | 缺省 fields。 |
 | `settings` | — | `DesignerSettings \| undefined` | 设置的值：扁平的键值，键是「分区 id.条目 id」，如 general.theme；没写的键取条目的缺省值。赋值即生效；用户在设置对话框里改了以后设计器换成新的一份并派发 settings-change。 |
