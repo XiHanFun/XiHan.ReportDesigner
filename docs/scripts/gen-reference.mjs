@@ -1072,11 +1072,13 @@ function extensionsPage() {
     packageInterfaceSection([['@xihan-report/designer', 'ReportDesignerCommand']], 'ReportDesignerCommand', `设计器的命令：${code('@xihan-ui/designer-kit')} 的 ${code('DesignerCommand')}，上下文是 ${code('ReportDesignerContext')}。`),
     interfaceSection(designerExtensions, 'ReportDesignerContext'),
     typeSection(designerExtensions, 'ReportMenuSubject'),
+    typeSection(designerExtensions, 'ReportSelectionSubject'),
     interfaceSection(designerExtensions, 'ReportPaletteGroup'),
     interfaceSection(designerExtensions, 'ReportPaletteItem'),
     typeSection(designerExtensions, 'ReportCardTemplate'),
     constantSection(designerExtensions, 'REPORT_TOOLBAR_LAYOUT'),
     constantSection(designerExtensions, 'REPORT_MENU_LAYOUT'),
+    constantSection(designerExtensions, 'REPORT_SELECTION_LAYOUT'),
     interfaceSection(designerExtensions, 'ReportDesignerModel'),
   ])
 }

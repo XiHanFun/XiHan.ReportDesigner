@@ -74,6 +74,8 @@ export interface ReportDesignerTranslations {
   readonly historyHelp: string
   /** 顶栏那一条插入钮的名字。 */
   readonly insertToolbar: string
+  /** 选中卡片时浮在选中框上方那一条工具条的名字。 */
+  readonly selectionToolbar: string
   /** 顶栏插入钮的名字与提示，label 是物料名。 */
   readonly insertCard: (label: string) => string
   /** 状态栏左段没选中时：数据集数，主体是看板时再写卡片数（不是看板时 cards 为 undefined）。 */
@@ -606,6 +608,7 @@ export const REPORT_DESIGNER_EN_US: ReportDesignerLocale = {
   issuesHelp: 'Validation problems in the report. Select one to select the object it is about.',
   historyHelp: 'Every change since the report was opened, oldest first. Select a step to go back to it; the steps after it stay until you make a new change.',
   insertToolbar: 'Insert cards',
+  selectionToolbar: 'Selected cards',
   insertCard: label => `Add ${label}`,
   statusDocument: (datasets, cards) => `${datasets} ${datasets === 1 ? 'dataset' : 'datasets'}${cards === undefined ? '' : ` · ${cards} ${cards === 1 ? 'card' : 'cards'}`}`,
   statusCell: (column, row, width, height) => `Column ${column}, row ${row} · ${width} × ${height}`,

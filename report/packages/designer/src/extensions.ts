@@ -206,6 +206,15 @@ export const REPORT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['panels', 'settings', 'help'],
 ]
 
+/** 选中工具条落在哪类选中上：看板上的一张卡片，或几张卡片。 */
+export type ReportSelectionSubject = 'card' | 'multiple'
+
+/** 选中工具条（命令落点 selection:<主体>）的缺省排列：创建副本、复制与删除。 */
+export const REPORT_SELECTION_LAYOUT: Readonly<Record<ReportSelectionSubject, readonly (readonly string[])[]>> = {
+  card: [['duplicate', 'copy', 'delete']],
+  multiple: [['duplicate', 'copy', 'delete']],
+}
+
 /** 右键菜单落在哪类对象上。 */
 export type ReportMenuSubject = 'card' | 'blank'
 

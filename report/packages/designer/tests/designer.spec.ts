@@ -1038,6 +1038,54 @@ describe('<xh-report-designer>：编辑', () => {
     expect(clear().disabled).toBe(true)
   })
 
+  it('选中卡片时选中框上方浮出选中工具条：排列取命令落点 selection:card / selection:multiple，宿主经 commandLayout 改、写空就不放，扩展命令写上落点追加成一组；只读与预览态不放', async () => {
+    const designer = await mount()
+    const overlay = designer.querySelector('xh-designer-transform')!
+    const bar = (): HTMLElement | null => overlay.querySelector<HTMLElement>(`[aria-label="${DEFAULT_REPORT_DESIGNER_TRANSLATIONS.selectionToolbar}"]`)
+    const values = (): string[] => [...bar()!.querySelectorAll<HTMLButtonElement>('button[value]')].map(button => button.value)
+    expect(bar()).toBeNull()
+    designer.select({ cards: ['a'] })
+    await designer.updateComplete
+    expect(values()).toEqual(['duplicate', 'copy', 'delete'])
+    expect(bar()!.closest('[data-part="toolbar"]')!.parentElement).toBe(overlay)
+    designer.select({ cards: ['a', 'b'] })
+    designer.commandLayout = { 'selection:multiple': [['delete']] }
+    await designer.updateComplete
+    expect(values()).toEqual(['delete'])
+    bar()!.querySelector<HTMLButtonElement>('button[value="delete"]')!.click()
+    expect(cards(designer).map(item => item.id)).toEqual(['pie'])
+    designer.undo()
+    designer.extensions = [{ id: 'acme', commands: [{ id: 'acme.pin', label: 'Pin', placement: ['selection:card'], run: () => {} }] }]
+    designer.commandLayout = { 'selection:multiple': [] }
+    designer.select({ cards: ['a', 'b'] })
+    await designer.updateComplete
+    expect(bar()).toBeNull()
+    designer.select({ cards: ['a'] })
+    await designer.updateComplete
+    expect(values()).toEqual(['duplicate', 'copy', 'delete', 'acme.pin'])
+    designer.readonly = true
+    await designer.updateComplete
+    expect(bar()).toBeNull()
+    designer.readonly = false
+    designer.mode = 'preview'
+    await designer.updateComplete
+    expect(bar()).toBeNull()
+  })
+
+  it('按 Alt+F10 把焦点交给选中工具条，在工具条里按 Esc 回到画布', async () => {
+    const designer = await mount()
+    placeGrid(designer)
+    designer.select({ cards: ['a'] })
+    await designer.updateComplete
+    const canvas = designer.querySelector<HTMLElement>('[data-part="canvas"]')!
+    canvas.focus()
+    key(designer, 'F10', { altKey: true })
+    const toolbar = designer.querySelector('xh-designer-transform [data-part="toolbar"]')!
+    expect(toolbar.contains(document.activeElement)).toBe(true)
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    expect(document.activeElement).toBe(canvas)
+  })
+
   it('工具栏的容器部件叫 command-bar：设计器自己不再有 toolbar 部件，变换覆盖层的上下文工具条不会被它的样式连带命中', async () => {
     const designer = await mount()
     expect(designer.querySelector('[data-region="toolbar"] > [data-part="command-bar"]')).not.toBeNull()

@@ -17,7 +17,7 @@
 | `expressionEngine` | — | `ExpressionEngine \| undefined` | 表达式引擎：计算字段与公式度量要用，校验公式也用它。 |
 | `formatter` | — | `ReportFormatter \| undefined` | 值的显示文字；缺省按格式说明调 formatValue。 |
 | `parameters` | — | `ParameterValues \| undefined` | 预览与画布取数用的报表参数取值。 |
-| `commandLayout` | — | `DesignerCommandLayout \| undefined` | 工具栏与右键菜单（menu:card、menu:blank）的命令排列；写了某个位置就只显示列出的命令。 |
+| `commandLayout` | — | `DesignerCommandLayout \| undefined` | 工具栏、顶栏（header）、右键菜单（menu:card、menu:blank）与选中工具条（selection:card、selection:multiple）的命令排列；写了某个位置就只显示列出的命令。 |
 | `translations` | — | `Partial<ReportDesignerTranslations> \| undefined` | 元素自己的文案，压在全局配置之上。 |
 | `locale` | `locale` | `string \| undefined` | BCP 47 语言标记；缺省取全局配置。 |
 | `timeZone` | `time-zone` | `string \| undefined` | IANA 时区；缺省取运行环境所在的时区。 |
@@ -254,6 +254,7 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `issuesHelp` | `string` | 问题卡片的帮助。 | 报表的校验问题。点一条选中出问题的对象。 |
 | `historyHelp` | `string` | 历史记录卡片的帮助。 | 打开报表以来的每一步修改，先做的在上。点一步回到那里；它后面的几步在做出新的修改之前都还在。 |
 | `insertToolbar` | `string` | 顶栏那一条插入钮的名字。 | 插入卡片 |
+| `selectionToolbar` | `string` | 选中卡片时浮在选中框上方那一条工具条的名字。 | 选中的卡片 |
 | `insertCard` | `(label: string): string` | 顶栏插入钮的名字与提示，label 是物料名。 | （按参数生成） |
 | `statusDocument` | `(datasets: number, cards: number \| undefined): string` | 状态栏左段没选中时：数据集数，主体是看板时再写卡片数（不是看板时 cards 为 undefined）。 | （按参数生成） |
 | `statusCell` | `(column: number, row: number, width: number, height: number): string` | 状态栏左段选中一张卡片时：它左上角所在的列与行（从 1 数起）和占的格数。 | （按参数生成） |
@@ -307,6 +308,7 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `REPORT_DESIGNER_HELP_URL` | 常量 | 内置命令 help 打开的帮助页：报表文档站的设计器一页。 |
 | `REPORT_DESIGNER_PANELS` | 常量 | 设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.&lt;面板 id&gt;）与 commandLayout（panel:&lt;面板 id&gt;）时用。 |
 | `REPORT_MENU_LAYOUT` | 常量 | 右键菜单的缺省排列。 |
+| `REPORT_SELECTION_LAYOUT` | 常量 | 选中工具条（命令落点 selection:&lt;主体&gt;）的缺省排列：创建副本、复制与删除。 |
 | `REPORT_TOOLBAR_LAYOUT` | 常量 | 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。 |
 | `ReportCardTemplate` | 类型 | 新卡片的模板：不写 id，新建时按种类分配；layout 只需写大小。 |
 | `ReportDesignerCommand` | 类型 | 设计器的命令。 |
@@ -317,6 +319,7 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `ReportPaletteGroup` | 接口 | 物料面板的一组。 |
 | `ReportPaletteItem` | 接口 | 物料面板里的一项：拖到看板上或激活时按模板新建卡片。 |
 | `ReportPropertyEditor` | 类型 | 属性编辑器。 |
+| `ReportSelectionSubject` | 类型 | 选中工具条落在哪类选中上：看板上的一张卡片，或几张卡片。 |
 
 ### report-designer
 
