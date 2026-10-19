@@ -352,6 +352,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | `properties?` | `Readonly<Partial<Record<ReportPropertyTarget, readonly ReportPropertyDescriptor[]>>>` | 追加在内置之后的属性，path 相对那类对象本身。 |
 | `rules?` | `readonly SchemaRule<ReportDocument, ReportRuleContext>[]` | 校验规则，问题与内置校验的一起进问题列表；问题码以 id 的末段加点开头。 |
 | `settings?` | `readonly DesignerSettingsSection[]` | 设置分区：放进设置对话框，分区 id 不能与内置的 general 或别的扩展的重名，见 collectSettingsSections。 |
+| `tourSteps?` | `readonly DesignerTourStep<ReportDesignerContext>[]` | 新手引导的步骤：与 designer-shell 的通用步骤、各款的步骤一起按 order 排；id 不能重名，见 collectTourSteps。 |
 | `viewRenderers?` | `Readonly<Record<string, ReportViewRenderer>>` | 作主体的扩展视图的渲染，键是视图种类名。 |
 | `views?` | `Readonly<Record<string, ReportViewKind<never, unknown>>>` | 主体视图种类：键是种类名，规则同卡片。 |
 

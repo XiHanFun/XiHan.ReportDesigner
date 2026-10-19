@@ -30,6 +30,7 @@ import { getLocalTimeZone } from '@xihan-ui/core/date'
 import { detectKbdPlatform } from '@xihan-ui/core/hotkey'
 import { clampZoom, commandForShortcut, createExtensionHost, createIdAllocator, DEFAULT_ZOOM_LIMITS, selectInMarquee, snapshotHistory, wheelZoomFactor, zoomBy, zoomTo } from '@xihan-ui/designer-kit'
 import {
+  applyToolbarCustomization,
   arrangeCommands,
   createCommandToolbar,
   createDesignerSettingsHost,
@@ -45,7 +46,10 @@ import {
   renderCommandMenu,
   resolveSettings,
   runCommand,
+  toolbarCustomizationOf,
   toolbarDisplayOf,
+  toolbarSettingsSource,
+  toolbarVisibleOf,
   XhDesignerFrameElement,
   XhDesignerIssuesElement,
   XhDesignerPaletteElement,
@@ -322,6 +326,8 @@ export class XhReportDesigner extends XhReactiveElement {
   #regionsModel: ReportDesignerModel | undefined
   #regionList: readonly DesignerFrameRegion[] = FRAME_REGIONS
   #layoutPolicyKey = ''
+  /** 上次交给设置对话框「工具栏」页的按钮表数据（JSON）：内容没变不重设，免得按钮表重铺。 */
+  #toolbarSourceKey = ''
   #layoutPolicy: DesignerLayoutPolicy | undefined
   #settingsHost: DesignerSettingsHost | undefined
   #settingsHostOptions: readonly unknown[] = []
@@ -1062,8 +1068,13 @@ export class XhReportDesigner extends XhReactiveElement {
     return this.#resolvedSettings[DESIGNER_SETTING_KEYS.statusBar] !== false
   }
 
-  /** 这个区此刻登记不登记：预览态只登记顶栏、工具栏与画布；没有报表参数又不能新增时不登记那块卡片，设置里关了状态栏时不登记状态栏。 */
+  /**
+   * 这个区此刻登记不登记：预览态只登记顶栏、工具栏与画布；没有报表参数又不能新增时不登记那块卡片，
+   * 设置里关了状态栏或工具栏时不登记它们（命令照样能经快捷键与右键菜单执行）。
+   */
   #registers(name: string): boolean {
+    if (name === 'toolbar' && !toolbarVisibleOf(this.settings))
+      return false
     if (this.#mode() === 'preview')
       return name === 'header' || name === 'toolbar' || name === 'canvas'
     if (name === 'parameters')
@@ -1593,8 +1604,16 @@ export class XhReportDesigner extends XhReactiveElement {
       layers.properties.update(shown)
       layers.issues.update(editor.document, this.#issues, shown)
       const { commands } = this.#model
+      // 工具栏先按 commandLayout 或缺省排列排出分组，再套用户在设置「工具栏」页的定制；同一份排列交给设置对话框列按钮表
+      const arranged = arrangeCommands('toolbar', commands, REPORT_TOOLBAR_LAYOUT, this.commandLayout)
       layers.commandBar.setDisplay(toolbarDisplayOf(this.#resolvedSettings))
-      layers.commandBar.update(arrangeCommands('toolbar', commands, REPORT_TOOLBAR_LAYOUT, this.commandLayout), commands, context, context.commands.toolbar)
+      layers.commandBar.update(applyToolbarCustomization(arranged, toolbarCustomizationOf(this.settings)), commands, context, context.commands.toolbar)
+      const source = toolbarSettingsSource(arranged, commands, context)
+      const sourceKey = JSON.stringify(source)
+      if (sourceKey !== this.#toolbarSourceKey) {
+        this.#toolbarSourceKey = sourceKey
+        layers.settings.toolbar = source
+      }
       // 顶栏：有 header 命令才放进外框，没有时拿出来，顶栏随之收起
       const header = arrangeCommands('header', commands, [], this.commandLayout)
       if (header.length > 0) {
