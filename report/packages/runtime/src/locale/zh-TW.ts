@@ -180,6 +180,7 @@ const designer: ReportDesignerLocale = {
   issuesHelp: '報表的驗證問題。點一條選取出問題的物件。',
   historyHelp: '開啟報表以來的每一步修改，先做的在上。點一步回到那裡；它後面的幾步在做出新的修改之前都還在。',
   insertToolbar: '插入卡片',
+  selectionToolbar: '選取的卡片',
   insertCard: label => `新增「${label}」`,
   statusDocument: (datasets, cards) => `${datasets} 個資料集${cards === undefined ? '' : ` · ${cards} 張卡片`}`,
   statusCell: (column, row, width, height) => `第 ${column} 欄第 ${row} 列 · ${width} × ${height} 格`,

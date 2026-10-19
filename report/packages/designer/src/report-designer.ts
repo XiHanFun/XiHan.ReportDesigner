@@ -21,7 +21,7 @@ import type { DialogService } from '@xihan-ui/web-components/services'
 import type { DataRemoval } from './data-editing'
 import type { DataAddKind } from './data-panel'
 import type { LayoutGesture, ReportAddCardInit, ReportClipboard, ReportDataRef, ReportEditor, ReportItemRef, ReportSelection } from './editor'
-import type { ReportCardTemplate, ReportDesignerContext, ReportDesignerExtension, ReportDesignerModel, ReportMenuSubject } from './extensions'
+import type { ReportCardTemplate, ReportDesignerContext, ReportDesignerExtension, ReportDesignerModel, ReportMenuSubject, ReportSelectionSubject } from './extensions'
 import type { GridMetrics } from './grid-geometry'
 import { cardTypeOf, describeReportStep, planAddCard, planAddFieldItem, resolveParameters } from '@xihan-report/core'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS, DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter, defineReportViewer } from '@xihan-report/runtime'
@@ -65,7 +65,7 @@ import { readReportClipboardData, writeReportClipboardData } from './clipboard'
 import { canEditData, cascadeCount, planDataAddition, planDataRemoval } from './data-editing'
 import { dataFieldPayload, DataPanel } from './data-panel'
 import { createReportEditor, writeReportClipboard } from './editor'
-import { createReportDesignerModel, REPORT_DESIGNER_EXTENSION, REPORT_MENU_LAYOUT, REPORT_TOOLBAR_LAYOUT } from './extensions'
+import { createReportDesignerModel, REPORT_DESIGNER_EXTENSION, REPORT_MENU_LAYOUT, REPORT_SELECTION_LAYOUT, REPORT_TOOLBAR_LAYOUT } from './extensions'
 import { cellSize, cellToRect, centeredCell, clipCell, measureGrid, rectToCell } from './grid-geometry'
 import { IssuesPanel } from './issues-panel'
 import { PropertiesPanel } from './properties-panel'
@@ -145,6 +145,8 @@ interface Layers {
   readonly frame: XhDesignerFrameElement
   readonly toolbar: HTMLElement
   readonly commandBar: CommandToolbar<ReportDesignerContext>
+  /** 选中卡片时浮在选中框上方的选中工具条；排列为空时不放进覆盖层。 */
+  readonly selectionBar: CommandToolbar<ReportDesignerContext>
   /** 顶栏中段的插入钮：图标在上、短文字在下；没有 header 命令时不放进外框。 */
   readonly headerBar: CommandToolbar<ReportDesignerContext>
   /** 扩展登记的面板。 */
@@ -255,7 +257,7 @@ export class XhReportDesigner extends XhReactiveElement {
   declare formatter: ReportFormatter | undefined
   /** 预览与画布取数用的报表参数取值。 */
   declare parameters: ParameterValues | undefined
-  /** 工具栏与右键菜单（menu:card、menu:blank）的命令排列；写了某个位置就只显示列出的命令。 */
+  /** 工具栏、顶栏（header）、右键菜单（menu:card、menu:blank）与选中工具条（selection:card、selection:multiple）的命令排列；写了某个位置就只显示列出的命令。 */
   declare commandLayout: DesignerCommandLayout | undefined
   /** 元素自己的文案，压在全局配置之上。 */
   declare translations: Partial<ReportDesignerTranslations> | undefined
@@ -781,6 +783,31 @@ export class XhReportDesigner extends XhReactiveElement {
     emitEvent(this, 'history-change', snapshotHistory(history))
   }
 
+  /** 选中工具条的主体：看板上选中一张卡片为 card，几张为 multiple；只读、预览态或没有选中卡片时为 undefined。 */
+  #selectionSubject(): ReportSelectionSubject | undefined {
+    const count = this.#editor?.selection.cards.length ?? 0
+    if (this.readonly || this.#mode() === 'preview' || !this.#dashboard() || count === 0)
+      return undefined
+    return count === 1 ? 'card' : 'multiple'
+  }
+
+  /**
+   * 选中工具条：按主体取 selection:<主体> 的排列（宿主经 commandLayout 改，扩展命令写上落点就追加成一组），
+   * 有主体、排列不空时放进变换覆盖层（slot="toolbar"），否则拿掉；位置与手势中收起由覆盖层管。
+   */
+  #renderSelectionBar(layers: Layers, context: ReportDesignerContext): void {
+    const subject = this.#selectionSubject()
+    const { commands } = this.#model
+    const groups = subject === undefined ? [] : arrangeCommands(`selection:${subject}`, commands, REPORT_SELECTION_LAYOUT[subject], this.commandLayout)
+    if (groups.every(group => group.length === 0)) {
+      layers.selectionBar.element.remove()
+      return
+    }
+    layers.selectionBar.update(groups, commands, context, context.translations.selectionToolbar)
+    if (!layers.selectionBar.element.isConnected)
+      layers.overlay.append(layers.selectionBar.element)
+  }
+
   /** 历史记录卡片：快照按此刻的语言取说明，内容变了才重交；只读时只能看。 */
   #syncHistory(layers: Layers): void {
     const snapshot = this.historyState
@@ -821,6 +848,8 @@ export class XhReportDesigner extends XhReactiveElement {
     const commandBar = createCommandToolbar<ReportDesignerContext>(doc, { platform: this.#kbdPlatform() })
     const headerBar = createCommandToolbar<ReportDesignerContext>(doc, { display: 'stacked', platform: this.#kbdPlatform() })
     headerBar.element.slot = 'header-center'
+    const selectionBar = createCommandToolbar<ReportDesignerContext>(doc, { platform: this.#kbdPlatform() })
+    selectionBar.element.slot = 'toolbar'
     const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'command-bar' }, [commandBar.element])
     const content = createAuthoredElement(doc, 'div', { 'data-part': 'content' })
     const empty = createAuthoredElement(doc, 'div', { 'data-part': 'empty', 'hidden': true })
@@ -941,7 +970,7 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#regionsKey = ''
     this.#viewer = undefined
     this.#settingsDialogKey = ''
-    this.#layers = { frame, toolbar, commandBar, headerBar, panels, menu, menuContent, menuTrigger, canvas, scroller, sizer, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, history, historyActions, settings, selectionStatus, zoomStatus }
+    this.#layers = { frame, toolbar, commandBar, selectionBar, headerBar, panels, menu, menuContent, menuTrigger, canvas, scroller, sizer, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, history, historyActions, settings, selectionStatus, zoomStatus }
     panels.assign(this.#model.extensions, this.#context())
     this.#fillMenu('blank')
     return this.#layers
@@ -1554,6 +1583,7 @@ export class XhReportDesigner extends XhReactiveElement {
       else {
         layers.headerBar.element.remove()
       }
+      this.#renderSelectionBar(layers, context)
       layers.panels.update(context)
       layers.historyActions.update([DESIGNER_HISTORY_COMMANDS.clearHistory], commands, context, context.historyTranslations.title)
       this.#syncHistory(layers)
@@ -1759,13 +1789,19 @@ export class XhReportDesigner extends XhReactiveElement {
   }
 
   /**
-   * 画布上的按键：先找快捷键命中、此刻可用的命令；没有命令占用时，Ctrl / ⌘ + S 派发 save，
+   * 画布上的按键：Alt+F10 把焦点交给选中工具条；再找快捷键命中、此刻可用的命令；没有命令占用时，Ctrl / ⌘ + S 派发 save，
    * Backspace 删除选中的对象，= 与按着 Shift 的 + 放大，Escape 清空选择，方向键挪动或改大小卡片。
    */
   readonly #onKeyDown = (event: KeyboardEvent): void => {
     const editor = this.#editor
     if (!editor || !this.#isCanvasFocus(event.target) || this.#gesture)
       return
+    if (event.altKey && event.key === 'F10') {
+      // Alt+F10 把焦点交给选中工具条（没有时交给尺寸徽标），在里面按 Esc 回到画布
+      if (this.#layers?.overlay.focusToolbar() || this.#layers?.overlay.focusMeasure())
+        event.preventDefault()
+      return
+    }
     const context = this.#context()
     const hit = commandForShortcut(this.#model.commands.values(), event, context, this.#kbdPlatform())
     if (hit) {

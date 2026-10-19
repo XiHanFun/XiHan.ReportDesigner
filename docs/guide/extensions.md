@@ -83,7 +83,7 @@ aside: false
 
 <<< @/examples/extensions/goal-designer.ts#palette
 
-命令写 `placement` 决定出现在工具栏（`toolbar`）还是右键菜单（`menu:card`、`menu:blank`），`enabled` 决定可不可用，`shortcut` 可以绑快捷键；宿主再用 `commandLayout` 改排列：
+命令写 `placement` 决定出现在工具栏（`toolbar`）、右键菜单（`menu:card`、`menu:blank`）还是选中工具条（`selection:card`、`selection:multiple`），`enabled` 决定可不可用，`shortcut` 可以绑快捷键；宿主再用 `commandLayout` 改排列：
 
 <<< @/examples/extensions/goal-designer.ts#command
 

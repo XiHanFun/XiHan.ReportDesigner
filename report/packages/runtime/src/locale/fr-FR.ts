@@ -180,6 +180,7 @@ const designer: ReportDesignerLocale = {
   issuesHelp: 'Problèmes de validation du rapport. Sélectionnez-en un pour sélectionner l’objet concerné.',
   historyHelp: 'Toutes les modifications depuis l’ouverture du rapport, de la plus ancienne à la plus récente. Sélectionnez une étape pour y revenir ; les étapes suivantes restent disponibles jusqu’à une nouvelle modification.',
   insertToolbar: 'Insérer des cartes',
+  selectionToolbar: 'Cartes sélectionnées',
   insertCard: label => `Ajouter ${label}`,
   statusDocument: (datasets, cards) => `${datasets} ${datasets < 2 ? 'jeu de données' : 'jeux de données'}${cards === undefined ? '' : ` · ${cards} ${cards < 2 ? 'carte' : 'cartes'}`}`,
   statusCell: (column, row, width, height) => `Colonne ${column}, ligne ${row} · ${width} × ${height}`,

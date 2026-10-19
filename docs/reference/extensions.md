@@ -406,6 +406,14 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 type ReportMenuSubject = 'card' | 'blank'
 ```
 
+### ReportSelectionSubject {#reportselectionsubject}
+
+选中工具条落在哪类选中上：看板上的一张卡片，或几张卡片。
+
+```ts
+type ReportSelectionSubject = 'card' | 'multiple'
+```
+
 ### ReportPaletteGroup {#reportpalettegroup}
 
 物料面板的一组。
@@ -459,6 +467,17 @@ const REPORT_TOOLBAR_LAYOUT = [
 const REPORT_MENU_LAYOUT = {
   card: [['cut', 'copy', 'paste', 'duplicate'], ['delete']],
   blank: [['paste'], ['select-all'], ['zoom-to-fit']],
+}
+```
+
+### REPORT_SELECTION_LAYOUT {#report_selection_layout}
+
+选中工具条（命令落点 selection:&lt;主体&gt;）的缺省排列：创建副本、复制与删除。
+
+```ts
+const REPORT_SELECTION_LAYOUT = {
+  card: [['duplicate', 'copy', 'delete']],
+  multiple: [['duplicate', 'copy', 'delete']],
 }
 ```
 
