@@ -76,6 +76,10 @@ export interface ReportDesignerTranslations {
   readonly selectionToolbar: string
   /** 尺寸徽标里卡片宽高的单位：看板按格计。 */
   readonly sizeUnit: string
+  /** 命令「导入数据集」的文字，也是这时导入对话框的标题。 */
+  readonly importDataset: string
+  /** 命令「导入参数」的文字，也是这时导入对话框的标题。 */
+  readonly importParameters: string
   /** 顶栏插入钮的名字与提示，label 是物料名。 */
   readonly insertCard: (label: string) => string
   /** 状态栏左段没选中时：数据集数，主体是看板时再写卡片数（不是看板时 cards 为 undefined）。 */
@@ -609,6 +613,8 @@ export const REPORT_DESIGNER_EN_US: ReportDesignerLocale = {
   insertToolbar: 'Insert cards',
   selectionToolbar: 'Selected cards',
   sizeUnit: 'cells',
+  importDataset: 'Import dataset',
+  importParameters: 'Import parameters',
   insertCard: label => `Add ${label}`,
   statusDocument: (datasets, cards) => `${datasets} ${datasets === 1 ? 'dataset' : 'datasets'}${cards === undefined ? '' : ` · ${cards} ${cards === 1 ? 'card' : 'cards'}`}`,
   statusCell: (column, row, width, height) => `Column ${column}, row ${row} · ${width} × ${height}`,

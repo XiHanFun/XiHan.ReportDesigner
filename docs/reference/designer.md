@@ -69,6 +69,8 @@
 | `scrollToCard(id: string): void` | 滚动到卡片。 |
 | `revealCard(id: string): void` | 卡片不在画布的可见区时才滚动到它。 |
 | `highlightCard(id: string \| null): void` | 在画布上标出一张卡片（画悬停框），null 撤掉；不改选择、不滚动。页面结构面板悬停或聚焦到一行时用它。 |
+| `canImportData(kind: ReportDataImportKind): boolean` | 这种导入此刻能不能做：只读、预览态或 datasetEditing 不够时不能（导入数据集与字段要 full，导入参数要 fields 起）；导入字段还要在数据面板里选中一个数据集或它的字段。 |
+| `openDataImport(kind: ReportDataImportKind): boolean` | 打开导入对话框：dataset 从 JSON 样例或 JSON Schema 新建一个数据集，fields 往选中的数据集里加字段，parameters 从 JSON Schema（也可以是样例）加报表参数。对话框里还有扩展登记的字段来源页（fieldSources）。导入的字段只取值字段，同名的保留现有的，一次导入记一步撤销。此刻不能做时返回 false。 |
 | `revealItem(ref: ReportItemRef): void` | 选中列表项所在的卡片并让它可见。 |
 | `getViewport(): Viewport` | 视口：屏幕坐标（画布可见区的左上角为原点）= 画布坐标 × zoom + (x, y)；画布坐标是实际尺寸下画布里的像素，zoom 为 1 时是实际尺寸。画布还没有布局时 x、y 为 0。 |
 | `setViewport(viewport: Viewport): void` | 设置视口：缩放夹进 10%–400%，平移落在画布能滚到的范围里；此后尺寸变化不再自动适配。 |
@@ -257,6 +259,8 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `insertToolbar` | `string` | 顶栏那一条插入钮的名字。 | 插入卡片 |
 | `selectionToolbar` | `string` | 选中卡片时浮在选中框上方那一条工具条的名字。 | 选中的卡片 |
 | `sizeUnit` | `string` | 尺寸徽标里卡片宽高的单位：看板按格计。 | 格 |
+| `importDataset` | `string` | 命令「导入数据集」的文字，也是这时导入对话框的标题。 | 导入数据集 |
+| `importParameters` | `string` | 命令「导入参数」的文字，也是这时导入对话框的标题。 | 导入参数 |
 | `insertCard` | `(label: string): string` | 顶栏插入钮的名字与提示，label 是物料名。 | （按参数生成） |
 | `statusDocument` | `(datasets: number, cards: number \| undefined): string` | 状态栏左段没选中时：数据集数，主体是看板时再写卡片数（不是看板时 cards 为 undefined）。 | （按参数生成） |
 | `statusCell` | `(column: number, row: number, width: number, height: number): string` | 状态栏左段选中一张卡片时：它左上角所在的列与行（从 1 数起）和占的格数。 | （按参数生成） |
@@ -328,6 +332,12 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `ReportPaletteItem` | 接口 | 物料面板里的一项：拖到看板上或激活时按模板新建卡片。 |
 | `ReportPropertyEditor` | 类型 | 属性编辑器。 |
 | `ReportSelectionSubject` | 类型 | 选中工具条落在哪类选中上：看板上的一张卡片，或几张卡片。 |
+
+### field-import
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `ReportDataImportKind` | 类型 | 导入对话框为谁打开：新建一个数据集、往一个数据集里加字段，或加报表参数。 |
 
 ### report-designer
 

@@ -217,9 +217,9 @@ describe('createReportEditor', () => {
     expect(cards(editor.document).map(card => card.id)).toEqual(['pie', 'a', 'b'])
   })
 
-  it('数据集的可绑定字段树，装载新文档时清空历史与选择', () => {
+  it('数据集的可绑定字段树带字段类型，装载新文档时清空历史与选择', () => {
     const editor = createReportEditor({ document: board })
-    expect(editor.dataFields('sales')).toEqual([{ name: 'region', label: '区域', kind: 'value' }, { name: 'amount', kind: 'value' }])
+    expect(editor.dataFields('sales')).toEqual([{ name: 'region', label: '区域', kind: 'value', type: 'string' }, { name: 'amount', kind: 'value', type: 'number' }])
     expect(editor.dataFields('ghost')).toEqual([])
     editor.select({ cards: ['a'] })
     editor.execute([{ type: 'removeCard', id: 'b' }])

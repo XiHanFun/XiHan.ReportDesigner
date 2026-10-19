@@ -446,7 +446,7 @@ export function createReportEditor(options: ReportEditorOptions): ReportEditor {
     },
     dataFields(datasetId) {
       const dataset = history.document.datasets.find(item => item.id === datasetId)
-      return dataset ? dataset.fields.map(field => (field.title === undefined ? { name: field.name, kind: 'value' } : { name: field.name, label: field.title, kind: 'value' })) : []
+      return dataset ? dataset.fields.map(field => (field.title === undefined ? { name: field.name, kind: 'value', type: field.type } : { name: field.name, label: field.title, kind: 'value', type: field.type })) : []
     },
     validate: validateOptions => validateDocument(history.document, validateOptions),
     subscribe(listener) {

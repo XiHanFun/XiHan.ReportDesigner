@@ -192,6 +192,8 @@ const designer: ReportDesignerLocale = {
   insertToolbar: 'Вставка карточек',
   selectionToolbar: 'Выбранные карточки',
   sizeUnit: 'яч.',
+  importDataset: 'Импорт набора данных',
+  importParameters: 'Импорт параметров',
   insertCard: label => `Добавить «${label}»`,
   statusDocument: (datasets, cards) => `${datasets} ${plural(datasets, 'набор данных', 'набора данных', 'наборов данных')}${cards === undefined ? '' : ` · ${cards} ${plural(cards, 'карточка', 'карточки', 'карточек')}`}`,
   statusCell: (column, row, width, height) => `Столбец ${column}, строка ${row} · ${width} × ${height}`,

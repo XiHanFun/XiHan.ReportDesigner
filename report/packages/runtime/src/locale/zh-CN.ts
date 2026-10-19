@@ -181,6 +181,8 @@ const designer: ReportDesignerLocale = {
   insertToolbar: '插入卡片',
   selectionToolbar: '选中的卡片',
   sizeUnit: '格',
+  importDataset: '导入数据集',
+  importParameters: '导入参数',
   insertCard: label => `添加「${label}」`,
   statusDocument: (datasets, cards) => `${datasets} 个数据集${cards === undefined ? '' : ` · ${cards} 张卡片`}`,
   statusCell: (column, row, width, height) => `第 ${column} 列第 ${row} 行 · ${width} × ${height} 格`,
