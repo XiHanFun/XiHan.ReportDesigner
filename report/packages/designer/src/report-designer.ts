@@ -15,13 +15,13 @@ import type { JsonValue } from '@xihan-ui/core/json'
 import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
 import type { ExecuteOptions, ExtensionHost, GridRect, HistoryChangeKind, HistoryLabel, HistorySnapshot, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertySwatchOption } from '@xihan-ui/designer-kit/properties'
-import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFieldImportEventMap, DesignerFrameEventMap, DesignerFrameRegion, DesignerHistoryTranslations, DesignerIssueItem, DesignerJsonEditorEventMap, DesignerLayout, DesignerLayoutPolicy, DesignerMeasureConvert, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelActions, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
+import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFieldImportEventMap, DesignerFrameEventMap, DesignerFrameRegion, DesignerHistoryTranslations, DesignerIssueItem, DesignerJsonEditorEventMap, DesignerLayout, DesignerLayoutPolicy, DesignerMeasureConvert, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPaletteItem, DesignerPaletteView, DesignerPanelActions, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { DialogService } from '@xihan-ui/web-components/services'
 import type { DataRemoval } from './data-editing'
 import type { DataAddKind } from './data-panel'
 import type { LayoutGesture, ReportAddCardInit, ReportClipboard, ReportDataRef, ReportEditor, ReportItemRef, ReportSelection } from './editor'
-import type { ReportCardTemplate, ReportDesignerContext, ReportDesignerExtension, ReportDesignerModel, ReportMenuSubject, ReportSelectionSubject } from './extensions'
+import type { ReportCardTemplate, ReportDesignerContext, ReportDesignerExtension, ReportDesignerModel, ReportMenuSubject, ReportPaletteDrop, ReportSelectionSubject } from './extensions'
 import type { ReportDataImportKind } from './field-import'
 import type { GridMetrics } from './grid-geometry'
 import { cardTypeOf, describeReportStep, planAddCard, planAddFieldItem, resolveParameters, validateDocument } from '@xihan-report/core'
@@ -49,6 +49,7 @@ import {
   designerLayoutPolicy,
   registerDropTarget,
   renderCommandMenu,
+  resolvePaletteSources,
   resolveSettings,
   resolveTourSteps,
   runCommand,
@@ -210,11 +211,12 @@ interface FieldDrop {
   readonly field: string
 }
 
-/** 物料拖到看板上的落点：物料项 id 与请求的左上角格。 */
+/** 物料拖到看板上的落点：物料项 id 与请求的左上角格；sourced 时是物料来源的条目 id，格是指针所在的格。 */
 interface CardDrop {
   readonly item: string
   readonly x: number
   readonly y: number
+  readonly sourced?: true
 }
 
 /** 进行中的卡片拖动或改大小：编辑模型的布局手势与最近一次写进去的格坐标。 */
@@ -349,6 +351,10 @@ export class XhReportDesigner extends XhReactiveElement {
   #drop: CardDrop | undefined
   #fieldDrop: FieldDrop | undefined
   #paletteKey = ''
+  /** 这一轮物料面板的分组，以及按条目 id 交给物料来源插入。 */
+  #paletteView: DesignerPaletteView<ReportDesignerContext, ReportPaletteDrop> | undefined
+  /** 物料来源的条目 id（含下级）：拖到看板上时据此接收。 */
+  #sourceItems: ReadonlySet<string> = new Set()
   #platform: 'mac' | 'other' | undefined
   #regionsKey = ''
   #regionsModel: ReportDesignerModel | undefined
@@ -1747,8 +1753,8 @@ export class XhReportDesigner extends XhReactiveElement {
   }
 
   /**
-   * 物料面板：分组与条目取合并后的物料，条目的 id 与 payload 都是物料项 id；只读或报表主体不是看板时只能浏览。
-   * 文案或扩展变了才重排分组。
+   * 物料面板：内置分组与条目取合并后的物料，条目的 id 与 payload 都是物料项 id；各扩展的物料来源每轮现取，分组接在后面。
+   * 只读或报表主体不是看板时只能浏览。内容没变不重设，变了时记下物料来源的条目。
    */
   #syncPalette(palette: XhDesignerPaletteElement, t: ReportDesignerTranslations): void {
     palette.readonly = this.readonly || !this.#dashboard()
@@ -1760,12 +1766,29 @@ export class XhReportDesigner extends XhReactiveElement {
       label: text(group.label),
       items: items.filter(item => item.group === group.id).map(item => ({ id: item.id, label: text(item.label), ...(item.icon ? { icon: item.icon } : {}), payload: item.id })),
     }))
-    const key = JSON.stringify([t.palette, groups])
+    const view = resolvePaletteSources(groups, this.#model.paletteSources, context)
+    this.#paletteView = view
+    const key = JSON.stringify([t.palette, view.groups])
     if (key === this.#paletteKey)
       return
     this.#paletteKey = key
     palette.translations = { title: t.palette }
-    palette.groups = groups
+    palette.groups = view.groups
+    const ids = new Set<string>()
+    const collect = (entries: readonly DesignerPaletteItem[]): void => {
+      for (const entry of entries) {
+        ids.add(entry.id)
+        collect(entry.children ?? [])
+      }
+    }
+    view.groups.slice(groups.length).forEach(group => collect(group.items))
+    this.#sourceItems = ids
+  }
+
+  /** 物料面板拖出的物料来源条目 id；别的拖动为 undefined。 */
+  #sourceItem(payload: unknown): string | undefined {
+    const drag = payload as Partial<DesignerPaletteDragPayload> | null | undefined
+    return drag?.source === 'palette' && typeof drag.id === 'string' && this.#sourceItems.has(drag.id) ? drag.id : undefined
   }
 
   /** 物料面板拖出的物料项 id；不是物料面板的载荷或不是登记过的物料时为 undefined。 */
@@ -1918,22 +1941,25 @@ export class XhReportDesigner extends XhReactiveElement {
     void this.updateComplete.then(() => this.revealCard(card.id))
   }
 
-  /** 点物料：新卡片放到第一个空位并选中。 */
+  /** 点物料：物料来源的条目交给来源插入（不给落点）；内置的新卡片放到第一个空位并选中。只读或主体不是看板时什么都不做。 */
   readonly #onPaletteActivate = (event: Event): void => {
-    const item = (event as DesignerPaletteEventMap['item-activate']).detail.payload
-    if (typeof item === 'string')
-      this.addPaletteItem(item)
+    const { id, payload } = (event as DesignerPaletteEventMap['item-activate']).detail
+    if (this.readonly || !this.#dashboard() || this.#paletteView?.insert(id, this.#context()) === true)
+      return
+    if (typeof payload === 'string')
+      this.addPaletteItem(payload)
   }
 
   /**
-   * 物料拖到看板上：以指针为中心放新卡片，落点画出压实之后它实际所在的格；隐藏跟随指针的预览。
-   * 只读、不是看板或载荷不是登记过的物料时不接受。
+   * 物料拖到看板上：以指针为中心放新卡片，落点画出压实之后它实际所在的格，隐藏跟随指针的预览；
+   * 物料来源的条目落点是指针所在的那一格，画出这一格，跟随指针的预览照常显示。只读、不是看板或载荷不是登记过的物料时不接受。
    */
   #dropOver(point: Point, payload: unknown): DropOver {
     const field = dataFieldPayload(payload)
     if (field)
       return this.#fieldOver(point, field)
-    const item = this.#paletteItem(payload)
+    const sourced = this.#sourceItem(payload)
+    const item = sourced ?? this.#paletteItem(payload)
     const dashboard = this.#dashboard()
     const metrics = this.#gridMetrics()
     const layers = this.#layers
@@ -1941,14 +1967,22 @@ export class XhReportDesigner extends XhReactiveElement {
       this.#clearDrop()
       return { accept: false }
     }
-    const template = this.#template(item)
     const origin = layers.surface.getBoundingClientRect()
-    const zoom = this.#zoom
-    const cell = centeredCell({ x: (point.x - origin.left) / zoom, y: (point.y - origin.top) / zoom }, template.layout, metrics, dashboard.grid.columns)
-    this.#drop = { item, ...cell }
-    const id = createIdAllocator(template.kind, dashboard.cards.map(card => card.id)).next()
-    const added = planAddCard(dashboard, { ...template, id, layout: { ...template.layout, ...cell } }).find(operation => operation.type === 'addCard')
-    const landing = added?.type === 'addCard' ? added.card.layout : { ...template.layout, ...cell }
+    const at = { x: (point.x - origin.left) / this.#zoom, y: (point.y - origin.top) / this.#zoom }
+    let landing: GridRect
+    if (sourced !== undefined) {
+      const cell = centeredCell(at, { w: 1, h: 1 }, metrics, dashboard.grid.columns)
+      this.#drop = { item, ...cell, sourced: true }
+      landing = { ...cell, w: 1, h: 1 }
+    }
+    else {
+      const template = this.#template(item)
+      const cell = centeredCell(at, template.layout, metrics, dashboard.grid.columns)
+      this.#drop = { item, ...cell }
+      const id = createIdAllocator(template.kind, dashboard.cards.map(card => card.id)).next()
+      const added = planAddCard(dashboard, { ...template, id, layout: { ...template.layout, ...cell } }).find(operation => operation.type === 'addCard')
+      landing = added?.type === 'addCard' ? added.card.layout : { ...template.layout, ...cell }
+    }
     const rect = cellToRect(landing, metrics)
     const preview = layers.dropPreview
     preview.hidden = false
@@ -1957,14 +1991,20 @@ export class XhReportDesigner extends XhReactiveElement {
     preview.style.inlineSize = `${rect.width}px`
     preview.style.blockSize = `${rect.height}px`
     layers.canvas.dataset.gesture = 'drop'
-    return { accept: true, ghost: 'hide' }
+    return sourced === undefined ? { accept: true, ghost: 'hide' } : { accept: true }
   }
 
-  /** 在落点新建拖进来的卡片并选中它。 */
+  /** 在落点新建拖进来的卡片并选中它；物料来源的条目交给来源按落点格插入。 */
   #dropCard(): void {
     const drop = this.#drop
     this.#clearDrop()
-    if (!drop || this.readonly || !this.#dashboard() || !this.#model.palette.has(drop.item))
+    if (!drop || this.readonly || !this.#dashboard())
+      return
+    if (drop.sourced) {
+      this.#paletteView?.insert(drop.item, this.#context(), { x: drop.x, y: drop.y })
+      return
+    }
+    if (!this.#model.palette.has(drop.item))
       return
     const template = this.#template(drop.item)
     this.#revealAdded(this.addCard({ ...template, layout: { ...template.layout, x: drop.x, y: drop.y } }))

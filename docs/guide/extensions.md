@@ -14,7 +14,7 @@ aside: false
 | --- | --- | --- | --- |
 | core | `ReportCoreExtension` | `validateDocument`、`computeCard` 等 core 入口 | 卡片与视图种类（校验、计算、补全绑定）、属性、问题说明、校验规则、编辑方式 |
 | 运行时 | `ReportRuntimeExtension` | `<xh-report-viewer>` | 卡片与视图的渲染、叠加层、导出器、取数中间件 |
-| 设计器 | `ReportDesignerExtension` | `<xh-report-designer>` | 物料组与物料项、命令、面板、属性编辑器、`setup` |
+| 设计器 | `ReportDesignerExtension` | `<xh-report-designer>` | 物料组与物料项、物料来源、命令、面板、属性编辑器、`setup` |
 
 一层是下一层的超集，所以同一个扩展写成三个对象、一层包着一层：业务页面只引运行时层，打包里没有设计器的代码；Node 里只引 core 层。下面用一个示例扩展 `@acme/goal` 走一遍：它登记一种「目标进度」卡片，显示完成值与目标的进度条。
 
@@ -97,6 +97,7 @@ aside: false
 - `tourSteps`：新手引导里的几步，`order` 从 200 起，排在报表的几步之后；id 写扩展 id 加点，不能重名。
 - `about`：设置「关于」页里的几行 `{ label, value }`，如附加包的版本与授权。
 - `fieldSources`：导入对话框里在 JSON 样例、JSON Schema 两页之后多出的来源页。页里拿到内容（样例、Schema 或现成的字段）后交给对话框，推断、预览与确认走对话框自己的，导进报表时照内置两页的规则。
+- `paletteSources`：物料来源，往物料面板里加几组（如附加包的「我的物料」、模板库），接在所有物料组后面，每次刷新面板时现取。条目被点按时交给来源的 `insert(item, context)`；拖到看板上放下时再带上落点 `ReportPaletteDrop`，即指针所在的格（`x` 列、`y` 行，从 0 起）。插什么、插在哪由来源自己定，如经 `context.designer.addCard()` 新建卡片。来源 id 不能重名；只读或报表主体不是看板时物料面板只能浏览。
 - `editors`：属性编辑器，按编辑方式（`byControl`）、属性路径（`byPath`）或对象种类加路径（`byTarget`）换掉设计器内建的编辑器，后登记的压前面的。
 - `setup`：元素连上文档时调用，返回断开时的清理。
 

@@ -322,7 +322,7 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
-| `createReportDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名（含设置分区与引导步骤）都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。 |
+| `createReportDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名（含设置分区、引导步骤与物料来源）都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。 |
 | `REPORT_DESIGNER_EXTENSION` | 常量 | 设计器的内置扩展：内置命令、物料、页面结构与历史记录面板、新手引导的报表步骤。 |
 | `REPORT_DESIGNER_HELP_URL` | 常量 | 内置命令 help 打开的帮助页：报表文档站的设计器一页。 |
 | `REPORT_DESIGNER_PANELS` | 常量 | 设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.&lt;面板 id&gt;）与 commandLayout（panel:&lt;面板 id&gt;）时用。 |
@@ -332,9 +332,10 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `ReportCardTemplate` | 类型 | 新卡片的模板：不写 id，新建时按种类分配；layout 只需写大小。 |
 | `ReportDesignerCommand` | 类型 | 设计器的命令。 |
 | `ReportDesignerContext` | 接口 | 命令、面板、物料与扩展装上时拿到的上下文。 |
-| `ReportDesignerExtension` | 接口 | 报表设计器层的扩展：运行时层的全部字段，加上属性编辑器、命令、面板、物料与 setup。 |
+| `ReportDesignerExtension` | 接口 | 报表设计器层的扩展：运行时层的全部字段，加上属性编辑器、命令、面板、物料、物料来源与 setup。 |
 | `ReportDesignerModel` | 接口 | 一组设计器扩展合出的东西。 |
 | `ReportMenuSubject` | 类型 | 右键菜单落在哪类对象上。 |
+| `ReportPaletteDrop` | 接口 | 物料来源的条目拖到看板上放下的落点：指针所在的格，x 是列、y 是行，都从 0 起。 |
 | `ReportPaletteGroup` | 接口 | 物料面板的一组。 |
 | `ReportPaletteItem` | 接口 | 物料面板里的一项：拖到看板上或激活时按模板新建卡片。 |
 | `ReportPropertyEditor` | 类型 | 属性编辑器。 |

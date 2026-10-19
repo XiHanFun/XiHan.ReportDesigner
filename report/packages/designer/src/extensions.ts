@@ -9,14 +9,14 @@ import type { ReportCardType, ReportDocument, ReportRuleContext } from '@xihan-r
 import type { ReportDesignerTranslations, ReportRuntimeExtension, ReportRuntimeModel, ReportTourStepKey } from '@xihan-report/runtime'
 import type { IconRecord } from '@xihan-ui/core'
 import type { DesignerCommand, DesignerExtensionCore, ExtensionKeySpaces } from '@xihan-ui/designer-kit'
-import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerHistoryCommandTarget, DesignerHistoryTranslations, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension, DesignerTourStep, DesignerTourTarget, XhDesignerFrameElement } from '@xihan-ui/designer-shell'
+import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerHistoryCommandTarget, DesignerHistoryTranslations, DesignerPaletteSource, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension, DesignerTourStep, DesignerTourTarget, XhDesignerFrameElement } from '@xihan-ui/designer-shell'
 import type { DialogService } from '@xihan-ui/web-components/services'
 import type { ReportAddCardInit } from './editor'
 import type { XhReportDesigner } from './report-designer'
 import { cardTemplate, REPORT_CARD_TYPES } from '@xihan-report/core'
 import { createReportRuntimeModel } from '@xihan-report/runtime'
 import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
-import { collectSettingsSections, collectTourSteps, createHistoryPanel, createOutlinePanel, designerHistoryCommands, designerPanelCommands, designerShellCommands } from '@xihan-ui/designer-shell'
+import { collectPaletteSources, collectSettingsSections, collectTourSteps, createHistoryPanel, createOutlinePanel, designerHistoryCommands, designerPanelCommands, designerShellCommands } from '@xihan-ui/designer-shell'
 import { CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, FileCodeIcon, FilePlusIcon, HistoryIcon, LightbulbIcon, ListTreeIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TrashIcon, UndoIcon, UploadIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { REPORT_CARD_TYPE_ICONS } from './card-icons'
 import { REPORT_OUTLINE_ADAPTER } from './outline'
@@ -72,8 +72,17 @@ export interface ReportPaletteItem {
   readonly template: (dataset: string) => ReportCardTemplate
 }
 
-/** 报表设计器层的扩展：运行时层的全部字段，加上属性编辑器、命令、面板、物料与 setup。导出器在运行时层，导入暂不支持。 */
-export interface ReportDesignerExtension extends ReportRuntimeExtension, Omit<DesignerShellExtension<ReportDesignerContext, ReportPropertyEditor, ReportDocument, ReportRuleContext>, keyof DesignerExtensionCore | 'exporters' | 'importers'> {
+/** 物料来源的条目拖到看板上放下的落点：指针所在的格，x 是列、y 是行，都从 0 起。 */
+export interface ReportPaletteDrop {
+  readonly x: number
+  readonly y: number
+}
+
+/**
+ * 报表设计器层的扩展：运行时层的全部字段，加上属性编辑器、命令、面板、物料、物料来源与 setup。
+ * 物料来源（paletteSources）的条目拖到看板上放下时，落点是 ReportPaletteDrop。导出器在运行时层，导入暂不支持。
+ */
+export interface ReportDesignerExtension extends ReportRuntimeExtension, Omit<DesignerShellExtension<ReportDesignerContext, ReportPropertyEditor, ReportDocument, ReportRuleContext, ReportPaletteDrop>, keyof DesignerExtensionCore | 'exporters' | 'importers'> {
   /** 物料面板的组，排在内置的图表、指标、表格之后。 */
   readonly paletteGroups?: readonly ReportPaletteGroup[]
   /** 物料面板里的项。 */
@@ -294,12 +303,14 @@ export interface ReportDesignerModel {
   readonly settings: readonly DesignerSettingsSection[]
   /** 新手引导里报表与各扩展的步骤，按登记顺序；id 不重名。 */
   readonly tourSteps: readonly DesignerTourStep<ReportDesignerContext>[]
+  /** 各扩展的物料来源，按 order 排；分组接在内置物料组后面。 */
+  readonly paletteSources: readonly DesignerPaletteSource<ReportDesignerContext, ReportPaletteDrop>[]
 }
 
 const MODELS = new WeakMap<readonly ReportDesignerExtension[], ReportDesignerModel>()
 
 /**
- * 合出设计器用的模型；任何一处重名（含设置分区与引导步骤）都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。
+ * 合出设计器用的模型；任何一处重名（含设置分区、引导步骤与物料来源）都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。
  * 同一个数组只合一次。
  */
 export function createReportDesignerModel(extensions: readonly ReportDesignerExtension[]): ReportDesignerModel {
@@ -326,6 +337,7 @@ export function createReportDesignerModel(extensions: readonly ReportDesignerExt
     palette,
     settings: collectSettingsSections(all),
     tourSteps: collectTourSteps(all),
+    paletteSources: collectPaletteSources(all),
   }
   MODELS.set(extensions, model)
   return model

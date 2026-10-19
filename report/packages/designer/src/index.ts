@@ -15,6 +15,7 @@ export type {
   ReportDesignerExtension,
   ReportDesignerModel,
   ReportMenuSubject,
+  ReportPaletteDrop,
   ReportPaletteGroup,
   ReportPaletteItem,
   ReportPropertyEditor,
