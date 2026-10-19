@@ -2023,6 +2023,9 @@ export class XhReportDesigner extends XhReactiveElement {
   }
 
   readonly #onMenuSelect = (event: Event): void => {
+    // 画布里输入框选中文字时，原生 select 事件也会冒泡到这里
+    if (event.target !== event.currentTarget)
+      return
     const { value } = (event as CustomEvent<{ value: string }>).detail
     runCommand(this.#model.commands, value, this.#context())
   }

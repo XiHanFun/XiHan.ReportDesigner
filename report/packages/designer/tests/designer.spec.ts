@@ -1342,6 +1342,27 @@ describe('<xh-report-designer>：编辑', () => {
     expect(entries()).toEqual([['paste', true], ['select-all', false], ['zoom-to-fit', false]])
   })
 
+  it('画布里的输入框（尺寸徽标）选中文字时派发的原生 select 事件冒泡到右键菜单，不当成选了菜单条目', async () => {
+    const designer = await mount()
+    designer.select({ cards: ['a'] })
+    await designer.updateComplete
+    const errors: unknown[] = []
+    const onError = (event: ErrorEvent): void => {
+      errors.push(event.error)
+      event.preventDefault()
+    }
+    window.addEventListener('error', onError)
+    try {
+      const input = designer.querySelector('xh-context-menu [data-part="canvas"] input') ?? designer.querySelector('[data-part="canvas"]')!
+      input.dispatchEvent(new Event('select', { bubbles: true }))
+    }
+    finally {
+      window.removeEventListener('error', onError)
+    }
+    expect(errors).toEqual([])
+    expect(cards(designer).map(item => item.id)).toEqual(['pie', 'a', 'b'])
+  })
+
   it('字段栏的联动一段：新增以选中卡片为源的联动并选中它，属性面板编辑源维度与目标，点叉删除', async () => {
     const designer = await mount()
     designer.select({ cards: ['pie'] })
