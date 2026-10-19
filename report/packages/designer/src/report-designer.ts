@@ -626,11 +626,14 @@ export class XhReportDesigner extends XhReactiveElement {
     return true
   }
 
-  /** 从头开始新手引导：通用步骤加报表与扩展的步骤；预览态、还没有报表或没有能走的步骤时返回 false。 */
+  /**
+   * 从头开始新手引导：通用步骤加报表与扩展的步骤；同一页别的设计器的引导开着时先收起那一个。
+   * 预览态、还没有报表或没有能走的步骤时返回 false。
+   */
   startTour(): boolean {
     if (this.#mode() === 'preview' || !this.#editor)
       return false
-    return this.#ensureLayers().tour.start()
+    return this.#ensureLayers().tour.start({ force: true })
   }
 
   /**

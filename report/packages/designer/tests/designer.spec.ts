@@ -1340,6 +1340,28 @@ describe('<xh-report-designer>：编辑', () => {
     expect(quiet.querySelector('xh-designer-tour')!.running).toBe(true)
   })
 
+  it('同一页只开一个新手引导：别的设计器的引导开着时，startTour()（start-tour 命令与帮助页的「开始引导」都走它）先收起那一个再开始', async () => {
+    const create = async (autoTour: boolean): Promise<XhReportDesigner> => {
+      const element = document.createElement('xh-report-designer')
+      element.autoTour = autoTour
+      element.schema = board
+      document.body.append(element)
+      await element.updateComplete
+      // jsdom 不排版：给画布一个宽度，当作设计器显示着
+      Object.defineProperty(element.querySelector('[data-part="canvas"]')!, 'clientWidth', { configurable: true, value: 800 })
+      element.requestUpdate()
+      await element.updateComplete
+      await element.updateComplete
+      return element
+    }
+    const first = await create(true)
+    const second = await create(false)
+    const running = (): boolean[] => [first, second].map(element => element.querySelector('xh-designer-tour')!.running)
+    expect(running()).toEqual([true, false])
+    expect(second.startTour()).toBe(true)
+    expect(running()).toEqual([false, true])
+  })
+
   it('工具栏的容器部件叫 command-bar：设计器自己不再有 toolbar 部件，变换覆盖层的上下文工具条不会被它的样式连带命中', async () => {
     const designer = await mount()
     expect(designer.querySelector('[data-region="toolbar"] > [data-part="command-bar"]')).not.toBeNull()
