@@ -183,6 +183,7 @@ const designer: ReportDesignerLocale = {
   sizeUnit: 'Zellen',
   importDataset: 'Dataset importieren',
   importParameters: 'Parameter importieren',
+  importTemplate: 'Vorlage importieren',
   tourSteps: {
     datasets: { title: 'Daten', description: 'Datasets mit ihren Feldern sowie die Berichtsparameter. Zieh ein Feld auf eine Karte, um es dort anzuzeigen.' },
     wells: { title: 'Felder', description: 'Was die ausgewählte Karte zeigt: Dimensionen, Kennzahlen, Reihen oder Spalten. Zieh Felder hinein, ordne sie per Ziehen um und entferne sie mit ×.' },

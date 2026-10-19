@@ -183,6 +183,7 @@ const designer: ReportDesignerLocale = {
   sizeUnit: 'células',
   importDataset: 'Importar conjunto de dados',
   importParameters: 'Importar parâmetros',
+  importTemplate: 'Importar modelo',
   tourSteps: {
     datasets: { title: 'Dados', description: 'Os conjuntos de dados com seus campos e os parâmetros do relatório. Arraste um campo para um cartão para exibi-lo nele.' },
     wells: { title: 'Campos', description: 'O que o cartão selecionado mostra: dimensões, medidas, séries ou colunas. Arraste campos para cá, arraste para reordenar e remova com ×.' },

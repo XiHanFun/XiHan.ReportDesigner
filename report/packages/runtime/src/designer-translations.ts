@@ -89,6 +89,8 @@ export interface ReportDesignerTranslations {
   readonly importDataset: string
   /** 命令「导入参数」的文字，也是这时导入对话框的标题。 */
   readonly importParameters: string
+  /** 命令「导入模板」的文字，也是导入后那一步撤销的说明；登记了导入器才有这条命令。 */
+  readonly importTemplate: string
   /** 新手引导里报表自己的几步，各一个标题与说明；键见 ReportTourStepKey。 */
   readonly tourSteps: Readonly<Record<ReportTourStepKey, ReportTourStepText>>
   /** 设置对话框「帮助」页的几段操作说明。 */
@@ -632,6 +634,7 @@ export const REPORT_DESIGNER_EN_US: ReportDesignerLocale = {
   sizeUnit: 'cells',
   importDataset: 'Import dataset',
   importParameters: 'Import parameters',
+  importTemplate: 'Import template',
   tourSteps: {
     datasets: { title: 'Data', description: 'Datasets with their fields, and the report parameters. Drag a field onto a card to show it there.' },
     wells: { title: 'Fields', description: 'What the selected card shows: dimensions, measures, series or columns. Drag fields in, drag to reorder, and remove them with ×.' },

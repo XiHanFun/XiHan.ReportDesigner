@@ -183,6 +183,7 @@ const designer: ReportDesignerLocale = {
   sizeUnit: 'cellules',
   importDataset: 'Importer un jeu de données',
   importParameters: 'Importer des paramètres',
+  importTemplate: 'Importer un modèle',
   tourSteps: {
     datasets: { title: 'Données', description: 'Les jeux de données avec leurs champs, et les paramètres du rapport. Faites glisser un champ sur une carte pour l’y afficher.' },
     wells: { title: 'Champs', description: 'Ce que montre la carte sélectionnée, dimensions, mesures, séries ou colonnes. Faites glisser des champs ici, réordonnez-les en les faisant glisser et retirez-les avec ×.' },

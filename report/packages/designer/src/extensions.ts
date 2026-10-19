@@ -8,7 +8,7 @@
 import type { ReportCardType, ReportDocument, ReportRuleContext } from '@xihan-report/core'
 import type { ReportDesignerTranslations, ReportRuntimeExtension, ReportRuntimeModel, ReportTourStepKey } from '@xihan-report/runtime'
 import type { IconRecord } from '@xihan-ui/core'
-import type { DesignerCommand, DesignerExtensionCore, ExtensionKeySpaces } from '@xihan-ui/designer-kit'
+import type { DesignerCommand, DesignerExtensionCore, DesignerImporter, ExtensionKeySpaces } from '@xihan-ui/designer-kit'
 import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerHistoryCommandTarget, DesignerHistoryTranslations, DesignerPaletteSource, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension, DesignerTourStep, DesignerTourTarget, XhDesignerFrameElement } from '@xihan-ui/designer-shell'
 import type { DialogService } from '@xihan-ui/web-components/services'
 import type { ReportAddCardInit } from './editor'
@@ -17,7 +17,7 @@ import { cardTemplate, REPORT_CARD_TYPES } from '@xihan-report/core'
 import { createReportRuntimeModel } from '@xihan-report/runtime'
 import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
 import { collectPaletteSources, collectSettingsSections, collectTourSteps, createHistoryPanel, createOutlinePanel, designerHistoryCommands, designerPanelCommands, designerShellCommands } from '@xihan-ui/designer-shell'
-import { CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, FileCodeIcon, FilePlusIcon, HistoryIcon, LightbulbIcon, ListTreeIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TrashIcon, UndoIcon, UploadIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, FileCodeIcon, FilePlusIcon, FolderOpenIcon, HistoryIcon, LightbulbIcon, ListTreeIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TrashIcon, UndoIcon, UploadIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { REPORT_CARD_TYPE_ICONS } from './card-icons'
 import { REPORT_OUTLINE_ADAPTER } from './outline'
 
@@ -78,11 +78,27 @@ export interface ReportPaletteDrop {
   readonly y: number
 }
 
+/** 导入器给出的结果：一份整份的报表模板。 */
+export interface ReportImportResult {
+  readonly document: ReportDocument
+}
+
 /**
- * 报表设计器层的扩展：运行时层的全部字段，加上属性编辑器、命令、面板、物料、物料来源与 setup。
- * 物料来源（paletteSources）的条目拖到看板上放下时，落点是 ReportPaletteDrop。导出器在运行时层；设计器层不收导入器（importers）。
+ * 报表的导入器：命令「导入模板」（import-template）选中的文件交给它，换成一份整份的报表模板；给出 undefined 表示这次不载入。
+ * 只有打开文件这一处用它，来源的 kind 总是 file；fileTypes 拼成选文件对话框的 accept。
+ */
+export type ReportDesignerImporter = DesignerImporter<ReportDesignerContext, ReportImportResult | undefined>
+
+/**
+ * 报表设计器层的扩展：运行时层的全部字段，加上属性编辑器、命令、面板、物料、物料来源、导入器与 setup。
+ * 物料来源（paletteSources）的条目拖到看板上放下时，落点是 ReportPaletteDrop。导出器在运行时层。
  */
 export interface ReportDesignerExtension extends ReportRuntimeExtension, Omit<DesignerShellExtension<ReportDesignerContext, ReportPropertyEditor, ReportDocument, ReportRuleContext, ReportPaletteDrop>, keyof DesignerExtensionCore | 'exporters' | 'importers'> {
+  /**
+   * 导入器：命令「导入模板」选中的文件按扩展顺序问 accepts，第一个接下的导入，结果整份换上当前报表、记一步撤销。
+   * 一个导入器都没有登记时没有这条命令。
+   */
+  readonly importers?: readonly ReportDesignerImporter[]
   /** 物料面板的组，排在内置的图表、指标、表格之后。 */
   readonly paletteGroups?: readonly ReportPaletteGroup[]
   /** 物料面板里的项。 */
@@ -127,6 +143,9 @@ const QUICK_INSERT_COMMANDS: readonly ReportDesignerCommand[] = QUICK_INSERT.map
   run: ({ designer }) => void designer.addPaletteItem(type),
 }))
 
+/** 命令「导入模板」的 id：登记了导入器才进命令表，工具栏缺省排列的最前面多这一组。 */
+export const REPORT_IMPORT_TEMPLATE_COMMAND = 'import-template'
+
 /** 内置命令 help 打开的帮助页：报表文档站的设计器一页。 */
 export const REPORT_DESIGNER_HELP_URL = 'https://report.docs.xihanfun.com/guide/designer'
 
@@ -143,10 +162,12 @@ export const REPORT_DESIGNER_PANELS = {
 } as const
 
 /**
- * 内置命令：撤销、重做与清空历史，剪贴板、创建副本与删除、全选、缩放、设计与预览，designer-shell 内置的面板、显示或隐藏所有面板、
- * 还原面板显隐、恢复默认布局、设置、帮助、导入字段、编辑 JSON 与开始引导，导入数据集与导入参数，以及每块内置面板一条开关命令 panel:<面板 id>。
+ * 内置命令：导入模板（登记了导入器才进命令表），撤销、重做与清空历史，剪贴板、创建副本与删除、全选、缩放、设计与预览，designer-shell
+ * 内置的面板、显示或隐藏所有面板、还原面板显隐、恢复默认布局、设置、帮助、导入字段、编辑 JSON 与开始引导，导入数据集与导入参数，
+ * 以及每块内置面板一条开关命令 panel:<面板 id>。
  */
 const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
+  { id: REPORT_IMPORT_TEMPLATE_COMMAND, label: ({ translations }) => translations.importTemplate, icon: FolderOpenIcon, enabled: editable(() => true), run: ({ designer }) => void designer.importTemplate() },
   ...designerHistoryCommands<ReportDesignerContext>({
     history: context => context.history,
     disabled: context => !designing(context) || context.designer.readonly === true,
@@ -253,7 +274,10 @@ export const REPORT_DESIGNER_EXTENSION: ReportDesignerExtension = {
   palette: BUILTIN_PALETTE,
 }
 
-/** 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。 */
+/**
+ * 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。
+ * 登记了导入器时最前面多一组导入模板（REPORT_IMPORT_TEMPLATE_COMMAND）。
+ */
 export const REPORT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['undo', 'redo'],
   ['cut', 'copy', 'paste', 'duplicate', 'delete'],
@@ -293,7 +317,7 @@ export interface ReportDesignerModel {
   readonly extensions: readonly ReportDesignerExtension[]
   /** 运行时层的模型：种类、渲染、导出器与取数中间件。 */
   readonly runtime: ReportRuntimeModel
-  /** 命令 id 到命令的对照：内置的在前，扩展的按登记顺序。 */
+  /** 命令 id 到命令的对照：内置的在前，扩展的按登记顺序；没有导入器时不含导入模板。 */
   readonly commands: DesignerCommandTable<ReportDesignerContext>
   /** 物料面板的组，内置的在前。 */
   readonly paletteGroups: readonly ReportPaletteGroup[]
@@ -303,6 +327,8 @@ export interface ReportDesignerModel {
   readonly settings: readonly DesignerSettingsSection[]
   /** 新手引导里报表与各扩展的步骤，按登记顺序；id 不重名。 */
   readonly tourSteps: readonly DesignerTourStep<ReportDesignerContext>[]
+  /** 各扩展的导入器，按扩展顺序；没有时命令表里没有导入模板。 */
+  readonly importers: readonly ReportDesignerImporter[]
   /** 各扩展的物料来源，按 order 排；分组接在内置物料组后面。 */
   readonly paletteSources: readonly DesignerPaletteSource<ReportDesignerContext, ReportPaletteDrop>[]
 }
@@ -328,16 +354,20 @@ export function createReportDesignerModel(extensions: readonly ReportDesignerExt
       throw new TypeError(`[report] palette item ${item.id} of ${extension.id} is in an unregistered group ${item.group}`)
     return [item.id, item] as const
   })))
+  const importers = all.flatMap(extension => extension.importers ?? [])
+  const table = extensionCommands(all)
+  const commands = importers.length > 0 ? table : new Map([...table].filter(([id]) => id !== REPORT_IMPORT_TEMPLATE_COMMAND))
   const model: ReportDesignerModel = {
     list,
     extensions: all,
     runtime,
-    commands: extensionCommands(all),
+    commands,
     paletteGroups,
     palette,
     settings: collectSettingsSections(all),
     tourSteps: collectTourSteps(all),
     paletteSources: collectPaletteSources(all),
+    importers,
   }
   MODELS.set(extensions, model)
   return model

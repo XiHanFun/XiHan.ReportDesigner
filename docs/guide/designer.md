@@ -149,6 +149,7 @@ aside: false
 - 右键菜单的条目是图标加文字，行尾写快捷键。
 - 末组是面板、设置与帮助：面板点开一张菜单，列出能开关的卡片，勾选的显示，末尾是显示或隐藏所有面板、还原面板显隐与恢复默认布局，见上文「面板布局」；设置打开设置对话框，帮助在新窗口打开本站的设计器一页，地址是包入口导出的 `REPORT_DESIGNER_HELP_URL`。
 - 卡片上的右键菜单依次是剪切、复制、粘贴、创建副本，删除另成一组；空白处的是粘贴、全选、适合窗口与编辑 JSON，各成一组。
+- 扩展登记了导入器时，工具栏最前面多一组「导入模板」（`import-template`，包入口导出的 `REPORT_IMPORT_TEMPLATE_COMMAND`），见[扩展](./extensions)；没有导入器时没有这条命令。
 - 选中工具条按选中的是一张还是几张卡片取命令落点 `selection:card` 或 `selection:multiple` 的排列，缺省都是创建副本、复制与删除（包入口导出的 `REPORT_SELECTION_LAYOUT`）。宿主用 `commandLayout` 改，写空数组就不放工具条；扩展命令的 `placement` 写上落点，就追加成一组。只读与预览时没有选中工具条，拖动、改大小时收起。
 - 撤销、重做、剪切、复制、粘贴、创建副本、删除、全选、缩放的四条、设计与预览这几条命令的文字，以及工具栏的名字，是四款设计器共用的文案，在 designer-shell 语言包的 `xh-designer-commands` 一桶里，换语言时随 `mergeXhConfig` 一起换；要改这些文字，在全局配置里覆盖这一桶。报表自己的文案在 `xh-report-designer`。
 
@@ -193,4 +194,4 @@ aside: false
 
 <<< @/examples/snippets/designer-api.ts#remove
 
-另有 `addCard`、照点物料的做法新建卡片的 `addPaletteItem`、`select` 与 `getSelection`、`selectAll`、`copy`、`cut`、`paste`、`duplicate`、`deleteSelection`、`undo`、`redo`、`validate`，以及让卡片露出来的 `revealCard`、在画布上标出一张卡片的 `highlightCard(id | null)`，和 `canUndo`、`canRedo`、`canPaste`、`canDelete` 这几个只读状态。
+另有 `addCard`、照点物料的做法新建卡片的 `addPaletteItem`、`select` 与 `getSelection`、`selectAll`、`copy`、`cut`、`paste`、`duplicate`、`deleteSelection`、`undo`、`redo`、`validate`，以及让卡片露出来的 `revealCard`、在画布上标出一张卡片的 `highlightCard(id | null)`，和 `canUndo`、`canRedo`、`canPaste`、`canDelete` 这几个只读状态；登记了导入器时，`importTemplate()` 与 `canImportTemplate` 同命令「导入模板」。

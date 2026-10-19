@@ -7,13 +7,14 @@
 // 画布内容复用查看器的计算与渲染；整体版式用 @xihan-ui/designer-shell 的外框，面板布局存进设置的 layout.panels，面板用 designer-shell 的零件。
 // 卡片与视图种类、渲染、属性编辑器、命令、面板与物料都从 extensions 来，内置命令与物料也是一个扩展；
 // 工具栏与菜单的排列可由 commandLayout 改写。设置对话框（openSettings()）里是基础分区与各扩展的分区，值经 settings 与
-// settings-change 交给宿主。openJsonEditor() 编辑整份报表定义的 JSON，应用后记一步撤销。
+// settings-change 交给宿主。openJsonEditor() 编辑整份报表定义的 JSON，应用后记一步撤销；登记了导入器时 importTemplate()
+// 选文件交给导入器，导入的模板同样整份换上、记一步撤销。
 
 import type { DashboardCard, DashboardView, ExpressionEngine, ParameterValues, ReportDocument, ReportOperation, ReportStep, ValidationIssue } from '@xihan-report/core'
 import type { ReportDataProvider, ReportDesignerTranslations, ReportFormatter, ReportHistoryStepText, ReportViewerTranslations, XhReportViewer } from '@xihan-report/runtime'
 import type { JsonValue } from '@xihan-ui/core/json'
 import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
-import type { ExecuteOptions, ExtensionHost, GridRect, HistoryChangeKind, HistoryLabel, HistorySnapshot, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
+import type { DesignerImportSource, ExecuteOptions, ExtensionHost, GridRect, HistoryChangeKind, HistoryLabel, HistorySnapshot, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertySwatchOption } from '@xihan-ui/designer-kit/properties'
 import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFieldImportEventMap, DesignerFrameEventMap, DesignerFrameRegion, DesignerHistoryTranslations, DesignerIssueItem, DesignerJsonEditorEventMap, DesignerLayout, DesignerLayoutPolicy, DesignerMeasureConvert, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPaletteItem, DesignerPaletteView, DesignerPanelActions, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
@@ -21,7 +22,7 @@ import type { DialogService } from '@xihan-ui/web-components/services'
 import type { DataRemoval } from './data-editing'
 import type { DataAddKind } from './data-panel'
 import type { LayoutGesture, ReportAddCardInit, ReportClipboard, ReportDataRef, ReportEditor, ReportItemRef, ReportSelection } from './editor'
-import type { ReportCardTemplate, ReportDesignerContext, ReportDesignerExtension, ReportDesignerModel, ReportMenuSubject, ReportPaletteDrop, ReportSelectionSubject } from './extensions'
+import type { ReportCardTemplate, ReportDesignerContext, ReportDesignerExtension, ReportDesignerImporter, ReportDesignerModel, ReportMenuSubject, ReportPaletteDrop, ReportSelectionSubject } from './extensions'
 import type { ReportDataImportKind } from './field-import'
 import type { GridMetrics } from './grid-geometry'
 import { cardTypeOf, describeReportStep, planAddCard, planAddFieldItem, resolveParameters, validateDocument } from '@xihan-report/core'
@@ -29,7 +30,7 @@ import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS, DEFAULT_REPORT_VIEWER_TRANSLATION
 import { createRenderContext } from '@xihan-report/runtime/design'
 import { getLocalTimeZone } from '@xihan-ui/core/date'
 import { detectKbdPlatform } from '@xihan-ui/core/hotkey'
-import { clampZoom, commandForShortcut, createExtensionHost, createIdAllocator, DEFAULT_ZOOM_LIMITS, selectInMarquee, snapshotHistory, wheelZoomFactor, zoomBy, zoomTo } from '@xihan-ui/designer-kit'
+import { clampZoom, commandForShortcut, createExtensionHost, createIdAllocator, DEFAULT_ZOOM_LIMITS, findImporter, importerAccept, selectInMarquee, snapshotHistory, wheelZoomFactor, zoomBy, zoomTo } from '@xihan-ui/designer-kit'
 import {
   applyToolbarCustomization,
   arrangeCommands,
@@ -78,7 +79,7 @@ import { readReportClipboardData, writeReportClipboardData } from './clipboard'
 import { canEditData, cascadeCount, planDataAddition, planDataRemoval } from './data-editing'
 import { dataFieldPayload, DataPanel } from './data-panel'
 import { createReportEditor, writeReportClipboard } from './editor'
-import { createReportDesignerModel, REPORT_DESIGNER_EXTENSION, REPORT_MENU_LAYOUT, REPORT_SELECTION_LAYOUT, REPORT_TOOLBAR_LAYOUT } from './extensions'
+import { createReportDesignerModel, REPORT_DESIGNER_EXTENSION, REPORT_IMPORT_TEMPLATE_COMMAND, REPORT_MENU_LAYOUT, REPORT_SELECTION_LAYOUT, REPORT_TOOLBAR_LAYOUT } from './extensions'
 import { planDatasetImport, planFieldImport, planParameterImport } from './field-import'
 import { cellSize, cellToRect, centeredCell, clipCell, measureGrid, rectToCell } from './grid-geometry'
 import { IssuesPanel, reportIssueItems } from './issues-panel'
@@ -132,6 +133,11 @@ export interface ReportDesignerEventMap {
   'settings-storage-error': CustomEvent<VisualEnvironmentStorageError>
   /** 视口变了：缩放、适合窗口、setViewport 与滚动画布都会派发。 */
   'viewport-change': CustomEvent<{ viewport: Viewport }>
+  /**
+   * 导入模板没有成功：导入器抛了错，或给出的不是报表对象，importer 是导入器的 id；
+   * 选中的文件没有导入器接下时也派发，此时没有 importer。
+   */
+  'import-error': CustomEvent<{ importer?: string, source: DesignerImportSource, error: unknown }>
 }
 
 /** 放大、缩小一档的倍数。 */
@@ -662,6 +668,53 @@ export class XhReportDesigner extends XhReactiveElement {
     const { value } = (event as DesignerJsonEditorEventMap['json-apply']).detail
     editor.clearSelection()
     editor.execute([{ type: 'replaceDocument', document: value as unknown as ReportDocument }], { label: () => this.#commandTranslations().editJson })
+  }
+
+  /** 此刻能不能导入模板：登记了导入器、有报表、在设计态且不是只读。 */
+  get canImportTemplate(): boolean {
+    return !this.readonly && this.#mode() !== 'preview' && this.#editor !== undefined && this.#model.importers.length > 0
+  }
+
+  /**
+   * 导入模板：弹出选文件对话框（accept 取各导入器的 fileTypes），选中的文件按扩展顺序交给第一个接下的导入器，
+   * 给出的整份模板换上当前报表、清空选择，记一步撤销（说明是「导入模板」）。没有导入器接下、导入器抛错或给出的不是
+   * 报表对象时派发 import-error。此刻不能导入（见 canImportTemplate）时什么都不做，返回 false。
+   */
+  importTemplate(): boolean {
+    if (!this.canImportTemplate)
+      return false
+    const importers = this.#model.importers
+    const input = this.ownerDocument.createElement('input')
+    input.type = 'file'
+    input.accept = importerAccept(importers)
+    input.addEventListener('change', () => {
+      const file = input.files?.[0]
+      if (!file)
+        return
+      const source: DesignerImportSource = { kind: 'file', mime: file.type, name: file.name, file }
+      const found = findImporter(importers, [source])
+      if (found)
+        void this.#runImport(found.importer, source)
+      else
+        emitEvent(this, 'import-error', { source, error: new RangeError(`[xh-report-designer] no importer accepts "${file.name}"`) })
+    }, { once: true })
+    input.click()
+    return true
+  }
+
+  /** 交给导入器，给出的模板整份换上当前报表（core 的 replaceDocument），记一步撤销；导入器抛错或给出的不是报表对象时派发 import-error。 */
+  async #runImport(importer: ReportDesignerImporter, source: DesignerImportSource): Promise<void> {
+    try {
+      const result = await importer.import(source, this.#context())
+      const editor = this.#editor
+      if (result === undefined || !editor || !this.canImportTemplate)
+        return
+      editor.clearSelection()
+      editor.execute([{ type: 'replaceDocument', document: result.document }], { label: () => this.#translations().importTemplate })
+    }
+    catch (error) {
+      emitEvent(this, 'import-error', { importer: importer.id, source, error })
+    }
   }
 
   /** 选中列表项所在的卡片并让它可见。 */
@@ -1869,7 +1922,8 @@ export class XhReportDesigner extends XhReactiveElement {
       layers.issues.update(editor.document, this.#issues, shown)
       const { commands } = this.#model
       // 工具栏先按 commandLayout 或缺省排列排出分组，再套用户在设置「工具栏」页的定制；同一份排列交给设置对话框列按钮表
-      const arranged = arrangeCommands('toolbar', commands, REPORT_TOOLBAR_LAYOUT, this.commandLayout)
+      const defaults = this.#model.importers.length > 0 ? [[REPORT_IMPORT_TEMPLATE_COMMAND], ...REPORT_TOOLBAR_LAYOUT] : REPORT_TOOLBAR_LAYOUT
+      const arranged = arrangeCommands('toolbar', commands, defaults, this.commandLayout)
       layers.commandBar.setDisplay(toolbarDisplayOf(this.#resolvedSettings))
       layers.commandBar.update(applyToolbarCustomization(arranged, toolbarCustomizationOf(this.settings)), commands, context, context.commands.toolbar)
       const source = toolbarSettingsSource(arranged, commands, context)
