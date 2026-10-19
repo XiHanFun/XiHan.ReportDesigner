@@ -178,7 +178,6 @@ const designer: ReportDesignerLocale = {
   wellsHelp: 'Dimensiones, medidas, series y columnas de la tarjeta seleccionada. Arrastra campos aquí, arrástralos para reordenarlos y quítalos con la cruz.',
   propertiesHelp: 'Propiedades del objeto seleccionado. Con varias tarjetas seleccionadas solo se muestran las propiedades que comparten.',
   issuesHelp: 'Problemas de validación del informe. Selecciona uno para seleccionar el objeto afectado.',
-  historyHelp: 'Todos los cambios desde que se abrió el informe, del más antiguo al más reciente. Selecciona un paso para volver a él; los pasos posteriores se conservan hasta que hagas un cambio nuevo.',
   insertToolbar: 'Insertar tarjetas',
   selectionToolbar: 'Tarjetas seleccionadas',
   insertCard: label => `Añadir ${label}`,

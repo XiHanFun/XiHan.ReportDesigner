@@ -178,7 +178,6 @@ const designer: ReportDesignerLocale = {
   wellsHelp: 'Dimensionen, Kennzahlen, Datenreihen und Spalten der ausgewählten Karte. Zieh Felder hinein, zieh sie zum Umsortieren und entferne sie mit dem Kreuz.',
   propertiesHelp: 'Eigenschaften des ausgewählten Objekts. Sind mehrere Karten ausgewählt, stehen hier nur ihre gemeinsamen Eigenschaften.',
   issuesHelp: 'Prüfprobleme im Bericht. Wähle eines aus, um das betroffene Objekt auszuwählen.',
-  historyHelp: 'Alle Änderungen seit dem Öffnen des Berichts, die älteste zuerst. Wähle einen Schritt, um dorthin zurückzukehren; die Schritte danach bleiben erhalten, bis du etwas Neues änderst.',
   insertToolbar: 'Karten einfügen',
   selectionToolbar: 'Ausgewählte Karten',
   insertCard: label => `${label} hinzufügen`,

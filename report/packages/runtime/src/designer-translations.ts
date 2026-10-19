@@ -70,8 +70,6 @@ export interface ReportDesignerTranslations {
   readonly propertiesHelp: string
   /** 问题卡片的帮助。 */
   readonly issuesHelp: string
-  /** 历史记录卡片的帮助。 */
-  readonly historyHelp: string
   /** 顶栏那一条插入钮的名字。 */
   readonly insertToolbar: string
   /** 选中卡片时浮在选中框上方那一条工具条的名字。 */
@@ -606,7 +604,6 @@ export const REPORT_DESIGNER_EN_US: ReportDesignerLocale = {
   wellsHelp: 'Dimensions, measures, series and columns of the selected card. Drag fields in, drag to reorder, and use the cross to remove.',
   propertiesHelp: 'Properties of the selected object. With several cards selected, only the properties they share are listed.',
   issuesHelp: 'Validation problems in the report. Select one to select the object it is about.',
-  historyHelp: 'Every change since the report was opened, oldest first. Select a step to go back to it; the steps after it stay until you make a new change.',
   insertToolbar: 'Insert cards',
   selectionToolbar: 'Selected cards',
   insertCard: label => `Add ${label}`,

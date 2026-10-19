@@ -15,7 +15,7 @@ import type { JsonValue } from '@xihan-ui/core/json'
 import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
 import type { ExecuteOptions, ExtensionHost, GridRect, HistoryChangeKind, HistoryLabel, HistorySnapshot, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertySwatchOption } from '@xihan-ui/designer-kit/properties'
-import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFrameEventMap, DesignerFrameRegion, DesignerHistoryEventMap, DesignerHistoryTranslations, DesignerLayout, DesignerLayoutPolicy, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelActions, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
+import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFrameEventMap, DesignerFrameRegion, DesignerHistoryTranslations, DesignerLayout, DesignerLayoutPolicy, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { DialogService } from '@xihan-ui/web-components/services'
 import type { DataRemoval } from './data-editing'
@@ -33,13 +33,11 @@ import {
   arrangeCommands,
   createCommandToolbar,
   createDesignerSettingsHost,
-  createPanelActions,
   createPanelHost,
   createStatusItem,
   defineDesignerShellElement,
   DESIGNER_COMMANDS_EN_US,
   DESIGNER_FRAME_REGIONS,
-  DESIGNER_HISTORY_COMMANDS,
   DESIGNER_HISTORY_EN_US,
   DESIGNER_SETTING_KEYS,
   designerLayoutPolicy,
@@ -49,14 +47,13 @@ import {
   runCommand,
   toolbarDisplayOf,
   XhDesignerFrameElement,
-  XhDesignerHistoryElement,
   XhDesignerIssuesElement,
   XhDesignerPaletteElement,
   XhDesignerPropertiesElement,
   XhDesignerSettingsElement,
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
-import { CircleAlertIcon, DatabaseIcon, FilterIcon, HistoryIcon, LayoutGridIcon, ListIcon, SlidersHorizontalIcon } from '@xihan-ui/icons'
+import { CircleAlertIcon, DatabaseIcon, FilterIcon, LayoutGridIcon, ListIcon, SlidersHorizontalIcon } from '@xihan-ui/icons'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { defineXhElement, XhButtonElement, XhContextMenuElement, XhSortableElement, XhTagElement, XhToolbarElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import { createDialogService } from '@xihan-ui/web-components/services'
@@ -129,7 +126,7 @@ const ZOOM_LIMITS = DEFAULT_ZOOM_LIMITS
 const ZOOM_EPSILON = 1e-3
 
 /**
- * 外框的命名区：照外框的缺省区表，左侧在物料上面叠数据集与报表参数，右侧在属性上面叠字段栏、下面接历史记录（缺省隐藏）。
+ * 外框的命名区：照外框的缺省区表，左侧在物料上面叠数据集与报表参数，右侧在属性上面叠字段栏。历史记录是内置扩展的面板，登记在这些之后。
  * 同一侧的宽度取该侧第一个区的，所以挪到叠在最上面的那块上。
  */
 const FRAME_REGIONS: readonly DesignerFrameRegion[] = DESIGNER_FRAME_REGIONS.flatMap((region): DesignerFrameRegion[] => {
@@ -137,7 +134,7 @@ const FRAME_REGIONS: readonly DesignerFrameRegion[] = DESIGNER_FRAME_REGIONS.fla
   if (region.name === 'palette')
     return [{ name: 'datasets', position: 'start', ...(size === undefined ? {} : { size }) }, { name: 'parameters', position: 'start' }, rest]
   if (region.name === 'properties')
-    return [{ name: 'wells', position: 'end', ...(size === undefined ? {} : { size }) }, rest, { name: 'history', position: 'end', defaultHidden: true }]
+    return [{ name: 'wells', position: 'end', ...(size === undefined ? {} : { size }) }, rest]
   return [region]
 })
 
@@ -172,9 +169,6 @@ interface Layers {
   readonly wells: Wells
   readonly properties: PropertiesPanel
   readonly issues: IssuesPanel
-  /** 历史记录卡片与它面板头上的清空历史。 */
-  readonly history: XhDesignerHistoryElement
-  readonly historyActions: DesignerPanelActions<ReportDesignerContext>
   /** 设置对话框。 */
   readonly settings: XhDesignerSettingsElement
   /** 状态栏左段：选中对象的信息，没选中时是报表的概况。 */
@@ -327,8 +321,6 @@ export class XhReportDesigner extends XhReactiveElement {
   #regionList: readonly DesignerFrameRegion[] = FRAME_REGIONS
   #layoutPolicyKey = ''
   #layoutPolicy: DesignerLayoutPolicy | undefined
-  /** 上一次交给历史记录卡片的快照（JSON）。 */
-  #historyKey = ''
   #settingsHost: DesignerSettingsHost | undefined
   #settingsHostOptions: readonly unknown[] = []
   #settingsDialogKey = ''
@@ -778,8 +770,8 @@ export class XhReportDesigner extends XhReactiveElement {
     }
     this.#syncDirty()
     this.#refreshIssues()
-    if (this.#layers)
-      this.#syncHistory(this.#layers)
+    // 清空、保存不改文档、不重画，历史记录面板在这里刷新
+    this.#layers?.panels.update(this.#context())
     emitEvent(this, 'history-change', snapshotHistory(history))
   }
 
@@ -806,23 +798,6 @@ export class XhReportDesigner extends XhReactiveElement {
     layers.selectionBar.update(groups, commands, context, context.translations.selectionToolbar)
     if (!layers.selectionBar.element.isConnected)
       layers.overlay.append(layers.selectionBar.element)
-  }
-
-  /** 历史记录卡片：快照按此刻的语言取说明，内容变了才重交；只读时只能看。 */
-  #syncHistory(layers: Layers): void {
-    const snapshot = this.historyState
-    const key = JSON.stringify(snapshot)
-    if (key !== this.#historyKey) {
-      this.#historyKey = key
-      layers.history.snapshot = snapshot
-    }
-    layers.history.readonly = this.readonly === true
-  }
-
-  /** 历史记录卡片里选了一步：跳过去。 */
-  readonly #onHistoryGo = (event: Event): void => {
-    event.stopPropagation()
-    this.goToHistory((event as DesignerHistoryEventMap['history-go']).detail.position)
   }
 
   #syncDirty(): void {
@@ -925,13 +900,8 @@ export class XhReportDesigner extends XhReactiveElement {
     // 问题列表带计数的严重程度开关放进它所在卡片的面板头
     const issueSummary = issues.element.summary
     issueSummary.slot = 'issues-actions'
-    const history = createGeneratedElement(doc, 'xh-designer-history', { 'data-part': 'history', 'slot': 'history' }) as XhDesignerHistoryElement
-    history.headless = true
-    history.addEventListener('history-go', this.#onHistoryGo)
-    const historyActions = createPanelActions<ReportDesignerContext>(doc, 'history')
-    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, data.datasets, data.parameters, palette, workspace, wells.element, properties.element, issues.element, issueSummary, history, historyActions.element]) as XhDesignerFrameElement
+    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, data.datasets, data.parameters, palette, workspace, wells.element, properties.element, issues.element, issueSummary]) as XhDesignerFrameElement
     frame.addEventListener('layout-change', this.#onLayoutChange)
-    history.announce = message => frame.announce(message)
     const selectionStatus = createStatusItem(doc, { value: '' })
     selectionStatus.element.slot = 'status-start'
     const zoomStatus = createStatusItem(doc, { value: '', action: () => this.zoomToActual() })
@@ -941,7 +911,7 @@ export class XhReportDesigner extends XhReactiveElement {
     settings.addEventListener('settings-change', this.#onSettingsChange)
     this.replaceChildren(frame, settings)
     this.#layers?.panels.dispose()
-    const panels = createPanelHost<ReportDesignerContext>(frame, { regions: FRAME_REGIONS })
+    const panels = createPanelHost<ReportDesignerContext>(frame, { regions: FRAME_REGIONS, commands: () => this.#model.commands })
     canvas.addEventListener('pointerdown', this.#onPointerDown)
     canvas.addEventListener('pointermove', this.#onHover)
     canvas.addEventListener('pointerleave', this.#onHoverEnd)
@@ -970,7 +940,7 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#regionsKey = ''
     this.#viewer = undefined
     this.#settingsDialogKey = ''
-    this.#layers = { frame, toolbar, commandBar, selectionBar, headerBar, panels, menu, menuContent, menuTrigger, canvas, scroller, sizer, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, history, historyActions, settings, selectionStatus, zoomStatus }
+    this.#layers = { frame, toolbar, commandBar, selectionBar, headerBar, panels, menu, menuContent, menuTrigger, canvas, scroller, sizer, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, settings, selectionStatus, zoomStatus }
     panels.assign(this.#model.extensions, this.#context())
     this.#fillMenu('blank')
     return this.#layers
@@ -1106,7 +1076,6 @@ export class XhReportDesigner extends XhReactiveElement {
       wells: { title: t.wells, icon: ListIcon, help: t.wellsHelp },
       properties: { title: t.properties, icon: SlidersHorizontalIcon, help: t.propertiesHelp, ...(layers?.properties.element.heading === undefined ? {} : { subtitle: layers.properties.element.heading }) },
       issues: { title: t.issues, icon: CircleAlertIcon, help: t.issuesHelp },
-      history: { title: this.#historyTranslations().title, icon: HistoryIcon, help: t.historyHelp },
     }
     const shown = FRAME_REGIONS.filter(region => this.#registers(region.name))
     const key = JSON.stringify([regions, shown.map(region => region.name), this.#mode()])
@@ -1585,8 +1554,6 @@ export class XhReportDesigner extends XhReactiveElement {
       }
       this.#renderSelectionBar(layers, context)
       layers.panels.update(context)
-      layers.historyActions.update([DESIGNER_HISTORY_COMMANDS.clearHistory], commands, context, context.historyTranslations.title)
-      this.#syncHistory(layers)
       this.#renderStatus(layers, t)
     }
     this.#syncFrame(layers.frame, t)
@@ -1887,7 +1854,6 @@ export function defineReportDesigner(): void {
   defineXhElement('xh-toolbar', XhToolbarElement)
   defineXhElement('xh-tree', XhTreeElement)
   defineDesignerShellElement('xh-designer-frame', XhDesignerFrameElement)
-  defineDesignerShellElement('xh-designer-history', XhDesignerHistoryElement)
   defineDesignerShellElement('xh-designer-issues', XhDesignerIssuesElement)
   defineDesignerShellElement('xh-designer-palette', XhDesignerPaletteElement)
   defineDesignerShellElement('xh-designer-properties', XhDesignerPropertiesElement)

@@ -178,7 +178,6 @@ const designer: ReportDesignerLocale = {
   wellsHelp: '选中卡片的维度、度量、系列与列。把字段拖进来，拖动换序，点叉移除。',
   propertiesHelp: '选中对象的属性。选中多张卡片时只列它们共有的属性。',
   issuesHelp: '报表的校验问题。点一条选中出问题的对象。',
-  historyHelp: '打开报表以来的每一步修改，先做的在上。点一步回到那里；它后面的几步在做出新的修改之前都还在。',
   insertToolbar: '插入卡片',
   selectionToolbar: '选中的卡片',
   insertCard: label => `添加「${label}」`,

@@ -178,7 +178,6 @@ const designer: ReportDesignerLocale = {
   wellsHelp: 'Dimensions, mesures, séries et colonnes de la carte sélectionnée. Faites glisser des champs ici, faites-les glisser pour les réordonner et retirez-les avec la croix.',
   propertiesHelp: 'Propriétés de l’objet sélectionné. Si plusieurs cartes sont sélectionnées, seules leurs propriétés communes sont listées.',
   issuesHelp: 'Problèmes de validation du rapport. Sélectionnez-en un pour sélectionner l’objet concerné.',
-  historyHelp: 'Toutes les modifications depuis l’ouverture du rapport, de la plus ancienne à la plus récente. Sélectionnez une étape pour y revenir ; les étapes suivantes restent disponibles jusqu’à une nouvelle modification.',
   insertToolbar: 'Insérer des cartes',
   selectionToolbar: 'Cartes sélectionnées',
   insertCard: label => `Ajouter ${label}`,

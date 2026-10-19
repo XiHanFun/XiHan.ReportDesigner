@@ -16,8 +16,8 @@ import type { XhReportDesigner } from './report-designer'
 import { cardTemplate, REPORT_CARD_TYPES } from '@xihan-report/core'
 import { createReportRuntimeModel } from '@xihan-report/runtime'
 import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
-import { collectSettingsSections, designerHistoryCommands, designerPanelCommands, designerShellCommands } from '@xihan-ui/designer-shell'
-import { ChartBarIcon, ChartPieIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, GridIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TableIcon, TrashIcon, TrendingUpIcon, UndoIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { collectSettingsSections, createHistoryPanel, designerHistoryCommands, designerPanelCommands, designerShellCommands } from '@xihan-ui/designer-shell'
+import { ChartBarIcon, ChartPieIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, GridIcon, HistoryIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TableIcon, TrashIcon, TrendingUpIcon, UndoIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 
 /** 命令、面板、物料与扩展装上时拿到的上下文。 */
 export interface ReportDesignerContext {
@@ -189,10 +189,18 @@ const BUILTIN_PALETTE: readonly ReportPaletteItem[] = REPORT_CARD_TYPES.map(type
   template: (dataset: string) => cardTemplate(type, dataset),
 }))
 
-/** 设计器的内置扩展：内置命令与物料。卡片种类、渲染与导出等内置部分在 core 与 runtime 的内置扩展里。 */
+/** 历史记录面板：缺省隐藏，打开后在右栏属性下面，面板头是清空历史；只读时只能看。 */
+const HISTORY_PANEL = createHistoryPanel<ReportDesignerContext>({
+  snapshot: ({ designer }) => designer.historyState,
+  goTo: ({ designer }, position) => void designer.goToHistory(position),
+  announce: ({ frame }, message) => frame?.announce(message),
+}, { region: { icon: HistoryIcon }, readonly: ({ designer }) => designer.readonly === true })
+
+/** 设计器的内置扩展：内置命令、物料与历史记录面板。卡片种类、渲染与导出等内置部分在 core 与 runtime 的内置扩展里。 */
 export const REPORT_DESIGNER_EXTENSION: ReportDesignerExtension = {
   id: '@xihan-report/designer',
   commands: BUILTIN_COMMANDS,
+  panels: [HISTORY_PANEL],
   paletteGroups: BUILTIN_GROUPS.map(group => ({ id: group, label: ({ translations }: ReportDesignerContext) => translations.paletteGroups[group] ?? group })),
   palette: BUILTIN_PALETTE,
 }
