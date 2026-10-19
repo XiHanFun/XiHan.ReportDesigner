@@ -327,7 +327,7 @@ type ReportDataMiddleware = (next: ReportDataProvider) => ReportDataProvider
 declare function createReportDesignerModel(extensions: readonly ReportDesignerExtension[]): ReportDesignerModel
 ```
 
-合出设计器用的模型；任何一处重名（含设置分区与引导步骤）都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。同一个数组只合一次。
+合出设计器用的模型；任何一处重名（含设置分区、引导步骤与物料来源）都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。同一个数组只合一次。
 
 ### ReportDesignerExtension {#reportdesignerextension}
 
@@ -349,7 +349,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | `overlays?` | `readonly ReportOverlay[]` | 看板的叠加层；同一层里按扩展顺序，后登记的在上。 |
 | `palette?` | `readonly ReportPaletteItem[]` | 物料面板里的项。 |
 | `paletteGroups?` | `readonly ReportPaletteGroup[]` | 物料面板的组，排在内置的图表、指标、表格之后。 |
-| `paletteSources?` | `readonly DesignerPaletteSource<ReportDesignerContext, unknown>[]` | 物料来源：往物料面板里加的几组，排在各款内置分组之后；id 不能重名，见 collectPaletteSources。At 是各款的落点信息。 |
+| `paletteSources?` | `readonly DesignerPaletteSource<ReportDesignerContext, ReportPaletteDrop>[]` | 物料来源：往物料面板里加的几组，排在各款内置分组之后；id 不能重名，见 collectPaletteSources。At 是各款的落点信息。 |
 | `panels?` | `readonly DesignerPanel<ReportDesignerContext>[]` | 面板：各占外框的一个命名区，同一栏按扩展顺序上下排。 |
 | `properties?` | `Readonly<Partial<Record<ReportPropertyTarget, readonly ReportPropertyDescriptor[]>>>` | 追加在内置之后的属性，path 相对那类对象本身。 |
 | `rules?` | `readonly SchemaRule<ReportDocument, ReportRuleContext>[]` | 校验规则，问题与内置校验的一起进问题列表；问题码以 id 的末段加点开头。 |
@@ -500,3 +500,4 @@ const REPORT_SELECTION_LAYOUT = {
 | `palette` | `ReadonlyMap<string, ReportPaletteItem>` | 物料项 id 到物料项的对照。 |
 | `settings` | `readonly DesignerSettingsSection[]` | 各扩展登记的设置分区，按登记顺序；分区 id 不与基础分区或彼此重名。 |
 | `tourSteps` | `readonly DesignerTourStep<ReportDesignerContext>[]` | 新手引导里报表与各扩展的步骤，按登记顺序；id 不重名。 |
+| `paletteSources` | `readonly DesignerPaletteSource<ReportDesignerContext, ReportPaletteDrop>[]` | 各扩展的物料来源，按 order 排；分组接在内置物料组后面。 |

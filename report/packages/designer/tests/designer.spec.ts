@@ -9,10 +9,11 @@ import type { XhReportViewer } from '@xihan-report/runtime'
 import type { JsonValue } from '@xihan-ui/core/json'
 import type { DesignerPaletteDragPayload, XhDesignerJsonEditorElement } from '@xihan-ui/designer-shell'
 import type { XhSortableElement, XhTreeElement } from '@xihan-ui/web-components/define'
-import type { XhReportDesigner } from '../src'
+import type { ReportDesignerExtension, XhReportDesigner } from '../src'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS } from '@xihan-report/runtime'
 import { reportZhCN } from '@xihan-report/runtime/locale'
 import { formatJsonPath } from '@xihan-ui/core/json'
+import { DesignerExtensionError } from '@xihan-ui/designer-kit'
 import { inferDataFields } from '@xihan-ui/designer-kit/field-inference'
 import { DESIGNER_COMMANDS_EN_US, DESIGNER_HISTORY_EN_US, DESIGNER_SETTING_KEYS, startDrag } from '@xihan-ui/designer-shell'
 import { setXhConfig } from '@xihan-ui/web-components'
@@ -1723,5 +1724,83 @@ describe('<xh-report-designer>：缩放', () => {
     pointer(document, 'pointerup', 475, 70)
     expect(cards(designer).at(-1)).toMatchObject({ id: 'metric1', layout: { x: 8, y: 2, w: 3, h: 3 } })
     expect(preview.hidden).toBe(true)
+  })
+})
+
+describe('<xh-report-designer>：物料来源', () => {
+  interface Inserted {
+    readonly item: string
+    readonly designer: unknown
+    readonly at?: unknown
+  }
+
+  function sourced(log: Inserted[], id = 'mine'): ReportDesignerExtension {
+    return {
+      id: `@acme/${id}`,
+      paletteSources: [{
+        id: `@acme/${id}.saved`,
+        groups: () => [{ id: `${id}.saved`, label: 'Saved', items: [{ id: `${id}.kpi`, label: 'Saved KPI', payload: { template: 'kpi' }, children: [{ id: `${id}.kpi.small`, label: 'Small' }] }] }],
+        insert: (item, context, at) => void log.push(at === undefined ? { item: item.id, designer: context.designer } : { item: item.id, designer: context.designer, at }),
+      }],
+    }
+  }
+
+  function pointer(target: EventTarget, type: string, x: number, y: number): void {
+    target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, button: 0, pointerId: 1, isPrimary: true, pointerType: 'mouse', clientX: x, clientY: y }))
+  }
+
+  it('分组接在内置物料组后面；点按来源的条目（含下级）交给来源插入、不给落点，内置条目照旧新建卡片；只读时不交给来源', async () => {
+    const designer = await mount()
+    const log: Inserted[] = []
+    designer.extensions = [sourced(log)]
+    await designer.updateComplete
+    const palette = designer.querySelector('xh-designer-palette')!
+    expect(palette.groups!.map(group => group.id)).toEqual(['charts', 'metrics', 'tables', 'mine.saved'])
+    palette.dispatchEvent(new CustomEvent('item-activate', { detail: { id: 'mine.kpi.small', payload: undefined } }))
+    expect([log, cards(designer).length]).toEqual([[{ item: 'mine.kpi.small', designer }], 3])
+    palette.dispatchEvent(new CustomEvent('item-activate', { detail: { id: 'metric', payload: 'metric' } }))
+    expect([log.length, cards(designer).length]).toEqual([1, 4])
+    designer.readonly = true
+    await designer.updateComplete
+    palette.dispatchEvent(new CustomEvent('item-activate', { detail: { id: 'mine.kpi', payload: { template: 'kpi' } } }))
+    expect(log).toHaveLength(1)
+  })
+
+  it('拖到看板上：落点画出指针所在的那一格，放下时交给来源插入并带上落点格；只读时不接收', async () => {
+    const designer = await mount()
+    const log: Inserted[] = []
+    designer.extensions = [sourced(log)]
+    await designer.updateComplete
+    placeGrid(designer)
+    const scroller = designer.querySelector<HTMLElement>('[data-part="scroller"]')!
+    stub(scroller, { x: 0, y: 0, width: 1200, height: 800 })
+    document.elementFromPoint = () => scroller
+    const source = document.createElement('button')
+    document.body.append(source)
+    source.addEventListener('pointerdown', event => startDrag(event, { payload: { source: 'palette', id: 'mine.kpi', payload: { template: 'kpi' } } satisfies DesignerPaletteDragPayload }))
+    const drag = (x: number, y: number): void => {
+      pointer(source, 'pointerdown', 10, 10)
+      pointer(document, 'pointermove', x, y)
+    }
+    drag(475, 70)
+    const preview = designer.querySelector<HTMLElement>('[data-part="drop-preview"]')!
+    expect([preview.hidden, preview.style.insetInlineStart, preview.style.insetBlockStart, preview.style.inlineSize, preview.style.blockSize]).toEqual([false, '400px', '40px', '100px', '40px'])
+    pointer(document, 'pointerup', 475, 70)
+    expect([log, cards(designer).length, preview.hidden]).toEqual([[{ item: 'mine.kpi', designer, at: { x: 4, y: 1 } }], 3, true])
+    designer.readonly = true
+    await designer.updateComplete
+    drag(475, 70)
+    expect(preview.hidden).toBe(true)
+    pointer(document, 'pointerup', 475, 70)
+    expect(log).toHaveLength(1)
+  })
+
+  it('物料来源 id 重名时抛 DesignerExtensionError，扩展不变', async () => {
+    const designer = await mount()
+    const log: Inserted[] = []
+    const first = sourced(log, 'a')
+    designer.extensions = [first]
+    expect(() => (designer.extensions = [first, { id: '@acme/b', paletteSources: first.paletteSources! }])).toThrow(DesignerExtensionError)
+    expect(designer.extensions).toEqual([first])
   })
 })
