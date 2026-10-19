@@ -34,6 +34,12 @@ export interface UpdateDocumentOperation {
   readonly changes: readonly PropertyChange[]
 }
 
+/** 整份换掉报表定义，如编辑整份 JSON 之后应用。 */
+export interface ReplaceDocumentOperation {
+  readonly type: 'replaceDocument'
+  readonly document: ReportDocument
+}
+
 /** 换掉报表主体，用来改报表的类型。 */
 export interface SetBodyOperation {
   readonly type: 'setBody'
@@ -230,6 +236,7 @@ export interface UpdateItemOperation extends ItemOwner {
 /** 编辑操作。 */
 export type ReportOperation
   = | UpdateDocumentOperation
+    | ReplaceDocumentOperation
     | SetBodyOperation
     | AddDatasetOperation
     | RemoveDatasetOperation

@@ -41,8 +41,9 @@ describe('describeReportStep', () => {
     expect(step([{ type: 'layoutCards', layouts: { trend: { x: 0, y: 0, w: 4, h: 3 }, kpi: { x: 4, y: 0, w: 4, h: 3 } } }])).toEqual({ action: 'layout', kind: 'card', count: 2 })
   })
 
-  it('换报表主体是 replace；没有操作时为 undefined', () => {
+  it('换报表主体与整份替换是 replace；没有操作时为 undefined', () => {
     expect(step([{ type: 'setBody', body: groupDocument.body }])).toEqual({ action: 'replace', kind: 'view', count: 1 })
+    expect(step([{ type: 'replaceDocument', document: groupDocument }])).toEqual({ action: 'replace', kind: 'document', count: 1 })
     expect(step([])).toBeUndefined()
   })
 })

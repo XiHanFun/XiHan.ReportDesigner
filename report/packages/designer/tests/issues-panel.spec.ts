@@ -52,6 +52,18 @@ describe('问题路径换成选择', () => {
     expect(at('body', 'grid', 'columns')).toEqual({ cards: [] })
   })
 
+  it('还没校验过的 JSON：路径上的对象缺了或形状不对时停在能找到的那一层，不抛错', () => {
+    const select = (document: unknown, ...path: (string | number)[]): ReturnType<typeof issueSelection> => issueSelection(document, { code: 'required', path })
+    expect(select({ datasets: [{ id: 'd' }] }, 'datasets', 0, 'fields')).toEqual({ cards: [], data: { kind: 'dataset', dataset: 'd' } })
+    expect(select({ datasets: 'x' }, 'datasets', 0)).toEqual({ cards: [] })
+    expect(select({ parameters: 'p' }, 'parameters', 0)).toEqual({ cards: [] })
+    expect(select({}, 'body')).toEqual({ cards: [] })
+    expect(select(null, 'body')).toEqual({ cards: [] })
+    expect(select({ body: { type: 'dashboard', cards: [{ id: 'c', kind: 'table', view: 3 }] } }, 'body', 'cards', 0, 'view', 'columns', 0)).toEqual({ cards: ['c'] })
+    expect(select({ body: { type: 'dashboard', cards: [7], links: [7] } }, 'body', 'cards', 0, 'title')).toEqual({ cards: [] })
+    expect(select({ body: { type: 'dashboard', links: [{ id: 'l' }] } }, 'body', 'links', 0)).toEqual({ cards: [] })
+  })
+
   it('主体不是看板时指向主体视图的列表项', () => {
     const table: ReportDocument = { ...board, body: { type: 'table', dataset: 'sales', columns: [{ id: 'c', field: 'region' }] } }
     expect(issueSelection(table, { code: 'unknown-field', path: ['body', 'columns', 0, 'field'] })).toEqual({ cards: [], item: { list: 'columns', id: 'c' } })

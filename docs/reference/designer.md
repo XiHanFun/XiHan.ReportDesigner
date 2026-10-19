@@ -73,6 +73,7 @@
 | `canImportData(kind: ReportDataImportKind): boolean` | 这种导入此刻能不能做：只读、预览态或 datasetEditing 不够时不能（导入数据集与字段要 full，导入参数要 fields 起）；导入字段还要在数据面板里选中一个数据集或它的字段。 |
 | `openDataImport(kind: ReportDataImportKind): boolean` | 打开导入对话框：dataset 从 JSON 样例或 JSON Schema 新建一个数据集，fields 往选中的数据集里加字段，parameters 从 JSON Schema（也可以是样例）加报表参数。对话框里还有扩展登记的字段来源页（fieldSources）。导入的字段只取值字段，同名的保留现有的，一次导入记一步撤销。此刻不能做时返回 false。 |
 | `startTour(): boolean` | 从头开始新手引导：通用步骤加报表与扩展的步骤；预览态、还没有报表或没有能走的步骤时返回 false。 |
+| `openJsonEditor(): boolean` | 打开编辑整份报表定义 JSON 的对话框：写出当前报表，边改边按当前扩展与表达式引擎校验、报问题（文字与问题列表的一致）；没有错误时「应用」整份换上，记一步撤销，说明是「编辑 JSON」。只读或预览态时只能看、不能应用。还没有报表时返回 false。 |
 | `revealItem(ref: ReportItemRef): void` | 选中列表项所在的卡片并让它可见。 |
 | `getViewport(): Viewport` | 视口：屏幕坐标（画布可见区的左上角为原点）= 画布坐标 × zoom + (x, y)；画布坐标是实际尺寸下画布里的像素，zoom 为 1 时是实际尺寸。画布还没有布局时 x、y 为 0。 |
 | `setViewport(viewport: Viewport): void` | 设置视口：缩放夹进 10%–400%，平移落在画布能滚到的范围里；此后尺寸变化不再自动适配。 |
@@ -325,7 +326,7 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `REPORT_DESIGNER_EXTENSION` | 常量 | 设计器的内置扩展：内置命令、物料、页面结构与历史记录面板、新手引导的报表步骤。 |
 | `REPORT_DESIGNER_HELP_URL` | 常量 | 内置命令 help 打开的帮助页：报表文档站的设计器一页。 |
 | `REPORT_DESIGNER_PANELS` | 常量 | 设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.&lt;面板 id&gt;）与 commandLayout（panel:&lt;面板 id&gt;）时用。 |
-| `REPORT_MENU_LAYOUT` | 常量 | 右键菜单的缺省排列。 |
+| `REPORT_MENU_LAYOUT` | 常量 | 右键菜单的缺省排列：空白处的末尾是编辑 JSON。 |
 | `REPORT_SELECTION_LAYOUT` | 常量 | 选中工具条（命令落点 selection:&lt;主体&gt;）的缺省排列：创建副本、复制与删除。 |
 | `REPORT_TOOLBAR_LAYOUT` | 常量 | 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。 |
 | `ReportCardTemplate` | 类型 | 新卡片的模板：不写 id，新建时按种类分配；layout 只需写大小。 |

@@ -306,6 +306,7 @@
 | `RemoveItemOperation` | 接口 | 删除报表主体或卡片里某个列表的一项。 |
 | `RemoveLinkOperation` | 接口 | 删除看板的联动。 |
 | `RemoveParameterOperation` | 接口 | 删除报表参数；引用它的地方不一并改，要连带删除时用 planRemoveParameter。 |
+| `ReplaceDocumentOperation` | 接口 | 整份换掉报表定义，如编辑整份 JSON 之后应用。 |
 | `ReportOperation` | 类型 | 编辑操作。 |
 | `ReportOperationResult` | 类型 | 操作结果，即 @xihan-ui/designer-kit 的 OperationResult：新文档，以及按顺序作用于新文档即可还原出传入文档的逆操作。 |
 | `ReportOperationType` | 类型 | 编辑操作的种类。 |

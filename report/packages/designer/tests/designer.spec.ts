@@ -4,19 +4,20 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { DashboardView, DatasetRequest, ReportDocument } from '@xihan-report/core'
+import type { DashboardView, DatasetRequest, ReportDocument, ValidationIssue } from '@xihan-report/core'
 import type { XhReportViewer } from '@xihan-report/runtime'
-import type { DesignerPaletteDragPayload } from '@xihan-ui/designer-shell'
+import type { JsonValue } from '@xihan-ui/core/json'
+import type { DesignerPaletteDragPayload, XhDesignerJsonEditorElement } from '@xihan-ui/designer-shell'
 import type { XhSortableElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import type { XhReportDesigner } from '../src'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS } from '@xihan-report/runtime'
 import { reportZhCN } from '@xihan-report/runtime/locale'
 import { formatJsonPath } from '@xihan-ui/core/json'
 import { inferDataFields } from '@xihan-ui/designer-kit/field-inference'
-import { DESIGNER_HISTORY_EN_US, DESIGNER_SETTING_KEYS, startDrag } from '@xihan-ui/designer-shell'
+import { DESIGNER_COMMANDS_EN_US, DESIGNER_HISTORY_EN_US, DESIGNER_SETTING_KEYS, startDrag } from '@xihan-ui/designer-shell'
 import { setXhConfig } from '@xihan-ui/web-components'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineReportDesigner, REPORT_CARD_TYPE_ICONS, REPORT_DESIGNER_HELP_URL, REPORT_DESIGNER_PANELS } from '../src'
+import { defineReportDesigner, REPORT_CARD_TYPE_ICONS, REPORT_DESIGNER_HELP_URL, REPORT_DESIGNER_PANELS, REPORT_MENU_LAYOUT } from '../src'
 
 function metric(id: string, x: number): DashboardView['cards'][number] {
   return {
@@ -1346,7 +1347,7 @@ describe('<xh-report-designer>：编辑', () => {
     const designer = await mount()
     const content = designer.querySelector('xh-context-menu [data-xh-part="positioner"] > [data-xh-part="content"]')!
     const entries = (): [string | null, boolean][] => [...content.querySelectorAll('[data-xh-part="item"]')].map(item => [item.getAttribute('value'), item.getAttribute('aria-disabled') === 'true'])
-    expect(entries()).toEqual([['paste', true], ['select-all', false], ['zoom-to-fit', false]])
+    expect(entries()).toEqual([['paste', true], ['select-all', false], ['zoom-to-fit', false], ['edit-json', false]])
     card(designer, 'a').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
     expect(designer.getSelection()).toEqual({ cards: ['a'] })
     expect(entries()).toEqual([['cut', false], ['copy', false], ['paste', true], ['duplicate', false], ['delete', false]])
@@ -1356,10 +1357,10 @@ describe('<xh-report-designer>：编辑', () => {
     designer.querySelector('xh-context-menu')!.dispatchEvent(new CustomEvent('select', { detail: { value: 'delete' } }))
     expect(cards(designer).map(item => item.id)).toEqual(['pie', 'b'])
     designer.querySelector('[data-part="surface"]')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
-    expect(entries()).toEqual([['paste', true], ['select-all', false], ['zoom-to-fit', false]])
+    expect(entries()).toEqual([['paste', true], ['select-all', false], ['zoom-to-fit', false], ['edit-json', false]])
     designer.addEventListener('card-contextmenu', event => event.preventDefault())
     card(designer, 'b').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
-    expect(entries()).toEqual([['paste', true], ['select-all', false], ['zoom-to-fit', false]])
+    expect(entries()).toEqual([['paste', true], ['select-all', false], ['zoom-to-fit', false], ['edit-json', false]])
   })
 
   it('画布里的输入框（尺寸徽标）选中文字时派发的原生 select 事件冒泡到右键菜单，不当成选了菜单条目', async () => {
@@ -1472,6 +1473,77 @@ describe('<xh-report-designer>：编辑', () => {
     card(designer, 'a').dispatchEvent(menu)
     expect(menu.defaultPrevented).toBe(true)
     expect(designer.getSelection()).toEqual({ cards: ['a'] })
+  })
+})
+
+describe('<xh-report-designer>：编辑 JSON', () => {
+  function jsonEditor(designer: XhReportDesigner): XhDesignerJsonEditorElement {
+    return designer.querySelector('xh-designer-json-editor')!
+  }
+
+  function apply(designer: XhReportDesigner, value: unknown): void {
+    jsonEditor(designer).dispatchEvent(new CustomEvent('json-apply', { detail: { value }, bubbles: true }))
+  }
+
+  it('按 Ctrl / ⌘ + Shift + J 打开对话框，写出当前报表；空白处右键菜单的末尾也是这一条', async () => {
+    const designer = await mount()
+    key(designer, 'J', { ctrlKey: true, shiftKey: true })
+    await designer.updateComplete
+    const dialog = jsonEditor(designer)
+    expect([dialog.open, dialog.value, dialog.readonly]).toEqual([true, designer.schema, false])
+    expect(REPORT_MENU_LAYOUT.blank.at(-1)).toEqual(['edit-json'])
+  })
+
+  it('按当前扩展与表达式引擎校验：问题的说明与所在对象的名字同问题列表；缺了对象或形状不对的 JSON 也只报问题、不抛错', async () => {
+    const designer = await mount()
+    designer.openJsonEditor()
+    const validate = jsonEditor(designer).validate!
+    expect(validate(designer.schema as unknown as JsonValue)).toEqual([])
+    const broken = structuredClone(board) as unknown as { body: { cards: { query: { dimensions: { field: string }[] } }[] } }
+    broken.body.cards[0]!.query.dimensions[0]!.field = 'nope'
+    const unknown = validate(broken as unknown as JsonValue).find(item => item.issue.code === 'unknown-field')!
+    expect([unknown.subject, unknown.message]).toEqual(['各区域', DEFAULT_REPORT_DESIGNER_TRANSLATIONS.issue(unknown.issue as ValidationIssue)])
+    const fieldless = validate({ schemaVersion: 1, id: 'x', datasets: [{ id: 'd' }] })
+    expect(fieldless.map(item => [formatJsonPath(item.issue.path), item.subject])).toEqual(expect.arrayContaining([['datasets[0].fields', 'd'], ['body', undefined]]))
+    for (const value of [null, [], { datasets: 'x', parameters: 'p', body: 5 }, { body: { type: 'dashboard', cards: [{ id: 'c', kind: 'table', view: 3 }, 7], links: [7] } }] as JsonValue[])
+      expect(validate(value).length).toBeGreaterThan(0)
+  })
+
+  it('应用时整份换上，记一步撤销，说明是「编辑 JSON」，派发一次 schema-change 并清空选择；撤销回到原来那份', async () => {
+    const designer = await mount()
+    const before = designer.schema!
+    designer.select({ cards: ['a'] })
+    const changes = events(designer, 'schema-change') as { kind: string }[]
+    apply(designer, { ...structuredClone(before), title: '改过', body: { ...(before.body as DashboardView), cards: cards(designer).filter(item => item.id !== 'b') } })
+    await designer.updateComplete
+    expect([designer.schema!.title, cards(designer).map(item => item.id), changes.map(change => change.kind), designer.getSelection()]).toEqual(['改过', ['pie', 'a'], ['execute'], { cards: [] }])
+    expect(designer.historyState.entries.at(-1)!.label).toBe(DESIGNER_COMMANDS_EN_US.editJson)
+    expect(designer.undo()).toBe(true)
+    expect(designer.schema).toEqual(before)
+  })
+
+  it('只读或预览态只能看：对话框只读，应用不改报表；还没有报表时不打开', async () => {
+    const designer = await mount()
+    const before = designer.schema
+    const changed = { ...structuredClone(before!), title: '改过' }
+    designer.readonly = true
+    await designer.updateComplete
+    expect(designer.openJsonEditor()).toBe(true)
+    expect(jsonEditor(designer).readonly).toBe(true)
+    apply(designer, changed)
+    expect(designer.schema).toBe(before)
+    designer.readonly = false
+    designer.mode = 'preview'
+    await designer.updateComplete
+    designer.openJsonEditor()
+    expect(jsonEditor(designer).readonly).toBe(true)
+    apply(designer, changed)
+    expect(designer.schema).toBe(before)
+    const empty = document.createElement('xh-report-designer')
+    empty.autoTour = false
+    document.body.append(empty)
+    await empty.updateComplete
+    expect([empty.openJsonEditor(), jsonEditor(empty).open]).toEqual([false, false])
   })
 })
 
