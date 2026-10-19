@@ -1245,16 +1245,38 @@ describe('<xh-report-designer>：编辑', () => {
     expect(document.activeElement!.closest('[data-part="measure-field"][data-axis="width"]')).not.toBeNull()
   })
 
-  it('新手引导：缺省在第一次铺好画布后自动开始，通用步骤之后接报表的几步；收起时设置里记下 help.tourDone，记过的不再自动开始；autoTour 为 false 时不自动开始，startTour() 照样能开始', async () => {
+  it('新手引导：缺省在第一次铺好画布、设计器显示出来（画布有宽度）后自动开始，只开一次，通用步骤之后接报表的几步；收起时设置里记下 help.tourDone，记过的不再自动开始；autoTour 为 false 时不自动开始，startTour() 照样能开始', async () => {
+    const settle = async (element: XhReportDesigner): Promise<void> => {
+      await element.updateComplete
+      await element.updateComplete
+    }
+    // jsdom 不排版：给画布一个宽度，当作设计器显示着
+    const show = async (element: XhReportDesigner): Promise<XhReportDesigner> => {
+      Object.defineProperty(element.querySelector('[data-part="canvas"]')!, 'clientWidth', { configurable: true, value: 800 })
+      element.requestUpdate()
+      await settle(element)
+      return element
+    }
     const create = async (setup: (element: XhReportDesigner) => void): Promise<XhReportDesigner> => {
       const element = document.createElement('xh-report-designer')
       setup(element)
       element.schema = board
       document.body.append(element)
-      await element.updateComplete
-      await element.updateComplete
-      return element
+      await settle(element)
+      return show(element)
     }
+    const hidden = document.createElement('xh-report-designer')
+    hidden.schema = board
+    document.body.append(hidden)
+    await settle(hidden)
+    expect(hidden.querySelector('xh-designer-tour')!.running).toBe(false)
+    await show(hidden)
+    expect(hidden.querySelector('xh-designer-tour')!.running).toBe(true)
+    hidden.querySelector('xh-designer-tour')!.stop()
+    hidden.requestUpdate()
+    await settle(hidden)
+    expect(hidden.querySelector('xh-designer-tour')!.running).toBe(false)
+    document.body.replaceChildren()
     const designer = await create(() => {})
     const tour = designer.querySelector('xh-designer-tour')!
     expect(tour.running).toBe(true)

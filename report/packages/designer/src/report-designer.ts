@@ -288,7 +288,7 @@ export class XhReportDesigner extends XhReactiveElement {
   /** design 或 preview，缺省 design。 */
   declare mode: ReportDesignerMode | undefined
   /**
-   * 第一次铺好画布后自动开始新手引导，缺省开；设置里记过 help.tourDone（走完、跳过或关上过一次）时不再自动开始。
+   * 第一次铺好画布、设计器显示出来（画布有宽度）后自动开始新手引导，缺省开；设置里记过 help.tourDone（走完、跳过或关上过一次）时不再自动开始。
    * 写 false 关掉，start-tour 命令、帮助页的「开始引导」与 startTour() 照样能开始。同名 attribute auto-tour，写 "false" 是关。
    */
   declare autoTour: boolean | undefined
@@ -356,6 +356,8 @@ export class XhReportDesigner extends XhReactiveElement {
   #helpKey = ''
   /** 已经看过要不要自动开始引导：每个元素只看一次，在第一次铺好画布之后。 */
   #tourChecked = false
+  /** 要自动开始引导，等设计器显示出来（画布有宽度）。 */
+  #tourPending = false
   /** 导入对话框此刻为谁打开；导入字段时是那个数据集。 */
   #importTarget: { readonly kind: ReportDataImportKind, readonly dataset?: string } | undefined
   /** 上次交给设置对话框「工具栏」页的按钮表数据（JSON）：内容没变不重设，免得按钮表重铺。 */
@@ -708,16 +710,30 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#checkTour(mode)
   }
 
-  /** 第一次有了报表、在设计态铺好画布之后，看要不要自动开始新手引导；每个元素只看一次。 */
+  /**
+   * 第一次有了报表、在设计态铺好画布之后，看要不要自动开始新手引导；每个元素只看一次。
+   * autoTour 不为 false、设置里没记着走完时记下待开始，等设计器显示出来再开始。
+   */
   #checkTour(mode: ReportDesignerMode): void {
-    if (this.#tourChecked || !this.#editor || mode === 'preview')
+    if (!this.#tourChecked && this.#editor && mode !== 'preview') {
+      this.#tourChecked = true
+      this.#tourPending = this.autoTour !== false && !tourDoneOf(this.settings)
+    }
+    this.#startPendingTour()
+  }
+
+  /**
+   * 有待开始的引导、在设计态且设计器显示着（画布有宽度）时，等这一轮更新落定后开始；
+   * 到那时 autoTour 关了、设置里记着走完或引导已经开着就不开。
+   */
+  #startPendingTour(): void {
+    const layers = this.#layers
+    if (!this.#tourPending || !layers || !this.isConnected || this.#mode() === 'preview' || layers.canvas.clientWidth === 0)
       return
-    this.#tourChecked = true
-    if (this.autoTour === false || tourDoneOf(this.settings))
-      return
+    this.#tourPending = false
     void this.updateComplete.then(() => {
-      if (this.isConnected && this.#mode() !== 'preview' && this.autoTour !== false && !tourDoneOf(this.settings))
-        this.#layers?.tour.start()
+      if (this.isConnected && this.#mode() !== 'preview' && this.autoTour !== false && !tourDoneOf(this.settings) && !layers.tour.running)
+        layers.tour.start()
     })
   }
 
@@ -1092,6 +1108,7 @@ export class XhReportDesigner extends XhReactiveElement {
           this.#fit()
         else
           this.#renderSelection()
+        this.#startPendingTour()
       })
       this.#resize.observe(surface)
       this.#resize.observe(scroller)
