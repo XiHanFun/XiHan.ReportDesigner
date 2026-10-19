@@ -40,6 +40,7 @@ import {
   createStatusItem,
   defineDesignerShellElement,
   DESIGNER_COMMANDS_EN_US,
+  DESIGNER_COMMON_KEYS,
   DESIGNER_FIELD_IMPORT_SOURCES,
   DESIGNER_FRAME_REGIONS,
   DESIGNER_HISTORY_EN_US,
@@ -875,7 +876,8 @@ export class XhReportDesigner extends XhReactiveElement {
 
   /**
    * 新手引导的步骤与设置对话框的帮助、快捷键、关于三页，按此刻的语言与命令表现算，内容没变不重设：
-   * 帮助页是几段操作说明与「开始引导」「帮助」两颗钮；快捷键表从命令表生成，另加本设计器不是命令的几个键；
+   * 帮助页是几段操作说明与「开始引导」「帮助」两颗钮；快捷键表从命令表生成，另加本设计器不是命令的几个键，
+   * 通用组里去掉看板上没有的按住空格拖动画布、Shift 加方向键改写成改卡片大小；
    * 关于页是报表设计器的版本与许可证，后面接扩展给的几行。
    */
   #syncHelp(layers: Layers, context: ReportDesignerContext): void {
@@ -894,10 +896,11 @@ export class XhReportDesigner extends XhReactiveElement {
     const shortcuts = shortcutSettingsSource(commands, context, {
       extensionCommands: (this.#extensions ?? NO_EXTENSIONS).flatMap(extension => (extension.commands ?? []).map(command => command.id)),
       keys: [
-        { label: t.shortcutResize, keys: [['Shift', 'ArrowUp'], ['Shift', 'ArrowDown'], ['Shift', 'ArrowLeft'], ['Shift', 'ArrowRight']] },
         { label: context.commands.delete, keys: [['Backspace']] },
         { label: t.shortcutSave, keys: [['Mod', 'S']] },
       ],
+      // 看板上没有按住空格拖动画布；Shift 加方向键是把选中的卡片改大或改小一格
+      commonKeys: DESIGNER_COMMON_KEYS.filter(key => key.id !== 'pan').map(key => key.id === 'nudgeLarge' ? { ...key, label: t.shortcutResize } : key),
     })
     const about = { product: t.label, version: REPORT_VERSION, license: 'MIT', rows: this.#model.extensions.flatMap(extension => extension.about ?? []) }
     const helpKey = JSON.stringify([help, shortcuts, about])

@@ -8,7 +8,7 @@ import type { ReportDocument } from '@xihan-report/core'
 import type { ReportDesignerContext, ReportDesignerExtension, XhReportDesigner } from '../src'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS } from '@xihan-report/runtime'
 import { DesignerExtensionError } from '@xihan-ui/designer-kit'
-import { DESIGNER_COMMANDS_EN_US, DESIGNER_SETTING_KEYS } from '@xihan-ui/designer-shell'
+import { DESIGNER_COMMANDS_EN_US, DESIGNER_COMMON_KEYS, DESIGNER_SETTING_KEYS } from '@xihan-ui/designer-shell'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineReportDesigner, REPORT_DESIGNER_HELP_URL, REPORT_TOOLBAR_LAYOUT, REPORT_VERSION } from '../src'
 
@@ -204,12 +204,12 @@ describe('设置', () => {
     expect(frame.showsPanel('toolbar')).toBe(false)
   })
 
-  it('帮助、快捷键、关于三页：帮助页是操作说明与开始引导、帮助两颗钮，点钮先关上对话框再跑命令；快捷键表按命令表生成并带上报表自己的按键；关于页写报表设计器的版本与许可证，后面接扩展给的几行', async () => {
+  it('帮助、快捷键、关于三页：帮助页是操作说明与开始引导、帮助两颗钮，点钮先关上对话框再跑命令；快捷键表按命令表生成并带上报表自己的按键，通用组去掉按住空格拖动画布、Shift 加方向键写成改卡片大小；关于页写报表设计器的版本与许可证，后面接扩展给的几行', async () => {
     const t = DEFAULT_REPORT_DESIGNER_TRANSLATIONS
     const designer = await mount(element => (element.extensions = [{ id: 'acme', about: [{ label: 'Acme', value: '2.0' }], commands: [{ id: 'acme.go', label: 'Go', shortcut: ['Mod', 'G'], run: () => {} }] }]))
     const dialog = designer.querySelector<HTMLElement & {
       help?: { notes: readonly string[], actions: readonly { command: string, label: string }[] }
-      shortcuts?: { groups: readonly { id: string, rows: readonly { label: string, keys: readonly (readonly string[])[] }[] }[] }
+      shortcuts?: { groups: readonly { id: string, rows: readonly { label: string, keys: readonly (readonly string[])[] }[] }[], commonKeys?: readonly unknown[] }
       about?: unknown
       open?: boolean
     }>('xh-designer-settings')!
@@ -217,10 +217,15 @@ describe('设置', () => {
     const groups = new Map(dialog.shortcuts!.groups.map(group => [group.id, group.rows]))
     expect([...groups.keys()]).toEqual(['common', 'edit', 'designer', 'extensions'])
     expect(groups.get('edit')).toContainEqual({ label: 'Undo', keys: [['Mod', 'Z']] })
-    expect(groups.get('designer')!.slice(-3)).toEqual([
-      { label: t.shortcutResize, keys: [['Shift', 'ArrowUp'], ['Shift', 'ArrowDown'], ['Shift', 'ArrowLeft'], ['Shift', 'ArrowRight']] },
+    expect(groups.get('designer')!.slice(-2)).toEqual([
       { label: DESIGNER_COMMANDS_EN_US.delete, keys: [['Backspace']] },
       { label: t.shortcutSave, keys: [['Mod', 'S']] },
+    ])
+    expect(dialog.shortcuts!.commonKeys).toEqual([
+      DESIGNER_COMMON_KEYS[0],
+      { ...DESIGNER_COMMON_KEYS[1], label: t.shortcutResize },
+      DESIGNER_COMMON_KEYS[3],
+      DESIGNER_COMMON_KEYS[4],
     ])
     expect(groups.get('extensions')).toEqual([{ label: 'Go', keys: [['Mod', 'G']] }])
     expect(dialog.about).toEqual({ product: t.label, version: REPORT_VERSION, license: 'MIT', rows: [{ label: 'Acme', value: '2.0' }] })
