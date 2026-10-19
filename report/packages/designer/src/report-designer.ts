@@ -938,7 +938,7 @@ export class XhReportDesigner extends XhReactiveElement {
 
   /**
    * 新手引导的步骤与设置对话框的帮助、快捷键、关于三页，按此刻的语言与命令表现算，内容没变不重设：
-   * 帮助页是几段操作说明与「开始引导」「帮助」两颗钮；快捷键表从命令表生成，另加本设计器不是命令的几个键，
+   * 帮助页是几段操作说明与「开始引导」「帮助」两颗钮；快捷键表从命令表生成，另加本设计器不是命令的几个键（剪贴板三键、删除与保存），
    * 通用组里去掉看板上没有的按住空格拖动画布、Shift 加方向键改写成改卡片大小；
    * 关于页是报表设计器的版本与许可证，后面接扩展给的几行。
    */
@@ -958,6 +958,9 @@ export class XhReportDesigner extends XhReactiveElement {
     const shortcuts = shortcutSettingsSource(commands, context, {
       extensionCommands: (this.#extensions ?? NO_EXTENSIONS).flatMap(extension => (extension.commands ?? []).map(command => command.id)),
       keys: [
+        { label: context.commands.copy, keys: [['Mod', 'C']] },
+        { label: context.commands.cut, keys: [['Mod', 'X']] },
+        { label: context.commands.paste, keys: [['Mod', 'V']] },
         { label: context.commands.delete, keys: [['Backspace']] },
         { label: t.shortcutSave, keys: [['Mod', 'S']] },
       ],
