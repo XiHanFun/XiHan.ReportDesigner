@@ -15,6 +15,7 @@ export const REPORT_SCHEMA_VERSION = 1
 
 /** 参数的一个候选项。 */
 export interface ParameterOption {
+  /** 取值，类型与参数一致：date 写 YYYY-MM-DD，datetime 写不带时区的 YYYY-MM-DDTHH:mm[:ss]。 */
   readonly value: ScalarValue
   /** 显示的文字；不写按取值显示。 */
   readonly label?: string

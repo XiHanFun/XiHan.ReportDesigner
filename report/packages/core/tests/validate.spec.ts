@@ -199,6 +199,25 @@ describe('validateDocument：引用与类型', () => {
     ])
   })
 
+  it('日期与日期时间参数的候选项按设计器日期框的写法查：不带时区、写到日或时刻，运行时读不了的写法照样报', () => {
+    const issues = check(edit(groupDocument, (d) => {
+      d.parameters = [
+        { name: 'day', type: 'date', options: [{ value: '2026-10-19' }, { value: '2026-10' }, { value: '2026-10-19T08:30' }, { value: 20261019 }, { value: '+002026-10-20' }] },
+        { name: 'at', type: 'datetime', options: [{ value: '2026-10-19T08:30' }, { value: '2026-10-19 17:00:00' }, { value: '2026-10-19T08:30:00Z' }, { value: '2026-10-19' }, { value: '2026-10-19T09' }] },
+      ]
+    }))
+    const at = (name: string, index: number): (string | number)[] => ['parameters', name, 'options', index, 'value']
+    expect(issues).toEqual([
+      { code: 'invalid-value', path: at('day', 1), params: { expected: 'YYYY-MM-DD' } },
+      { code: 'invalid-value', path: at('day', 2), params: { expected: 'YYYY-MM-DD' } },
+      { code: 'invalid-type', path: at('day', 3), params: { expected: 'date' } },
+      { code: 'operand-type-mismatch', path: at('day', 4), params: { expected: 'date' } },
+      { code: 'invalid-value', path: at('at', 2), params: { expected: 'YYYY-MM-DDTHH:mm[:ss]' } },
+      { code: 'invalid-value', path: at('at', 3), params: { expected: 'YYYY-MM-DDTHH:mm[:ss]' } },
+      { code: 'operand-type-mismatch', path: at('at', 4), params: { expected: 'datetime' } },
+    ])
+  })
+
   it('必填的数据集参数没有绑定', () => {
     const document = edit(groupDocument, (d) => {
       d.datasets[0].parameters = [{ name: 'year', type: 'number', required: true }]
