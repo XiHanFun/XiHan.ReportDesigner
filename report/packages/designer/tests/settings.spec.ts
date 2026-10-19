@@ -9,7 +9,7 @@ import type { ReportDesignerContext, ReportDesignerExtension, XhReportDesigner }
 import { DesignerExtensionError } from '@xihan-ui/designer-kit'
 import { DESIGNER_SETTING_KEYS } from '@xihan-ui/designer-shell'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineReportDesigner } from '../src'
+import { defineReportDesigner, REPORT_TOOLBAR_LAYOUT } from '../src'
 
 const board: ReportDocument = {
   schemaVersion: 1,
@@ -83,13 +83,16 @@ function pages(): string[] {
 }
 
 describe('设置', () => {
-  it('openSettings 打开设置对话框：报表没有自己那一页，基础分区里有主题与状态栏，后面是外框的布局与工具栏两页', async () => {
+  it('openSettings 打开设置对话框：报表没有自己那一页；基础、布局、工具栏三页，基础列出主题与状态栏，工具栏页列出按钮显示方式、显示工具栏与按钮表', async () => {
     const designer = await mount()
     expect(designer.querySelector('xh-designer-settings')!.parentElement).toBe(designer)
     designer.openSettings()
     await settle(designer)
     expect(pages()).toEqual(['general', 'layout', 'toolbar'])
-    expect([row(DESIGNER_SETTING_KEYS.theme) !== null, row(DESIGNER_SETTING_KEYS.statusBar) !== null]).toEqual([true, true])
+    expect([DESIGNER_SETTING_KEYS.theme, DESIGNER_SETTING_KEYS.statusBar, 'general.toolbarDisplay'].map(key => row(key) !== null)).toEqual([true, true, false])
+    designer.openSettings('toolbar')
+    await settle(designer)
+    expect([DESIGNER_SETTING_KEYS.toolbarDisplay, DESIGNER_SETTING_KEYS.toolbarVisible, DESIGNER_SETTING_KEYS.toolbarLayout].map(key => row(key) !== null)).toEqual([true, true, true])
   })
 
   it('扩展登记的设置分区放进对话框；分区 id 与 general 或彼此重名时赋值即抛错，extensions 不变', async () => {
@@ -163,7 +166,7 @@ describe('设置', () => {
     expect([designer.hasAttribute('data-theme'), designer.hasAttribute('data-brand')]).toEqual([false, false])
   })
 
-  it('工具栏显示方式取设置里的 general.toolbarDisplay，缺省只显示图标；换显示方式不重铺按钮', async () => {
+  it('工具栏的按钮显示方式取设置里的 toolbar.display，缺省只显示图标；换显示方式不重铺按钮', async () => {
     const designer = await mount()
     const shell = (): Element => designer.querySelector('[data-region="toolbar"] xh-tooltip[data-scope="designer-commands"]')!
     const undo = designer.querySelector('[data-region="toolbar"] button[value="undo"]')
@@ -175,6 +178,27 @@ describe('设置', () => {
     await designer.updateComplete
     expect(shell().getAttribute('data-display')).toBe('text')
     expect(designer.querySelector('[data-region="toolbar"] button[value="undo"]')).toBe(undo)
+  })
+
+  it('工具栏按设置「工具栏」页的定制排：换了先后、藏起的不在工具栏上；对话框拿到缺省排列与各命令的文字；toolbar.visible 为 false 时不登记工具栏', async () => {
+    const designer = await mount()
+    const values = (): string[] => Array.from(designer.querySelectorAll<HTMLButtonElement>('[data-region="toolbar"] button[value]'), button => button.value)
+    const dialog = designer.querySelector<HTMLElement & { toolbar?: { defaults: string[][], commands: { id: string, label: string }[] } }>('xh-designer-settings')!
+    expect(dialog.toolbar!.defaults).toEqual(REPORT_TOOLBAR_LAYOUT.map(group => [...group]))
+    expect(dialog.toolbar!.commands[0]).toMatchObject({ id: 'undo', label: 'Undo' })
+    expect(values().slice(0, 3)).toEqual(['undo', 'redo', 'cut'])
+    const [first, second, ...rest] = REPORT_TOOLBAR_LAYOUT
+    designer.settings = { [DESIGNER_SETTING_KEYS.toolbarLayout]: { groups: [[...second!], [first![1]!, first![0]!], ...rest.map(group => [...group])], hidden: ['delete'] } }
+    await settle(designer)
+    expect(values().slice(0, 4)).toEqual(['cut', 'copy', 'paste', 'duplicate'])
+    expect(values().slice(4, 6)).toEqual(['redo', 'undo'])
+    expect(values()).not.toContain('delete')
+    const frame = designer.querySelector<HTMLElement & { showsPanel: (name: string) => boolean, updateComplete: Promise<unknown> }>('xh-designer-frame')!
+    expect(frame.showsPanel('toolbar')).toBe(true)
+    designer.settings = { [DESIGNER_SETTING_KEYS.toolbarVisible]: false }
+    await settle(designer)
+    await frame.updateComplete
+    expect(frame.showsPanel('toolbar')).toBe(false)
   })
 
   it('给了 settingsStorageKey：没赋 settings 时从存储读，对话框里改了就写回；读出的不是对象时派发 settings-storage-error', async () => {
