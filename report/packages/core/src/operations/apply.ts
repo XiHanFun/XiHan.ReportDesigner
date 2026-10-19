@@ -20,6 +20,7 @@ import type {
   LayoutCardsOperation,
   MoveItemOperation,
   PropertyChange,
+  ReplaceDocumentOperation,
   ReportOperation,
   ReportOperationResult,
   SetBodyOperation,
@@ -200,6 +201,16 @@ export function listPath(document: ReportDocument, card: string | undefined, lis
   return path
 }
 
+/** 整份换上传入文档的副本：须是纯 JSON 对象；与当前文档按值相同时不变，逆操作换回原文档。 */
+function replaceDocument(document: ReportDocument, operation: ReplaceDocumentOperation): ReportOperationResult {
+  if (!isPlainObject(operation.document))
+    throw new ReportOperationError('invalid-value', operation)
+  const next = copyValue(operation.document, operation)
+  if (jsonEquals(json(document), json(next)))
+    return unchanged(document)
+  return { document: next, inverse: [{ type: 'replaceDocument', document }] }
+}
+
 function setBody(document: ReportDocument, operation: SetBodyOperation): ReportOperationResult {
   if (!isPlainObject(operation.body) || typeof operation.body.type !== 'string')
     throw new ReportOperationError('invalid-value', operation)
@@ -303,6 +314,7 @@ function moveListItem(document: ReportDocument, operation: MoveItemOperation): R
  * 以纯函数方式执行编辑操作：不修改传入的文档，返回新文档与逆操作数组；没有改到的部分沿用原引用。
  * 操作没有带来变化时返回传入的文档本身与空数组；操作无法执行时抛出 ReportOperationError，传入的文档保持不变。
  * 操作只保证结构与键，引用完整性（字段、维度、卡片的引用）由 validateDocument 检查。
+ * 整份替换（replaceDocument）换上的是传入文档的副本，逆操作换回原文档。
  */
 export function applyOperation(document: ReportDocument, operation: ReportOperation): ReportOperationResult {
   if (!isPlainObject(operation) || typeof operation.type !== 'string')
@@ -312,6 +324,8 @@ export function applyOperation(document: ReportDocument, operation: ReportOperat
       const { document: next, undo } = update(document, [], operation.changes, DOCUMENT_PROTECTED, operation)
       return undo.length === 0 ? unchanged(document) : { document: next, inverse: [{ type: 'updateDocument', changes: undo }] }
     }
+    case 'replaceDocument':
+      return replaceDocument(document, operation)
     case 'setBody':
       return setBody(document, operation)
     case 'addDataset':

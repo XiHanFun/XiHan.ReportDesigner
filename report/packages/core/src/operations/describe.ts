@@ -84,6 +84,8 @@ function stepOf(operation: ReportOperation, before: ReportDocument): Omit<Report
   switch (operation.type) {
     case 'updateDocument':
       return { action: 'update', kind: 'document', ...(before.title ? { name: before.title } : {}) }
+    case 'replaceDocument':
+      return { action: 'replace', kind: 'document' }
     case 'setBody':
       return { action: 'replace', kind: 'view' }
     case 'addDataset':

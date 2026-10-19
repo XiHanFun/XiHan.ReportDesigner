@@ -77,6 +77,16 @@ describe('文档与报表主体', () => {
     expect(applyOperation(original, { type: 'setBody', body: original.body }).document).toBe(original)
     expect(fail({ type: 'setBody', body: [] as unknown as ReportDocument['body'] })).toBe('invalid-value')
   })
+
+  it('replaceDocument 整份换上传入文档的副本，逆操作换回原文档；按值相同时不变，不是纯 JSON 对象时抛 invalid-value', () => {
+    const next = JSON.parse(JSON.stringify(grouped)) as ReportDocument
+    const document = roundTrip({ type: 'replaceDocument', document: next })
+    expect(document).toEqual(grouped)
+    expect(document).not.toBe(next)
+    expect(applyOperation(original, { type: 'replaceDocument', document: JSON.parse(JSON.stringify(original)) as ReportDocument }).document).toBe(original)
+    expect(fail({ type: 'replaceDocument', document: [] as unknown as ReportDocument })).toBe('invalid-value')
+    expect(fail({ type: 'replaceDocument', document: { ...original, title: undefined } as unknown as ReportDocument })).toBe('invalid-value')
+  })
 })
 
 describe('数据集与字段', () => {

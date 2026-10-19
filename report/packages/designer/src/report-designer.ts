@@ -7,7 +7,7 @@
 // 画布内容复用查看器的计算与渲染；整体版式用 @xihan-ui/designer-shell 的外框，面板布局存进设置的 layout.panels，面板用 designer-shell 的零件。
 // 卡片与视图种类、渲染、属性编辑器、命令、面板与物料都从 extensions 来，内置命令与物料也是一个扩展；
 // 工具栏与菜单的排列可由 commandLayout 改写。设置对话框（openSettings()）里是基础分区与各扩展的分区，值经 settings 与
-// settings-change 交给宿主。
+// settings-change 交给宿主。openJsonEditor() 编辑整份报表定义的 JSON，应用后记一步撤销。
 
 import type { DashboardCard, DashboardView, ExpressionEngine, ParameterValues, ReportDocument, ReportOperation, ReportStep, ValidationIssue } from '@xihan-report/core'
 import type { ReportDataProvider, ReportDesignerTranslations, ReportFormatter, ReportHistoryStepText, ReportViewerTranslations, XhReportViewer } from '@xihan-report/runtime'
@@ -15,7 +15,7 @@ import type { JsonValue } from '@xihan-ui/core/json'
 import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
 import type { ExecuteOptions, ExtensionHost, GridRect, HistoryChangeKind, HistoryLabel, HistorySnapshot, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertySwatchOption } from '@xihan-ui/designer-kit/properties'
-import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFieldImportEventMap, DesignerFrameEventMap, DesignerFrameRegion, DesignerHistoryTranslations, DesignerLayout, DesignerLayoutPolicy, DesignerMeasureConvert, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelActions, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
+import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFieldImportEventMap, DesignerFrameEventMap, DesignerFrameRegion, DesignerHistoryTranslations, DesignerIssueItem, DesignerJsonEditorEventMap, DesignerLayout, DesignerLayoutPolicy, DesignerMeasureConvert, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPanelActions, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { DialogService } from '@xihan-ui/web-components/services'
 import type { DataRemoval } from './data-editing'
@@ -24,7 +24,7 @@ import type { LayoutGesture, ReportAddCardInit, ReportClipboard, ReportDataRef, 
 import type { ReportCardTemplate, ReportDesignerContext, ReportDesignerExtension, ReportDesignerModel, ReportMenuSubject, ReportSelectionSubject } from './extensions'
 import type { ReportDataImportKind } from './field-import'
 import type { GridMetrics } from './grid-geometry'
-import { cardTypeOf, describeReportStep, planAddCard, planAddFieldItem, resolveParameters } from '@xihan-report/core'
+import { cardTypeOf, describeReportStep, planAddCard, planAddFieldItem, resolveParameters, validateDocument } from '@xihan-report/core'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS, DEFAULT_REPORT_VIEWER_TRANSLATIONS, defaultFormatter, defineReportViewer } from '@xihan-report/runtime'
 import { createRenderContext } from '@xihan-report/runtime/design'
 import { getLocalTimeZone } from '@xihan-ui/core/date'
@@ -61,6 +61,7 @@ import {
   XhDesignerFieldImportElement,
   XhDesignerFrameElement,
   XhDesignerIssuesElement,
+  XhDesignerJsonEditorElement,
   XhDesignerPaletteElement,
   XhDesignerPropertiesElement,
   XhDesignerSettingsElement,
@@ -79,7 +80,7 @@ import { createReportEditor, writeReportClipboard } from './editor'
 import { createReportDesignerModel, REPORT_DESIGNER_EXTENSION, REPORT_MENU_LAYOUT, REPORT_SELECTION_LAYOUT, REPORT_TOOLBAR_LAYOUT } from './extensions'
 import { planDatasetImport, planFieldImport, planParameterImport } from './field-import'
 import { cellSize, cellToRect, centeredCell, clipCell, measureGrid, rectToCell } from './grid-geometry'
-import { IssuesPanel } from './issues-panel'
+import { IssuesPanel, reportIssueItems } from './issues-panel'
 import { PropertiesPanel } from './properties-panel'
 import { REPORT_VERSION } from './version'
 import { fieldList, Wells, wellsOwner, withFilledBindings } from './wells'
@@ -190,6 +191,8 @@ interface Layers {
   readonly parameterActions: DesignerPanelActions<ReportDesignerContext>
   /** 导入字段对话框。 */
   readonly fieldImport: XhDesignerFieldImportElement
+  /** 编辑整份报表定义 JSON 的对话框。 */
+  readonly jsonEditor: XhDesignerJsonEditorElement
   /** 新手引导。 */
   readonly tour: XhDesignerTourElement
   /** 设置对话框。 */
@@ -616,6 +619,43 @@ export class XhReportDesigner extends XhReactiveElement {
     if (this.#mode() === 'preview' || !this.#editor)
       return false
     return this.#ensureLayers().tour.start()
+  }
+
+  /**
+   * 打开编辑整份报表定义 JSON 的对话框：写出当前报表，边改边按当前扩展与表达式引擎校验、报问题（文字与问题列表的一致）；
+   * 没有错误时「应用」整份换上，记一步撤销，说明是「编辑 JSON」。只读或预览态时只能看、不能应用。还没有报表时返回 false。
+   */
+  openJsonEditor(): boolean {
+    const editor = this.#editor
+    if (!editor)
+      return false
+    const dialog = this.#ensureLayers().jsonEditor
+    dialog.value = editor.document as unknown as JsonValue
+    dialog.validate = value => this.#jsonIssues(value)
+    dialog.readonly = this.#jsonReadonly()
+    dialog.show()
+    return true
+  }
+
+  /** JSON 编辑框此刻只能看：只读或预览态。 */
+  #jsonReadonly(): boolean {
+    return this.readonly === true || this.#mode() === 'preview'
+  }
+
+  /** JSON 编辑框里的一份报表：按当前扩展与表达式引擎校验，问题的文字与所在对象的名字同问题列表，对象名按这一份取。 */
+  #jsonIssues(value: JsonValue): DesignerIssueItem[] {
+    return reportIssueItems(value, validateDocument(value, this.#validateOptions()), this.#panelTranslations(this.#translations()))
+  }
+
+  /** JSON 编辑框里按了「应用」：清空选择，整份换上（core 的 replaceDocument），记一步撤销。 */
+  readonly #onJsonApply = (event: Event): void => {
+    event.stopPropagation()
+    const editor = this.#editor
+    if (!editor || this.#jsonReadonly())
+      return
+    const { value } = (event as DesignerJsonEditorEventMap['json-apply']).detail
+    editor.clearSelection()
+    editor.execute([{ type: 'replaceDocument', document: value as unknown as ReportDocument }], { label: () => this.#commandTranslations().editJson })
   }
 
   /** 选中列表项所在的卡片并让它可见。 */
@@ -1086,10 +1126,12 @@ export class XhReportDesigner extends XhReactiveElement {
     settings.addEventListener('settings-command', this.#onSettingsCommand)
     const fieldImport = createGeneratedElement(doc, 'xh-designer-field-import', { 'data-part': 'field-import' }) as XhDesignerFieldImportElement
     fieldImport.addEventListener('fields-import', this.#onFieldsImport)
+    const jsonEditor = createGeneratedElement(doc, 'xh-designer-json-editor', { 'data-part': 'json-editor' }) as XhDesignerJsonEditorElement
+    jsonEditor.addEventListener('json-apply', this.#onJsonApply)
     const tour = createGeneratedElement(doc, 'xh-designer-tour', { 'data-part': 'tour' }) as XhDesignerTourElement
     tour.frame = frame
     tour.addEventListener('tour-end', this.#onTourEnd)
-    this.replaceChildren(frame, settings, fieldImport, tour)
+    this.replaceChildren(frame, settings, fieldImport, jsonEditor, tour)
     this.#layers?.panels.dispose()
     const panels = createPanelHost<ReportDesignerContext>(frame, { regions: FRAME_REGIONS, commands: () => this.#model.commands })
     canvas.addEventListener('pointerdown', this.#onPointerDown)
@@ -1121,7 +1163,7 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#regionsKey = ''
     this.#viewer = undefined
     this.#settingsDialogKey = ''
-    this.#layers = { frame, toolbar, commandBar, selectionBar, headerBar, panels, menu, menuContent, menuTrigger, canvas, scroller, sizer, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, datasetActions, parameterActions, fieldImport, tour, settings, selectionStatus, zoomStatus }
+    this.#layers = { frame, toolbar, commandBar, selectionBar, headerBar, panels, menu, menuContent, menuTrigger, canvas, scroller, sizer, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, datasetActions, parameterActions, fieldImport, jsonEditor, tour, settings, selectionStatus, zoomStatus }
     panels.assign(this.#model.extensions, this.#context())
     this.#fillMenu('blank')
     return this.#layers
@@ -2132,6 +2174,7 @@ export function defineReportDesigner(): void {
   defineDesignerShellElement('xh-designer-frame', XhDesignerFrameElement)
   defineDesignerShellElement('xh-designer-tour', XhDesignerTourElement)
   defineDesignerShellElement('xh-designer-issues', XhDesignerIssuesElement)
+  defineDesignerShellElement('xh-designer-json-editor', XhDesignerJsonEditorElement)
   defineDesignerShellElement('xh-designer-palette', XhDesignerPaletteElement)
   defineDesignerShellElement('xh-designer-properties', XhDesignerPropertiesElement)
   defineDesignerShellElement('xh-designer-settings', XhDesignerSettingsElement)
