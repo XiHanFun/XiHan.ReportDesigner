@@ -12,10 +12,10 @@ import type { XhReportDesigner } from '../src'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS } from '@xihan-report/runtime'
 import { reportZhCN } from '@xihan-report/runtime/locale'
 import { formatJsonPath } from '@xihan-ui/core/json'
-import { startDrag } from '@xihan-ui/designer-shell'
+import { DESIGNER_SETTING_KEYS, startDrag } from '@xihan-ui/designer-shell'
 import { setXhConfig } from '@xihan-ui/web-components'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineReportDesigner, REPORT_DESIGNER_HELP_URL } from '../src'
+import { defineReportDesigner, REPORT_DESIGNER_HELP_URL, REPORT_DESIGNER_PANELS } from '../src'
 
 function metric(id: string, x: number): DashboardView['cards'][number] {
   return {
@@ -306,14 +306,15 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.getSelection()).toEqual({ cards: ['pie'] })
   })
 
-  it('物料面板放在外框的物料区，按图表、指标、表格分组列出卡片种类；panels 不含它时收起', async () => {
+  it('物料面板放在外框的物料区，按图表、指标、表格分组列出卡片种类；设置里的布局隐藏它时收起', async () => {
     const designer = await mount()
     const palette = designer.querySelector('xh-designer-palette')!
     expect(palette.closest('[data-region="palette"]')).not.toBeNull()
     expect(palette.groups!.map(group => [group.label, group.items.length])).toEqual([['Charts', 7], ['Metrics', 1], ['Tables', 3]])
     expect(palette.groups![0]!.items[1]).toMatchObject({ id: 'chart.pie', label: 'Pie chart', payload: 'chart.pie' })
-    designer.panels = 'properties'
+    designer.settings = { [DESIGNER_SETTING_KEYS.layout]: { version: 1, hidden: ['palette'] } }
     await designer.updateComplete
+    expect(designer.querySelector('xh-designer-frame')!.showsPanel('palette')).toBe(false)
     expect(palette.isConnected).toBe(false)
     expect(designer.querySelector('[data-region="canvas"] [data-part="canvas"]')).not.toBeNull()
   })
@@ -376,7 +377,7 @@ describe('<xh-report-designer>：编辑', () => {
     ] }])
     expect([...tree.querySelectorAll('[data-xh-part="item"] [data-xh-part="item-suffix"]')].map(item => item.textContent)).toEqual(['Text', 'Number'])
     const frame = designer.querySelector('xh-designer-frame')!
-    expect(frame.panels).toBeUndefined()
+    expect(frame.showsPanel('parameters')).toBe(true)
     tree.dispatchEvent(new CustomEvent('selection-change', { detail: { value: ['["field","sales","amount"]'] } }))
     expect(designer.getSelection()).toEqual({ cards: [], data: { kind: 'field', dataset: 'sales', name: 'amount' } })
     expect(tree.selection).toEqual(['["field","sales","amount"]'])
@@ -384,8 +385,8 @@ describe('<xh-report-designer>：编辑', () => {
     expect(tree.selection).toEqual([])
     designer.readonly = true
     await designer.updateComplete
-    expect(frame.panels!.split(' ')).not.toContain('parameters')
-    expect(frame.panels!.split(' ')).toContain('datasets')
+    expect(frame.regions!.map(region => region.name)).not.toContain('parameters')
+    expect(frame.showsPanel('datasets')).toBe(true)
   })
 
   it('数据面板的新增按钮按 datasetEditing 显示：fields 只能加参数，full 还能加数据集与字段；新增后选中它', async () => {
@@ -659,16 +660,18 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.getSelection()).toEqual({ cards: ['pie'] })
   })
 
-  it('切到预览态：画布换成查看器，交给它当前的报表与取数回调，面板只留工具栏；切换时派发 mode-change', async () => {
+  it('切到预览态：画布换成查看器，交给它当前的报表与取数回调，外框只登记顶栏、工具栏与画布；切换时派发 mode-change', async () => {
     const designer = await mount()
     const modes = events(designer, 'mode-change')
+    const settings = designer.settings
     designer.mode = 'preview'
     await designer.updateComplete
     const viewer = designer.querySelector<XhReportViewer>('[data-part="preview"] xh-report-viewer')!
     expect(viewer.schema).toBe(designer.schema)
     expect(designer.querySelector<HTMLElement>('[data-part="canvas"]')!.hidden).toBe(true)
-    expect(designer.querySelector('xh-designer-frame')!.panels).toBe('toolbar')
+    expect(designer.querySelector('xh-designer-frame')!.regions!.map(region => region.name)).toEqual(['header', 'toolbar', 'canvas'])
     expect(designer.querySelector('[data-region="palette"]')).toBeNull()
+    expect(designer.settings).toBe(settings)
     designer.mode = 'preview'
     await designer.updateComplete
     designer.mode = 'design'
@@ -694,27 +697,37 @@ describe('<xh-report-designer>：编辑', () => {
     expect(subtitle).toContain('a')
   })
 
-  it('点卡片头的关闭钮收起那块面板：设计器改写 panels 并派发 panels-change，外框的同名事件不冒出来；收起着的报表参数卡片照原样留在 panels 里', async () => {
+  it('点卡片头的关闭钮收起那块面板：整份布局写进设置的 layout.panels 并派发 settings-change，外框的 layout-change 不冒出来；不登记的报表参数卡片再登记时照样显示', async () => {
     const designer = await mount()
-    const seen = events(designer, 'panels-change')
+    const frame = designer.querySelector('xh-designer-frame')!
+    const seen = events(designer, 'settings-change') as { key: string, value: { hidden: string[] }, settings: Record<string, unknown> }[]
     let fromFrame = 0
-    document.addEventListener('panels-change', (event) => {
-      if (event.target !== designer)
-        fromFrame++
-    })
-    designer.querySelector<HTMLButtonElement>('[data-region="palette"] [data-part="panel-close"]')!.click()
-    await designer.updateComplete
-    expect(designer.panels!.split(' ')).not.toContain('palette')
-    expect(designer.panels!.split(' ')).toContain('parameters')
-    expect(seen).toEqual([{ panels: designer.panels }])
-    expect(fromFrame).toBe(0)
-    designer.readonly = true
-    await designer.updateComplete
-    expect(designer.querySelector('xh-designer-frame')!.panels!.split(' ')).not.toContain('parameters')
-    designer.querySelector<HTMLButtonElement>('[data-region="issues"] [data-part="panel-close"]')!.click()
-    await designer.updateComplete
-    expect(designer.panels!.split(' ')).toEqual(expect.arrayContaining(['parameters', 'wells']))
-    expect(designer.panels!.split(' ')).not.toContain('issues')
+    const count = (): void => {
+      fromFrame++
+    }
+    document.addEventListener('layout-change', count)
+    try {
+      designer.querySelector<HTMLButtonElement>('[data-region="palette"] [data-part="panel-close"]')!.click()
+      await designer.updateComplete
+      expect(seen).toHaveLength(1)
+      expect(seen[0]).toMatchObject({ key: DESIGNER_SETTING_KEYS.layout, value: { version: 1, hidden: ['palette'] } })
+      expect(seen[0]!.settings).toEqual({ [DESIGNER_SETTING_KEYS.layout]: seen[0]!.value })
+      expect(designer.settings).toBe(seen[0]!.settings)
+      expect([frame.showsPanel('palette'), frame.showsPanel('parameters')]).toEqual([false, true])
+      expect(fromFrame).toBe(0)
+      designer.readonly = true
+      await designer.updateComplete
+      expect(frame.regions!.map(region => region.name)).not.toContain('parameters')
+      designer.querySelector<HTMLButtonElement>('[data-region="issues"] [data-part="panel-close"]')!.click()
+      await designer.updateComplete
+      expect([...seen.at(-1)!.value.hidden].sort()).toEqual(['issues', 'palette'])
+      designer.readonly = false
+      await designer.updateComplete
+      expect([frame.showsPanel('parameters'), frame.showsPanel('issues'), frame.showsPanel('palette')]).toEqual([true, false, false])
+    }
+    finally {
+      document.removeEventListener('layout-change', count)
+    }
   })
 
   it('工具栏：按钮随选择与历史启用，点按钮执行命令，设计与预览两个按钮切换模式；只读时编辑类命令不可用', async () => {
@@ -775,9 +788,9 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.querySelector('[data-region="header"] button[value]')).toBeNull()
   })
 
-  it('「面板」点开一张锚在按钮上的菜单，列出能开关的六块卡片，勾选的显示；选中一项开关它并派发 panels-change', async () => {
+  it('「面板」点开一张锚在按钮上的菜单，列出能开关的六块卡片（勾选的显示），再列显示或隐藏所有面板、还原面板显隐与恢复默认布局；选中一块卡片开关它并写进设置', async () => {
     const designer = await mount()
-    const frame = designer.querySelector<HTMLElement & { updateComplete: Promise<unknown> }>('xh-designer-frame')!
+    const frame = designer.querySelector('xh-designer-frame')!
     await frame.updateComplete
     const button = designer.querySelector<HTMLButtonElement>('[data-region="toolbar"] button[value="panels"]')!
     expect(button.disabled).toBe(false)
@@ -785,22 +798,44 @@ describe('<xh-report-designer>：编辑', () => {
     await designer.updateComplete
     type MenuHost = HTMLElement & { open?: boolean, anchor?: HTMLElement | null, collection?: readonly { value: string }[], checkboxValue?: readonly string[] }
     const menu = designer.querySelector<MenuHost>('[data-part="command-bar"] xh-menu')!
-    const all = ['datasets', 'parameters', 'palette', 'issues', 'wells', 'properties'].map(name => `item:${name}`)
+    const all = Object.values(REPORT_DESIGNER_PANELS).map(name => `item:${name}`)
+    const values = menu.collection!.map(item => item.value)
     expect([menu.open, menu.anchor]).toEqual([true, button])
-    expect([...menu.collection!.map(item => item.value)].sort()).toEqual([...all].sort())
+    expect(values.filter(value => value.startsWith('item:')).sort()).toEqual([...all].sort())
+    expect(values.filter(value => !value.startsWith('item:'))).toEqual(expect.arrayContaining([expect.stringContaining('panels-toggle-all'), expect.stringContaining('panels-restore'), expect.stringContaining('layout-reset')]))
     expect([...menu.checkboxValue!].sort()).toEqual([...all].sort())
-    const seen: string[] = []
-    designer.addEventListener('panels-change', event => seen.push((event as CustomEvent<{ panels: string }>).detail.panels))
+    const seen = events(designer, 'settings-change') as { key: string, value: { hidden: string[] } }[]
     menu.dispatchEvent(new CustomEvent('select', { detail: { value: 'item:wells' } }))
     await designer.updateComplete
     await frame.updateComplete
-    expect(seen).toEqual([designer.panels])
-    expect(designer.panels!.split(' ')).not.toContain('wells')
+    expect(seen.map(change => [change.key, change.value.hidden])).toEqual([[DESIGNER_SETTING_KEYS.layout, ['wells']]])
+    expect(frame.showsPanel('wells')).toBe(false)
     expect(menu.checkboxValue).not.toContain('item:wells')
     menu.dispatchEvent(new CustomEvent('select', { detail: { value: 'item:wells' } }))
     await designer.updateComplete
     await frame.updateComplete
-    expect(designer.panels!.split(' ')).toContain('wells')
+    expect(frame.showsPanel('wells')).toBe(true)
+  })
+
+  it('每块内置面板一条开关命令 panel:<面板 id>，排进 commandLayout 就上工具栏：文字取面板标题，按下态是它此刻显示；显示或隐藏所有面板、恢复默认布局都写进设置', async () => {
+    const designer = await mount()
+    const frame = designer.querySelector('xh-designer-frame')!
+    const t = DEFAULT_REPORT_DESIGNER_TRANSLATIONS
+    designer.commandLayout = { toolbar: [['panel:wells', 'panels-toggle-all', 'layout-reset']] }
+    await designer.updateComplete
+    const button = (command: string): HTMLButtonElement => designer.querySelector(`[data-region="toolbar"] button[value="${command}"]`)!
+    const panels = Object.values(REPORT_DESIGNER_PANELS)
+    expect([button('panel:wells').textContent, button('panel:wells').getAttribute('aria-pressed')]).toEqual([t.wells, 'true'])
+    button('panel:wells').click()
+    await designer.updateComplete
+    expect([frame.showsPanel('wells'), button('panel:wells').getAttribute('aria-pressed')]).toEqual([false, 'false'])
+    button('panels-toggle-all').click()
+    await designer.updateComplete
+    expect(panels.filter(name => frame.showsPanel(name))).toEqual([])
+    button('layout-reset').click()
+    await designer.updateComplete
+    expect(panels.filter(name => frame.showsPanel(name))).toEqual(panels)
+    expect(designer.settings![DESIGNER_SETTING_KEYS.layout]).toMatchObject({ hidden: [] })
   })
 
   it('状态栏左段：没选中时写数据集与卡片数，选中一张卡片写种类与所在的格，几张写已选中 N 个，选中数据面板的对象写属性卡片的那句', async () => {
@@ -842,19 +877,21 @@ describe('<xh-report-designer>：编辑', () => {
     }
   })
 
-  it('设置里关掉状态栏：外框不显示它；这时关掉一块卡片，panels 仍留着 status，再打开状态栏照样出现', async () => {
+  it('设置里关掉状态栏：外框不登记它；这时关掉一块卡片，设置里的状态栏开关照原样留着，再打开状态栏照样出现', async () => {
     const designer = await mount()
-    const frame = designer.querySelector<HTMLElement & { panels?: string }>('xh-designer-frame')!
-    designer.settings = { 'general.statusBar': false }
+    const frame = designer.querySelector('xh-designer-frame')!
+    const names = (): string[] => frame.regions!.map(region => region.name)
+    designer.settings = { [DESIGNER_SETTING_KEYS.statusBar]: false }
     await designer.updateComplete
-    expect(frame.panels!.split(' ')).not.toContain('status')
+    expect(names()).not.toContain('status')
     designer.querySelector<HTMLButtonElement>('[data-region="issues"] [data-part="panel-close"]')!.click()
     await designer.updateComplete
-    expect(designer.panels!.split(' ')).toContain('status')
-    designer.settings = {}
+    expect(designer.settings![DESIGNER_SETTING_KEYS.statusBar]).toBe(false)
+    expect(names()).not.toContain('status')
+    designer.settings = { [DESIGNER_SETTING_KEYS.layout]: designer.settings![DESIGNER_SETTING_KEYS.layout]! }
     await designer.updateComplete
-    expect(frame.panels!.split(' ')).toContain('status')
-    expect(frame.panels!.split(' ')).not.toContain('issues')
+    expect(frame.showsPanel('status')).toBe(true)
+    expect(frame.showsPanel('issues')).toBe(false)
   })
 
   it('工具栏的容器部件叫 command-bar：设计器自己不再有 toolbar 部件，变换覆盖层的上下文工具条不会被它的样式连带命中', async () => {
@@ -963,14 +1000,31 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.validate().map(issue => issue.code)).toContain('unknown-dimension')
   })
 
-  it('版式交给外框：panels 原样转交，画布总是显示；右键事件可以取消', async () => {
+  it('版式交给外框：设置里的布局、defaultLayout 与 settingsPolicy 换算的管控原样转交，画布总是显示；右键事件可以取消', async () => {
     const designer = await mount()
     const frame = designer.querySelector('xh-designer-frame')!
     expect(frame.querySelector('[data-part="region"][data-region="canvas"] [data-part="canvas"]')).not.toBeNull()
-    designer.panels = ''
+    const panels = Object.values(REPORT_DESIGNER_PANELS)
+    const defaults = { version: 1, hidden: ['issues', 'wells'] } as const
+    designer.defaultLayout = defaults
     await designer.updateComplete
-    expect(frame.panels).toBe('')
+    expect(frame.defaultLayout).toBe(defaults)
+    expect(panels.filter(name => !frame.showsPanel(name))).toEqual(['wells', 'issues'])
+    const stored = { version: 1, hidden: [...panels] } as const
+    designer.settings = { [DESIGNER_SETTING_KEYS.layout]: stored }
+    await designer.updateComplete
+    expect(frame.layout).toBe(stored)
+    expect(panels.filter(name => frame.showsPanel(name))).toEqual([])
     expect(frame.querySelector('[data-region="canvas"] [data-part="canvas"]')).not.toBeNull()
+    designer.settings = {}
+    designer.settingsPolicy = { [`${DESIGNER_SETTING_KEYS.layout}.palette`]: 'hidden', [`${DESIGNER_SETTING_KEYS.layout}.issues`]: 'locked' }
+    await designer.updateComplete
+    expect(frame.layoutPolicy).toEqual({ panels: { palette: 'hidden', issues: 'locked' } })
+    const policy = frame.layoutPolicy
+    designer.settingsPolicy = { ...designer.settingsPolicy }
+    await designer.updateComplete
+    expect(frame.layoutPolicy).toBe(policy)
+    expect([frame.showsPanel('palette'), frame.panelEntries().find(entry => entry.name === 'issues')?.locked]).toEqual([false, true])
     designer.addEventListener('card-contextmenu', event => event.preventDefault())
     const menu = new MouseEvent('contextmenu', { bubbles: true, cancelable: true })
     card(designer, 'a').dispatchEvent(menu)
