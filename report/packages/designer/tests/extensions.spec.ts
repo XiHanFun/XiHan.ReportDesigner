@@ -117,6 +117,8 @@ afterEach(() => {
 
 async function mount(extensions: readonly ReportDesignerExtension[] | undefined, options: { readonly provider?: boolean } = {}): Promise<XhReportDesigner> {
   const designer = document.createElement('xh-report-designer')
+  // 用例里不自动开始新手引导，引导的用例自己打开
+  designer.autoTour = false
   designer.extensions = extensions
   if (options.provider)
     designer.dataProvider = async () => ({ kind: 'rows', rows: [{ region: 'East', amount: 10 }, { region: 'West', amount: 5 }, { region: 'East', amount: 1 }] })
@@ -255,6 +257,7 @@ describe('<xh-report-designer>：扩展', () => {
     }
     const fetched: string[] = []
     const designer = document.createElement('xh-report-designer')
+    designer.autoTour = false
     designer.extensions = [lanes, logging]
     designer.dataProvider = async (request) => {
       fetched.push(request.dataset)

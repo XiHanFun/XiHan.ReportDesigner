@@ -109,6 +109,8 @@ function designerSummary(name: keyof ReportDesignerEventMap, detail: unknown): s
 }
 
 const designer = document.querySelector('xh-report-designer')!
+// 开发预览页不自动开始新手引导；设置的帮助页里可以开始
+designer.autoTour = false
 designer.dataProvider = dataProvider
 designer.schema = dashboardReport
 for (const name of DESIGNER_EVENTS) {

@@ -6,18 +6,18 @@
 // 设计器层的扩展：在运行时层之上加属性编辑器、命令、面板、物料与装上时的回调。内置命令与内置物料也写成一个扩展。
 
 import type { ReportCardType, ReportDocument, ReportRuleContext } from '@xihan-report/core'
-import type { ReportDesignerTranslations, ReportRuntimeExtension, ReportRuntimeModel } from '@xihan-report/runtime'
+import type { ReportDesignerTranslations, ReportRuntimeExtension, ReportRuntimeModel, ReportTourStepKey } from '@xihan-report/runtime'
 import type { IconRecord } from '@xihan-ui/core'
 import type { DesignerCommand, DesignerExtensionCore, ExtensionKeySpaces } from '@xihan-ui/designer-kit'
-import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerHistoryCommandTarget, DesignerHistoryTranslations, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension, XhDesignerFrameElement } from '@xihan-ui/designer-shell'
+import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerHistoryCommandTarget, DesignerHistoryTranslations, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension, DesignerTourStep, DesignerTourTarget, XhDesignerFrameElement } from '@xihan-ui/designer-shell'
 import type { DialogService } from '@xihan-ui/web-components/services'
 import type { ReportAddCardInit } from './editor'
 import type { XhReportDesigner } from './report-designer'
 import { cardTemplate, REPORT_CARD_TYPES } from '@xihan-report/core'
 import { createReportRuntimeModel } from '@xihan-report/runtime'
 import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
-import { collectSettingsSections, createHistoryPanel, createOutlinePanel, designerHistoryCommands, designerPanelCommands, designerShellCommands } from '@xihan-ui/designer-shell'
-import { CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, FilePlusIcon, HistoryIcon, ListTreeIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TrashIcon, UndoIcon, UploadIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { collectSettingsSections, collectTourSteps, createHistoryPanel, createOutlinePanel, designerHistoryCommands, designerPanelCommands, designerShellCommands } from '@xihan-ui/designer-shell'
+import { CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, FilePlusIcon, HistoryIcon, LightbulbIcon, ListTreeIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TrashIcon, UndoIcon, UploadIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { REPORT_CARD_TYPE_ICONS } from './card-icons'
 import { REPORT_OUTLINE_ADAPTER } from './outline'
 
@@ -135,7 +135,7 @@ export const REPORT_DESIGNER_PANELS = {
 
 /**
  * 内置命令：撤销、重做与清空历史，剪贴板、创建副本与删除、全选、缩放、设计与预览，designer-shell 内置的面板、显示或隐藏所有面板、
- * 还原面板显隐、恢复默认布局、设置、帮助与导入字段，导入数据集与导入参数，以及每块内置面板一条开关命令 panel:<面板 id>。
+ * 还原面板显隐、恢复默认布局、设置、帮助、导入字段与开始引导，导入数据集与导入参数，以及每块内置面板一条开关命令 panel:<面板 id>。
  */
 const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
   ...designerHistoryCommands<ReportDesignerContext>({
@@ -170,7 +170,8 @@ const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
     helpUrl: () => REPORT_DESIGNER_HELP_URL,
     openFieldImport: ({ designer }) => void designer.openDataImport('fields'),
     fieldImportDisabled: ({ designer }) => !designer.canImportData('fields'),
-    icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: UploadIcon },
+    startTour: ({ designer }) => designer.startTour(),
+    icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: UploadIcon, startTour: LightbulbIcon },
   }),
   { id: 'import-dataset', label: ({ translations }) => translations.importDataset, icon: FilePlusIcon, enabled: ({ designer }) => designer.canImportData('dataset'), run: ({ designer }) => void designer.openDataImport('dataset') },
   { id: 'import-parameters', label: ({ translations }) => translations.importParameters, icon: UploadIcon, enabled: ({ designer }) => designer.canImportData('parameters'), run: ({ designer }) => void designer.openDataImport('parameters') },
@@ -200,16 +201,43 @@ const HISTORY_PANEL = createHistoryPanel<ReportDesignerContext>({
   announce: ({ frame }, message) => frame?.announce(message),
 }, { region: { icon: HistoryIcon }, readonly: ({ designer }) => designer.readonly === true })
 
+/** 看板上有卡片。 */
+function hasCards({ designer }: ReportDesignerContext): boolean {
+  const body = designer.schema?.body
+  return body?.type === 'dashboard' && body.cards.length > 0
+}
+
+function tourStep(key: ReportTourStepKey, target: DesignerTourTarget, order: number, when?: (context: ReportDesignerContext) => boolean): DesignerTourStep<ReportDesignerContext> {
+  return {
+    id: `report.${key}`,
+    target,
+    order,
+    title: ({ translations }) => translations.tourSteps[key].title,
+    description: ({ translations }) => translations.tourSteps[key].description,
+    ...(when ? { when } : {}),
+  }
+}
+
+/** 新手引导里报表自己的几步，排在通用步骤之后：数据面板、字段栏、卡片、联动与预览；看板上没有卡片时跳过卡片与联动两步。 */
+const REPORT_TOUR_STEPS: readonly DesignerTourStep<ReportDesignerContext>[] = [
+  tourStep('datasets', { panel: 'datasets' }, 100),
+  tourStep('wells', { panel: 'wells' }, 110),
+  tourStep('cards', { selector: '[data-part="card"]' }, 120, hasCards),
+  tourStep('links', { panel: 'wells' }, 130, hasCards),
+  tourStep('preview', { command: 'preview' }, 140),
+]
+
 /** 页面结构面板：停在左栏物料下面，列出卡片、卡片的列表与列表项；只读时只能看。 */
 const OUTLINE_PANEL = createOutlinePanel<ReportDesignerContext>(REPORT_OUTLINE_ADAPTER, {
   region: { icon: ListTreeIcon },
   readonly: ({ designer }) => designer.readonly === true,
 })
 
-/** 设计器的内置扩展：内置命令、物料、页面结构与历史记录面板。卡片种类、渲染与导出等内置部分在 core 与 runtime 的内置扩展里。 */
+/** 设计器的内置扩展：内置命令、物料、页面结构与历史记录面板、新手引导的报表步骤。卡片种类、渲染与导出等内置部分在 core 与 runtime 的内置扩展里。 */
 export const REPORT_DESIGNER_EXTENSION: ReportDesignerExtension = {
   id: '@xihan-report/designer',
   commands: BUILTIN_COMMANDS,
+  tourSteps: REPORT_TOUR_STEPS,
   panels: [OUTLINE_PANEL, HISTORY_PANEL],
   paletteGroups: BUILTIN_GROUPS.map(group => ({ id: group, label: ({ translations }: ReportDesignerContext) => translations.paletteGroups[group] ?? group })),
   palette: BUILTIN_PALETTE,
@@ -263,12 +291,14 @@ export interface ReportDesignerModel {
   readonly palette: ReadonlyMap<string, ReportPaletteItem>
   /** 各扩展登记的设置分区，按登记顺序；分区 id 不与基础分区或彼此重名。 */
   readonly settings: readonly DesignerSettingsSection[]
+  /** 新手引导里报表与各扩展的步骤，按登记顺序；id 不重名。 */
+  readonly tourSteps: readonly DesignerTourStep<ReportDesignerContext>[]
 }
 
 const MODELS = new WeakMap<readonly ReportDesignerExtension[], ReportDesignerModel>()
 
 /**
- * 合出设计器用的模型；任何一处重名都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。
+ * 合出设计器用的模型；任何一处重名（含设置分区与引导步骤）都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。
  * 同一个数组只合一次。
  */
 export function createReportDesignerModel(extensions: readonly ReportDesignerExtension[]): ReportDesignerModel {
@@ -294,6 +324,7 @@ export function createReportDesignerModel(extensions: readonly ReportDesignerExt
     paletteGroups,
     palette,
     settings: collectSettingsSections(all),
+    tourSteps: collectTourSteps(all),
   }
   MODELS.set(extensions, model)
   return model

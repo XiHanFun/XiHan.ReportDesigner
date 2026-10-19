@@ -44,21 +44,26 @@ import {
   DESIGNER_FRAME_REGIONS,
   DESIGNER_HISTORY_EN_US,
   DESIGNER_SETTING_KEYS,
+  DESIGNER_TOUR_DONE_KEY,
   designerLayoutPolicy,
   registerDropTarget,
   renderCommandMenu,
   resolveSettings,
+  resolveTourSteps,
   runCommand,
+  shortcutSettingsSource,
   toolbarCustomizationOf,
   toolbarDisplayOf,
   toolbarSettingsSource,
   toolbarVisibleOf,
+  tourDoneOf,
   XhDesignerFieldImportElement,
   XhDesignerFrameElement,
   XhDesignerIssuesElement,
   XhDesignerPaletteElement,
   XhDesignerPropertiesElement,
   XhDesignerSettingsElement,
+  XhDesignerTourElement,
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { CircleAlertIcon, DatabaseIcon, FilterIcon, LayoutGridIcon, ListIcon, SlidersHorizontalIcon } from '@xihan-ui/icons'
@@ -75,6 +80,7 @@ import { planDatasetImport, planFieldImport, planParameterImport } from './field
 import { cellSize, cellToRect, centeredCell, clipCell, measureGrid, rectToCell } from './grid-geometry'
 import { IssuesPanel } from './issues-panel'
 import { PropertiesPanel } from './properties-panel'
+import { REPORT_VERSION } from './version'
 import { fieldList, Wells, wellsOwner, withFilledBindings } from './wells'
 
 /** 设计器的标签名。 */
@@ -183,6 +189,8 @@ interface Layers {
   readonly parameterActions: DesignerPanelActions<ReportDesignerContext>
   /** 导入字段对话框。 */
   readonly fieldImport: XhDesignerFieldImportElement
+  /** 新手引导。 */
+  readonly tour: XhDesignerTourElement
   /** 设置对话框。 */
   readonly settings: XhDesignerSettingsElement
   /** 状态栏左段：选中对象的信息，没选中时是报表的概况。 */
@@ -245,6 +253,7 @@ export class XhReportDesigner extends XhReactiveElement {
     timeZone: { attribute: 'time-zone' },
     readonly: { converter: BOOLEAN_CONVERTER },
     mode: { attribute: 'mode' },
+    autoTour: { attribute: 'auto-tour', converter: BOOLEAN_CONVERTER },
     defaultLayout: { attribute: false },
     datasetEditing: { attribute: 'dataset-editing' },
     settings: { attribute: false },
@@ -277,6 +286,11 @@ export class XhReportDesigner extends XhReactiveElement {
   declare readonly: boolean | undefined
   /** design 或 preview，缺省 design。 */
   declare mode: ReportDesignerMode | undefined
+  /**
+   * 第一次铺好画布后自动开始新手引导，缺省开；设置里记过 help.tourDone（走完、跳过或关上过一次）时不再自动开始。
+   * 写 false 关掉，start-tour 命令、帮助页的「开始引导」与 startTour() 照样能开始。同名 attribute auto-tour，写 "false" 是关。
+   */
+  declare autoTour: boolean | undefined
   /**
    * 面板布局的缺省：设置里还没有 layout.panels 时用它，「恢复默认布局」也回到它；不给时各面板停在登记的位置，全部显示。
    * 面板 id 见 REPORT_DESIGNER_PANELS，另有扩展登记的面板。用户挪了面板、改了显隐或大小，
@@ -336,6 +350,11 @@ export class XhReportDesigner extends XhReactiveElement {
   #regionsModel: ReportDesignerModel | undefined
   #regionList: readonly DesignerFrameRegion[] = FRAME_REGIONS
   #layoutPolicyKey = ''
+  /** 上一次交给引导的步骤、交给设置对话框帮助、快捷键与关于三页的内容（JSON）：没变不重设。 */
+  #tourStepsKey = ''
+  #helpKey = ''
+  /** 已经看过要不要自动开始引导：每个元素只看一次，在第一次铺好画布之后。 */
+  #tourChecked = false
   /** 导入对话框此刻为谁打开；导入字段时是那个数据集。 */
   #importTarget: { readonly kind: ReportDataImportKind, readonly dataset?: string } | undefined
   /** 上次交给设置对话框「工具栏」页的按钮表数据（JSON）：内容没变不重设，免得按钮表重铺。 */
@@ -589,6 +608,13 @@ export class XhReportDesigner extends XhReactiveElement {
     return true
   }
 
+  /** 从头开始新手引导：通用步骤加报表与扩展的步骤；预览态、还没有报表或没有能走的步骤时返回 false。 */
+  startTour(): boolean {
+    if (this.#mode() === 'preview' || !this.#editor)
+      return false
+    return this.#ensureLayers().tour.start()
+  }
+
   /** 选中列表项所在的卡片并让它可见。 */
   revealItem(ref: ReportItemRef): void {
     this.select(ref.card === undefined ? { cards: [], item: ref } : { cards: [ref.card], item: ref })
@@ -678,6 +704,20 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#syncPalette(layers.palette, t)
     this.#syncData()
     this.#renderCanvas()
+    this.#checkTour(mode)
+  }
+
+  /** 第一次有了报表、在设计态铺好画布之后，看要不要自动开始新手引导；每个元素只看一次。 */
+  #checkTour(mode: ReportDesignerMode): void {
+    if (this.#tourChecked || !this.#editor || mode === 'preview')
+      return
+    this.#tourChecked = true
+    if (this.autoTour === false || tourDoneOf(this.settings))
+      return
+    void this.updateComplete.then(() => {
+      if (this.isConnected && this.#mode() !== 'preview' && this.autoTour !== false && !tourDoneOf(this.settings))
+        this.#layers?.tour.start()
+    })
   }
 
   #translations(): ReportDesignerTranslations {
@@ -833,6 +873,59 @@ export class XhReportDesigner extends XhReactiveElement {
     emitEvent(this, 'history-change', snapshotHistory(history))
   }
 
+  /**
+   * 新手引导的步骤与设置对话框的帮助、快捷键、关于三页，按此刻的语言与命令表现算，内容没变不重设：
+   * 帮助页是几段操作说明与「开始引导」「帮助」两颗钮；快捷键表从命令表生成，另加本设计器不是命令的几个键；
+   * 关于页是报表设计器的版本与许可证，后面接扩展给的几行。
+   */
+  #syncHelp(layers: Layers, context: ReportDesignerContext): void {
+    const steps = resolveTourSteps(this.#model.tourSteps, context)
+    const stepsKey = JSON.stringify(steps)
+    if (stepsKey !== this.#tourStepsKey) {
+      this.#tourStepsKey = stepsKey
+      layers.tour.steps = steps
+    }
+    const t = context.translations
+    const { commands } = this.#model
+    const help = {
+      notes: t.helpNotes,
+      actions: [{ command: 'start-tour', label: context.commands.startTour }, { command: 'help', label: context.commands.help }],
+    }
+    const shortcuts = shortcutSettingsSource(commands, context, {
+      extensionCommands: (this.#extensions ?? NO_EXTENSIONS).flatMap(extension => (extension.commands ?? []).map(command => command.id)),
+      keys: [
+        { label: t.shortcutResize, keys: [['Shift', 'ArrowUp'], ['Shift', 'ArrowDown'], ['Shift', 'ArrowLeft'], ['Shift', 'ArrowRight']] },
+        { label: context.commands.delete, keys: [['Backspace']] },
+        { label: t.shortcutSave, keys: [['Mod', 'S']] },
+      ],
+    })
+    const about = { product: t.label, version: REPORT_VERSION, license: 'MIT', rows: this.#model.extensions.flatMap(extension => extension.about ?? []) }
+    const helpKey = JSON.stringify([help, shortcuts, about])
+    if (helpKey !== this.#helpKey) {
+      this.#helpKey = helpKey
+      layers.settings.help = help
+      layers.settings.shortcuts = shortcuts
+      layers.settings.about = about
+    }
+  }
+
+  /** 设置对话框帮助页里的钮：关上对话框，再跑那条命令（开始引导、打开帮助）。 */
+  readonly #onSettingsCommand = (event: Event): void => {
+    event.stopPropagation()
+    const { command } = (event as DesignerSettingsEventMap['settings-command']).detail
+    if (this.#layers)
+      this.#layers.settings.open = false
+    runCommand(this.#model.commands, command, this.#context())
+  }
+
+  /** 引导收起了（走完、跳过或关上）：设置里记下 help.tourDone，之后不再自动开始。 */
+  readonly #onTourEnd = (): void => {
+    if (tourDoneOf(this.settings))
+      return
+    const key = DESIGNER_TOUR_DONE_KEY
+    this.#commitSettings({ key, value: true, settings: { ...this.settings, [key]: true } })
+  }
+
   /** 选中工具条的主体：看板上选中一张卡片为 card，几张为 multiple；只读、预览态或没有选中卡片时为 undefined。 */
   #selectionSubject(): ReportSelectionSubject | undefined {
     const count = this.#editor?.selection.cards.length ?? 0
@@ -971,9 +1064,13 @@ export class XhReportDesigner extends XhReactiveElement {
     frame.append(selectionStatus.element, zoomStatus.element)
     const settings = createGeneratedElement(doc, 'xh-designer-settings', { 'data-part': 'settings' }) as XhDesignerSettingsElement
     settings.addEventListener('settings-change', this.#onSettingsChange)
+    settings.addEventListener('settings-command', this.#onSettingsCommand)
     const fieldImport = createGeneratedElement(doc, 'xh-designer-field-import', { 'data-part': 'field-import' }) as XhDesignerFieldImportElement
     fieldImport.addEventListener('fields-import', this.#onFieldsImport)
-    this.replaceChildren(frame, settings, fieldImport)
+    const tour = createGeneratedElement(doc, 'xh-designer-tour', { 'data-part': 'tour' }) as XhDesignerTourElement
+    tour.frame = frame
+    tour.addEventListener('tour-end', this.#onTourEnd)
+    this.replaceChildren(frame, settings, fieldImport, tour)
     this.#layers?.panels.dispose()
     const panels = createPanelHost<ReportDesignerContext>(frame, { regions: FRAME_REGIONS, commands: () => this.#model.commands })
     canvas.addEventListener('pointerdown', this.#onPointerDown)
@@ -1004,7 +1101,7 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#regionsKey = ''
     this.#viewer = undefined
     this.#settingsDialogKey = ''
-    this.#layers = { frame, toolbar, commandBar, selectionBar, headerBar, panels, menu, menuContent, menuTrigger, canvas, scroller, sizer, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, datasetActions, parameterActions, fieldImport, settings, selectionStatus, zoomStatus }
+    this.#layers = { frame, toolbar, commandBar, selectionBar, headerBar, panels, menu, menuContent, menuTrigger, canvas, scroller, sizer, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, datasetActions, parameterActions, fieldImport, tour, settings, selectionStatus, zoomStatus }
     panels.assign(this.#model.extensions, this.#context())
     this.#fillMenu('blank')
     return this.#layers
@@ -1707,6 +1804,7 @@ export class XhReportDesigner extends XhReactiveElement {
       // 面板头的导入钮：datasetEditing 不够或只读时不出现
       layers.datasetActions.update(this.#canImport('dataset') ? ['import-dataset', 'import-fields'] : [], commands, context, t.datasets)
       layers.parameterActions.update(this.#canImport('parameters') ? ['import-parameters'] : [], commands, context, t.parameters)
+      this.#syncHelp(layers, context)
       layers.panels.update(context)
       this.#renderStatus(layers, t)
     }
@@ -2009,6 +2107,7 @@ export function defineReportDesigner(): void {
   defineXhElement('xh-tree', XhTreeElement)
   defineDesignerShellElement('xh-designer-field-import', XhDesignerFieldImportElement)
   defineDesignerShellElement('xh-designer-frame', XhDesignerFrameElement)
+  defineDesignerShellElement('xh-designer-tour', XhDesignerTourElement)
   defineDesignerShellElement('xh-designer-issues', XhDesignerIssuesElement)
   defineDesignerShellElement('xh-designer-palette', XhDesignerPaletteElement)
   defineDesignerShellElement('xh-designer-properties', XhDesignerPropertiesElement)

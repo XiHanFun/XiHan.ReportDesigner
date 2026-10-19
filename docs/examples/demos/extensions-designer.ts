@@ -17,6 +17,7 @@ defineReportDesigner()
 
 export function mount(host: HTMLElement): () => void {
   const designer = document.createElement('xh-report-designer')
+  designer.autoTour = false
   designer.extensions = [createGoalDesigner(() => {})]
   designer.dataProvider = async () => ({ kind: 'rows', rows })
   designer.schema = schema
