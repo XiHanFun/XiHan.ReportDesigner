@@ -1681,6 +1681,30 @@ describe('<xh-report-designer>：缩放', () => {
     expect(scroller.scrollTop).toBeCloseTo(100 * (Math.exp(0.2) - 1))
   })
 
+  it('打开时按实际大小：缩放 100%，看板左上角在可见区里；内容比可见区高、尺寸变了或换一份报表都不自动适合窗口', async () => {
+    const observers: (() => void)[] = []
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: () => void) {
+        observers.push(callback)
+      }
+
+      observe(): void {}
+      disconnect(): void {}
+    })
+    const designer = await mount()
+    const scroller = designer.querySelector<HTMLElement>('[data-part="scroller"]')!
+    const content = designer.querySelector<HTMLElement>('[data-part="surface"] > [data-part="content"]')!
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, get: () => 500 })
+    Object.defineProperty(content, 'offsetHeight', { configurable: true, get: () => 2000 })
+    observers.forEach(callback => callback())
+    const zoomStatus = designer.querySelector('[slot="status-end"]')!.textContent
+    expect([zoom(designer), scroller.scrollLeft, scroller.scrollTop, zoomStatus]).toEqual([1, 0, 0, expect.stringContaining('100%')])
+    designer.schema = { ...board, id: 'other' }
+    await designer.updateComplete
+    observers.forEach(callback => callback())
+    expect(zoom(designer)).toBe(1)
+  })
+
   it('适合窗口：内容的高度落进可见区、不放大到实际尺寸以上，滚回左上角；此后尺寸变了重新适配，直到改了缩放或在画布上按下指针', async () => {
     const observers: (() => void)[] = []
     vi.stubGlobal('ResizeObserver', class {
