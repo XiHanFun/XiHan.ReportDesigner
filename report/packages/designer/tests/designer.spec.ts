@@ -127,6 +127,15 @@ function key(designer: XhReportDesigner, keyName: string, init: KeyboardEventIni
   designer.querySelector('[data-part="scroller"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: keyName, bubbles: true, cancelable: true, ...init }))
 }
 
+/** 菜单栏的 <xh-menubar>：按数据铺的菜单与勾选。 */
+type MenubarHost = HTMLElement & { collection?: { value: string, label?: string, items?: { value: string }[] }[], checkboxValue?: string[] }
+
+/** 菜单栏上一张菜单里的命令 id。 */
+function menubarItems(designer: XhReportDesigner, menu: string): string[] {
+  const menubar = designer.querySelector<MenubarHost>('xh-menubar')!
+  return menubar.collection!.find(node => node.value === menu)!.items!.map(item => item.value.slice(menu.length + 1))
+}
+
 interface Box { x: number, y: number, width: number, height: number }
 
 function stub(element: Element, { x, y, width, height }: Box): void {
@@ -709,7 +718,7 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.getSelection()).toEqual({ cards: ['pie'] })
   })
 
-  it('切到预览态：画布换成查看器，交给它当前的报表与取数回调，外框只登记工具栏与画布；切换时派发 mode-change', async () => {
+  it('切到预览态：画布换成查看器，交给它当前的报表与取数回调，外框只登记菜单栏、工具栏与画布；切换时派发 mode-change', async () => {
     const designer = await mount()
     const modes = events(designer, 'mode-change')
     const settings = designer.settings
@@ -718,7 +727,7 @@ describe('<xh-report-designer>：编辑', () => {
     const viewer = designer.querySelector<XhReportViewer>('[data-part="preview"] xh-report-viewer')!
     expect(viewer.schema).toBe(designer.schema)
     expect(designer.querySelector<HTMLElement>('[data-part="canvas"]')!.hidden).toBe(true)
-    expect(designer.querySelector('xh-designer-frame')!.regions!.map(region => region.name)).toEqual(['toolbar', 'canvas'])
+    expect(designer.querySelector('xh-designer-frame')!.regions!.map(region => region.name)).toEqual(['menubar', 'toolbar', 'canvas'])
     expect(designer.querySelector('[data-region="palette"]')).toBeNull()
     expect(designer.settings).toBe(settings)
     designer.mode = 'preview'
@@ -782,7 +791,7 @@ describe('<xh-report-designer>：编辑', () => {
   it('工具栏：按钮随选择与历史启用，点按钮执行命令，设计与预览两个按钮切换模式；只读时编辑类命令不可用', async () => {
     const designer = await mount()
     const button = (command: string): HTMLButtonElement => designer.querySelector(`[data-region="toolbar"] button[value="${command}"]`)!
-    expect([...designer.querySelectorAll('[data-region="toolbar"] button[value]')].map(item => item.textContent)).toEqual(['Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Duplicate', 'Delete', 'Hand tool', 'Zoom out', 'Zoom in', 'Zoom to fit', 'Actual size', 'Design', 'Preview', 'Panels', 'Settings', 'Help'])
+    expect([...designer.querySelectorAll('[data-region="toolbar"] button[value]')].map(item => item.textContent)).toEqual(['Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Duplicate', 'Delete', 'Hand tool', 'Zoom out', 'Zoom in', 'Zoom to fit', 'Actual size', 'Design', 'Preview', 'Panels'])
     expect([button('undo').disabled, button('delete').disabled]).toEqual([true, true])
     designer.select({ cards: ['a'] })
     await designer.updateComplete
@@ -803,10 +812,13 @@ describe('<xh-report-designer>：编辑', () => {
     expect([button('delete').disabled, button('copy').disabled, button('preview').disabled]).toEqual([true, false, false])
   })
 
-  it('工具栏末组是 designer-shell 内置的面板、设置与帮助：设置打开设置对话框，帮助在新窗口打开文档站的设计器一页', async () => {
+  it('工具栏末组只留面板；设置与帮助在菜单栏里，关掉菜单栏时回到末组：设置打开设置对话框，帮助在新窗口打开文档站的设计器一页', async () => {
     const designer = await mount()
-    const groups = Array.from(designer.querySelectorAll('[data-part="command-bar"] [data-xh-part="group"]'), group => Array.from(group.querySelectorAll('button'), button => button.value))
-    expect(groups.at(-1)).toEqual(['panels', 'settings', 'help'])
+    const groups = (): string[][] => Array.from(designer.querySelectorAll('[data-part="command-bar"] [data-xh-part="group"]'), group => Array.from(group.querySelectorAll('button'), button => button.value))
+    expect(groups().at(-1)).toEqual(['panels'])
+    designer.settings = { [DESIGNER_SETTING_KEYS.toolbarMenubar]: false }
+    await designer.updateComplete
+    expect(groups().at(-1)).toEqual(['panels', 'settings', 'help'])
     designer.querySelector<HTMLButtonElement>('[data-region="toolbar"] button[value="settings"]')!.click()
     await designer.updateComplete
     expect(designer.querySelector<HTMLElement & { open?: boolean }>('xh-designer-settings')!.open).toBe(true)
@@ -821,6 +833,72 @@ describe('<xh-report-designer>：编辑', () => {
     expect(frame.regions!.map(region => region.name)).not.toContain('header')
     expect(designer.querySelector('[slot^="header"]')).toBeNull()
     expect([...createReportDesignerModel([]).commands.keys()].filter(id => id.startsWith('insert:'))).toEqual([])
+  })
+
+  it('菜单栏：外框最上一条，文件、编辑、视图、数据、帮助五张菜单；数据菜单是导入数据集、字段与参数，没有导入器时不列导入模板，文件菜单也没有打开文件', async () => {
+    const designer = await mount()
+    const menubar = designer.querySelector<MenubarHost>('xh-menubar')!
+    expect(menubar.closest('[data-region]')!.getAttribute('data-region')).toBe('menubar')
+    expect(menubar.collection!.map(node => [node.value, node.label])).toEqual([['file', 'File'], ['edit', 'Edit'], ['view', 'View'], ['data', 'Data'], ['help', 'Help']])
+    expect(menubarItems(designer, 'file')).toEqual(['save', 'settings'])
+    expect(menubarItems(designer, 'edit')).toEqual(['undo', 'redo', 'cut', 'copy', 'paste', 'delete', 'duplicate', 'select-all', 'edit-json'])
+    expect(menubarItems(designer, 'view')).toEqual(['design', 'preview', 'zoom-in', 'zoom-out', 'zoom-to-fit', 'zoom-to-actual', 'pan-tool', 'panels', 'show-toolbar', 'show-status-bar', 'show-menubar'])
+    expect(menubarItems(designer, 'data')).toEqual(['import-dataset', 'import-fields', 'import-parameters'])
+    expect(menubarItems(designer, 'help')).toEqual(['start-tour', 'help', 'shortcuts', 'about'])
+    expect(menubar.checkboxValue).toEqual(['view/design', 'view/show-toolbar', 'view/show-status-bar', 'view/show-menubar'])
+  })
+
+  it('菜单栏的条目执行命令：保存派发 save，画布上按 Ctrl+S 走同一条命令；显示开关改设置并派发 settings-change，关掉菜单栏时外框不登记它', async () => {
+    const designer = await mount()
+    const menubar = designer.querySelector<MenubarHost>('xh-menubar')!
+    const frame = designer.querySelector('xh-designer-frame')!
+    const select = (menu: string, id: string): void => void menubar.dispatchEvent(new CustomEvent('item-select', { detail: { menu, value: `${menu}/${id}` } }))
+    const saves = events(designer, 'save')
+    const changes = events(designer, 'settings-change') as { key: string, value: unknown }[]
+    select('file', 'save')
+    const ctrlS = new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true })
+    designer.querySelector('[data-part="scroller"]')!.dispatchEvent(ctrlS)
+    expect([saves, ctrlS.defaultPrevented, createReportDesignerModel([]).commands.get('save')?.shortcut]).toEqual([[{}, {}], true, ['Mod', 'S']])
+    select('view', 'show-status-bar')
+    await designer.updateComplete
+    expect([changes.map(change => [change.key, change.value]), frame.regions!.map(region => region.name)]).toEqual([[[DESIGNER_SETTING_KEYS.statusBar, false]], expect.not.arrayContaining(['status'])])
+    select('view', 'show-menubar')
+    await designer.updateComplete
+    await frame.updateComplete
+    expect([changes.at(-1)!.key, frame.regions!.map(region => region.name).includes('menubar'), menubar.closest('[data-part="parked"]') !== null]).toEqual([DESIGNER_SETTING_KEYS.toolbarMenubar, false, true])
+  })
+
+  it('宿主写在设计器上的 slot="menubar-end" 放到菜单栏右边一段：连上之前写的、之后加的都一样', async () => {
+    const designer = document.createElement('xh-report-designer')
+    designer.autoTour = false
+    const title = document.createElement('span')
+    title.slot = 'menubar-end'
+    title.textContent = '销售看板'
+    designer.append(title)
+    designer.schema = board
+    document.body.append(designer)
+    await designer.updateComplete
+    const frame = designer.querySelector('xh-designer-frame')!
+    await frame.updateComplete
+    expect([title.parentElement!.getAttribute('data-zone'), title.closest('[data-region]')?.getAttribute('data-region')]).toEqual(['end', 'menubar'])
+    const state = document.createElement('span')
+    state.slot = 'menubar-end'
+    designer.append(state)
+    await Promise.resolve()
+    await frame.updateComplete
+    expect(state.closest('[data-region]')?.getAttribute('data-region')).toBe('menubar')
+  })
+
+  it('画布有焦点时按 F10 把焦点交给菜单栏，再按 F10 回到画布', async () => {
+    const designer = await mount()
+    await designer.querySelector('xh-designer-frame')!.updateComplete
+    const scroller = designer.querySelector<HTMLElement>('[data-part="scroller"]')!
+    scroller.focus()
+    const f10 = (): void => void (document.activeElement ?? scroller).dispatchEvent(new KeyboardEvent('keydown', { key: 'F10', bubbles: true, cancelable: true }))
+    f10()
+    expect(designer.querySelector('xh-menubar')!.contains(document.activeElement)).toBe(true)
+    f10()
+    expect(document.activeElement).toBe(scroller)
   })
 
   it('「面板」点开一张锚在按钮上的菜单，列出能开关的八块卡片（勾选的显示，历史记录缺省不勾），再列显示或隐藏所有面板、还原面板显隐与恢复默认布局；选中一块卡片开关它并写进设置', async () => {
@@ -1354,7 +1432,7 @@ describe('<xh-report-designer>：编辑', () => {
     expect([...designer.querySelectorAll('[data-part="toolbar"]')].filter(node => !node.closest('xh-designer-transform'))).toEqual([])
   })
 
-  it('工具栏缺省只显示图标：内置命令都带图标，名字与快捷键写在按钮上（重做另认 Ctrl+Y），删除按危险语气；共用命令的文案取 designer-shell 的命令文案', async () => {
+  it('工具栏缺省只显示图标：内置命令都带图标，名字与快捷键写在按钮上（重做另认 Ctrl+Y），删除按危险语气；共用命令的文案取 designer-shell 的命令文案，菜单栏的数据菜单名取报表的文案', async () => {
     const designer = await mount()
     const buttons = (): HTMLButtonElement[] => [...designer.querySelectorAll<HTMLButtonElement>('[data-region="toolbar"] button[value]')]
     const button = (command: string): HTMLButtonElement => buttons().find(item => item.value === command)!
@@ -1366,8 +1444,9 @@ describe('<xh-report-designer>：编辑', () => {
       setXhConfig(reportZhCN)
       designer.requestUpdate()
       await designer.updateComplete
-      expect(buttons().map(item => item.getAttribute('aria-label'))).toEqual(['撤销', '重做', '剪切', '复制', '粘贴', '创建副本', '删除', '拖动', '缩小', '放大', '适合窗口', '实际大小', '设计', '预览', '面板', '设置', '帮助'])
+      expect(buttons().map(item => item.getAttribute('aria-label'))).toEqual(['撤销', '重做', '剪切', '复制', '粘贴', '创建副本', '删除', '拖动', '缩小', '放大', '适合窗口', '实际大小', '设计', '预览', '面板'])
       expect(designer.querySelector('[data-region="toolbar"] [aria-label="设计器操作"]')).not.toBeNull()
+      expect(designer.querySelector<MenubarHost>('xh-menubar')!.collection!.map(node => node.label)).toEqual(['文件', '编辑', '视图', '数据', '帮助'])
       expect(designer.querySelector('xh-designer-frame')!.regions?.find(region => region.name === 'toolbar')?.label).toBe('设计器操作')
     }
     finally {

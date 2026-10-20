@@ -183,6 +183,7 @@ const designer: ReportDesignerLocale = {
   importDataset: '데이터 세트 가져오기',
   importParameters: '매개변수 가져오기',
   importTemplate: '템플릿 가져오기',
+  menuData: '데이터',
   tourSteps: {
     datasets: { title: '데이터', description: '데이터 세트와 그 필드, 보고서 매개변수입니다. 필드를 카드로 끌어 놓으면 카드에 표시됩니다.' },
     wells: { title: '필드', description: '선택한 카드에 표시할 내용입니다. 차원, 측정값, 계열, 열을 여기서 다루며, 끌어서 추가하고 순서를 바꾸고 ×로 제거합니다.' },
@@ -196,7 +197,6 @@ const designer: ReportDesignerLocale = {
     '미리 보기로 바꾸면 데이터와 매개변수로 보고서를 실행합니다. Ctrl+S(macOS에서는 ⌘S)로 저장하며, 저장 위치는 사용하는 시스템이 정합니다.',
   ],
   shortcutResize: '선택한 카드 크기를 한 칸 바꾸기',
-  shortcutSave: '저장',
   statusDocument: (datasets, cards) => `데이터 세트 ${datasets}개${cards === undefined ? '' : ` · 카드 ${cards}장`}`,
   statusCell: (column, row, width, height) => `${column}열 ${row}행 · ${width} × ${height}칸`,
   statusZoom: '확대/축소',

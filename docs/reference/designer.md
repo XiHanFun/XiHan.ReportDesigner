@@ -17,7 +17,7 @@
 | `expressionEngine` | — | `ExpressionEngine \| undefined` | 表达式引擎：计算字段与公式度量要用，校验公式也用它。 |
 | `formatter` | — | `ReportFormatter \| undefined` | 值的显示文字；缺省按格式说明调 formatValue。 |
 | `parameters` | — | `ParameterValues \| undefined` | 预览与画布取数用的报表参数取值。 |
-| `commandLayout` | — | `DesignerCommandLayout \| undefined` | 工具栏、右键菜单（menu:card、menu:blank）与选中工具条（selection:card、selection:multiple）的命令排列；写了某个位置就只显示列出的命令。 |
+| `commandLayout` | — | `DesignerCommandLayout \| undefined` | 工具栏、菜单栏的各张菜单（menubar:file、menubar:edit、menubar:view、menubar:data、menubar:help）、右键菜单（menu:card、menu:blank）与选中工具条（selection:card、selection:multiple）的命令排列；写了某个位置就只显示列出的命令。 |
 | `translations` | — | `Partial<ReportDesignerTranslations> \| undefined` | 元素自己的文案，压在全局配置之上。 |
 | `locale` | `locale` | `string \| undefined` | BCP 47 语言标记；缺省取全局配置。 |
 | `timeZone` | `time-zone` | `string \| undefined` | IANA 时区；缺省取运行环境所在的时区。 |
@@ -96,7 +96,7 @@
 | `dirty-change` | `{ dirty: boolean }` | 与保存点相比有没有改动变了。 |
 | `history-change` | `HistorySnapshot` | 撤销历史变了：执行（含并入上一步）、撤销、重做、跳转、装载、清空与保存之后都派发，拖动等事务进行中不派发。detail 是此刻的 historyState。 |
 | `issues-change` | `{ issues: readonly ValidationIssue[] }` | 报表的校验问题变了。 |
-| `save` | `Record<string, never>` | 在画布上按了 Ctrl+S（macOS 上 ⌘S）；保存由宿主做，存好后调 markSaved()。 |
+| `save` | `Record<string, never>` | 在画布上按了 Ctrl+S（macOS 上 ⌘S），或点了「文件」菜单的「保存」（命令 save）；保存由宿主做，存好后调 markSaved()。 |
 | `mode-change` | `{ mode: ReportDesignerMode }` | 在设计与预览之间切换了。 |
 | `card-dblclick` | `{ id: string }` | 双击了一张卡片。 |
 | `card-contextmenu` | `{ id: string, x: number, y: number }` | 可取消；不取消时弹内建右键菜单。 |
@@ -267,10 +267,10 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `importDataset` | `string` | 命令「导入数据集」的文字，也是这时导入对话框的标题。 | 导入数据集 |
 | `importParameters` | `string` | 命令「导入参数」的文字，也是这时导入对话框的标题。 | 导入参数 |
 | `importTemplate` | `string` | 命令「导入模板」的文字，也是导入后那一步撤销的说明；登记了导入器才有这条命令。 | 导入模板 |
+| `menuData` | `string` | 菜单栏上报表自己那张菜单「数据」的名字：导入数据集、字段、参数与模板在里面。 | 数据 |
 | `tourSteps` | `Readonly<Record<ReportTourStepKey, ReportTourStepText>>` | 新手引导里报表自己的几步，各一个标题与说明；键见 ReportTourStepKey。 | （按键对照） |
 | `helpNotes` | `readonly string[]` | 设置对话框「帮助」页的几段操作说明。 | （按键对照） |
 | `shortcutResize` | `string` | 快捷键表里 Shift 加方向键那一行：把选中的卡片改大或改小一格。 | 把选中的卡片改大或改小一格 |
-| `shortcutSave` | `string` | 快捷键表里 Ctrl / ⌘ + S 那一行。 | 保存 |
 | `statusDocument` | `(datasets: number, cards: number \| undefined): string` | 状态栏左段没选中时：数据集数，主体是看板时再写卡片数（不是看板时 cards 为 undefined）。 | （按参数生成） |
 | `statusCell` | `(column: number, row: number, width: number, height: number): string` | 状态栏左段选中一张卡片时：它左上角所在的列与行（从 1 数起）和占的格数。 | （按参数生成） |
 | `statusZoom` | `string` | 状态栏右段缩放那一项的标签。 | 缩放 |
@@ -324,11 +324,12 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
-| `createReportDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名（含设置分区、引导步骤与物料来源）都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。 |
-| `REPORT_DESIGNER_EXTENSION` | 常量 | 设计器的内置扩展：内置命令、物料、页面结构与历史记录面板、新手引导的报表步骤。 |
+| `createReportDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名（含设置分区、引导步骤、物料来源与菜单栏的菜单）都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。 |
+| `REPORT_DATA_MENU` | 常量 | 菜单栏上报表自己的菜单「数据」的 id。 |
+| `REPORT_DESIGNER_EXTENSION` | 常量 | 设计器的内置扩展：内置命令、菜单栏的数据菜单、物料、页面结构与历史记录面板、新手引导的报表步骤。 |
 | `REPORT_DESIGNER_HELP_URL` | 常量 | 内置命令 help 打开的帮助页：报表文档站的设计器一页。 |
 | `REPORT_DESIGNER_PANELS` | 常量 | 设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.&lt;面板 id&gt;）与 commandLayout（panel:&lt;面板 id&gt;）时用。 |
-| `REPORT_IMPORT_TEMPLATE_COMMAND` | 常量 | 命令「导入模板」的 id：登记了导入器才进命令表，工具栏缺省排列的最前面多这一组。 |
+| `REPORT_IMPORT_TEMPLATE_COMMAND` | 常量 | 命令「导入模板」的 id：登记了导入器才进命令表，工具栏缺省排列的最前面多这一组，数据菜单的末尾也有它。 |
 | `REPORT_MENU_LAYOUT` | 常量 | 右键菜单的缺省排列：空白处的末尾是编辑 JSON。 |
 | `REPORT_SELECTION_LAYOUT` | 常量 | 选中工具条（命令落点 selection:&lt;主体&gt;）的缺省排列：创建副本、复制与删除。 |
 | `REPORT_TOOLBAR_LAYOUT` | 常量 | 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。 |
@@ -339,12 +340,14 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `ReportDesignerImporter` | 类型 | 报表的导入器：命令「导入模板」（import-template）选中的文件交给它，换成一份整份的报表模板；给出 undefined 表示这次不载入。 |
 | `ReportDesignerModel` | 接口 | 一组设计器扩展合出的东西。 |
 | `ReportImportResult` | 接口 | 导入器给出的结果：一份整份的报表模板。 |
+| `reportMenubarLayout` | 函数 | 菜单栏的缺省排列：designer-shell 四张菜单的缺省排列，加上数据菜单；只留命令表里有的命令，没有导入器时数据菜单里不列导入模板，与工具栏一致。 |
 | `ReportMenuSubject` | 类型 | 右键菜单落在哪类对象上。 |
 | `ReportPaletteDrop` | 接口 | 物料来源的条目拖到看板上放下的落点：指针所在的格，x 是列、y 是行，都从 0 起。 |
 | `ReportPaletteGroup` | 接口 | 物料面板的一组。 |
 | `ReportPaletteItem` | 接口 | 物料面板里的一项：拖到看板上或激活时按模板新建卡片。 |
 | `ReportPropertyEditor` | 类型 | 属性编辑器。 |
 | `ReportSelectionSubject` | 类型 | 选中工具条落在哪类选中上：看板上的一张卡片，或几张卡片。 |
+| `reportToolbarLayout` | 函数 | 工具栏此刻的缺省排列：登记了导入器时在 REPORT_TOOLBAR_LAYOUT 前面多一组导入模板（REPORT_IMPORT_TEMPLATE_COMMAND）；菜单栏关掉（menubar 为假）时末组放回设置与帮助，它们才有入口。 |
 
 ### field-import
 

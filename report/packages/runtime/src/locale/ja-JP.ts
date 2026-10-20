@@ -183,6 +183,7 @@ const designer: ReportDesignerLocale = {
   importDataset: 'データセットをインポート',
   importParameters: 'パラメーターをインポート',
   importTemplate: 'テンプレートをインポート',
+  menuData: 'データ',
   tourSteps: {
     datasets: { title: 'データ', description: 'データセットとそのフィールド、レポートパラメーターです。フィールドをカードにドラッグすると、カードに表示されます。' },
     wells: { title: 'フィールド', description: '選択したカードに表示する内容です。ディメンション、メジャー、系列、列をここで扱い、ドラッグで追加と並べ替え、×で削除します。' },
@@ -196,7 +197,6 @@ const designer: ReportDesignerLocale = {
     'プレビューに切り替えると、データとパラメーターでレポートを実行します。Ctrl+S（macOS では ⌘S）で保存します。保存先は利用しているシステムが決めます。',
   ],
   shortcutResize: '選択したカードのサイズを1マス変更',
-  shortcutSave: '保存',
   statusDocument: (datasets, cards) => `データセット ${datasets} 件${cards === undefined ? '' : ` · カード ${cards} 枚`}`,
   statusCell: (column, row, width, height) => `${column} 列目・${row} 行目 · ${width} × ${height} マス`,
   statusZoom: 'ズーム',

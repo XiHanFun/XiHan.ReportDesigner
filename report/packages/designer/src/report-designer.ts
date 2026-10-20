@@ -6,7 +6,7 @@
 // <xh-report-designer>：报表设计器元素。编辑模型（历史、选择、剪贴板、布局手势）在 createReportEditor 里，
 // 画布内容复用查看器的计算与渲染；整体版式用 @xihan-ui/designer-shell 的外框，面板布局存进设置的 layout.panels，面板用 designer-shell 的零件。
 // 卡片与视图种类、渲染、属性编辑器、命令、面板与物料都从 extensions 来，内置命令与物料也是一个扩展；
-// 工具栏与菜单的排列可由 commandLayout 改写。设置对话框（openSettings()）里是基础分区与各扩展的分区，值经 settings 与
+// 菜单栏、工具栏与菜单的排列可由 commandLayout 改写。设置对话框（openSettings()）里是基础分区与各扩展的分区，值经 settings 与
 // settings-change 交给宿主。openJsonEditor() 编辑整份报表定义的 JSON，应用后记一步撤销；登记了导入器时 importTemplate()
 // 选文件交给导入器，导入的模板同样整份换上、记一步撤销。
 
@@ -16,7 +16,7 @@ import type { JsonValue } from '@xihan-ui/core/json'
 import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
 import type { DesignerImportSource, ExecuteOptions, ExtensionHost, GridRect, HistoryChangeKind, HistoryLabel, HistorySnapshot, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertySwatchOption } from '@xihan-ui/designer-kit/properties'
-import type { CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFieldImportEventMap, DesignerFrameEventMap, DesignerFrameRegion, DesignerHistoryTranslations, DesignerIssueItem, DesignerJsonEditorEventMap, DesignerLayout, DesignerLayoutPolicy, DesignerMeasureConvert, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPaletteItem, DesignerPaletteView, DesignerPanelActions, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
+import type { CommandMenubar, CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFieldImportEventMap, DesignerFrameEventMap, DesignerFrameRegion, DesignerHistoryTranslations, DesignerIssueItem, DesignerJsonEditorEventMap, DesignerLayout, DesignerLayoutPolicy, DesignerMeasureConvert, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPaletteItem, DesignerPaletteView, DesignerPanelActions, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { DialogService } from '@xihan-ui/web-components/services'
 import type { DataRemoval } from './data-editing'
@@ -34,6 +34,8 @@ import { clampZoom, commandForShortcut, createExtensionHost, createIdAllocator, 
 import {
   applyToolbarCustomization,
   arrangeCommands,
+  arrangeMenubar,
+  createCommandMenubar,
   createCommandToolbar,
   createDesignerSettingsHost,
   createPanelActions,
@@ -48,6 +50,8 @@ import {
   DESIGNER_SETTING_KEYS,
   DESIGNER_TOUR_DONE_KEY,
   designerLayoutPolicy,
+  forwardFrameSlots,
+  menubarVisibleOf,
   registerDropTarget,
   renderCommandMenu,
   resolvePaletteSources,
@@ -70,7 +74,7 @@ import {
   XhDesignerTourElement,
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
-import { CircleAlertIcon, DatabaseIcon, FilterIcon, LayoutGridIcon, ListIcon, SlidersHorizontalIcon } from '@xihan-ui/icons'
+import { CircleAlertIcon, DatabaseIcon, FilterIcon, LayoutGridIcon, ListIcon, MenuIcon, SlidersHorizontalIcon } from '@xihan-ui/icons'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { defineXhElement, XhButtonElement, XhContextMenuElement, XhSortableElement, XhTagElement, XhToolbarElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import { createDialogService } from '@xihan-ui/web-components/services'
@@ -79,7 +83,7 @@ import { readReportClipboardData, writeReportClipboardData } from './clipboard'
 import { canEditData, cascadeCount, planDataAddition, planDataRemoval } from './data-editing'
 import { dataFieldPayload, DataPanel } from './data-panel'
 import { createReportEditor, writeReportClipboard } from './editor'
-import { createReportDesignerModel, REPORT_DESIGNER_EXTENSION, REPORT_IMPORT_TEMPLATE_COMMAND, REPORT_MENU_LAYOUT, REPORT_SELECTION_LAYOUT, REPORT_TOOLBAR_LAYOUT } from './extensions'
+import { createReportDesignerModel, DESIGNER_INTERNALS, REPORT_DESIGNER_EXTENSION, REPORT_MENU_LAYOUT, REPORT_SELECTION_LAYOUT, reportMenubarLayout, reportToolbarLayout } from './extensions'
 import { planDatasetImport, planFieldImport, planParameterImport } from './field-import'
 import { cellSize, cellToRect, centeredCell, clipCell, measureGrid, rectToCell } from './grid-geometry'
 import { IssuesPanel, reportIssueItems } from './issues-panel'
@@ -114,7 +118,7 @@ export interface ReportDesignerEventMap {
   'history-change': CustomEvent<HistorySnapshot>
   /** 报表的校验问题变了。 */
   'issues-change': CustomEvent<{ issues: readonly ValidationIssue[] }>
-  /** 在画布上按了 Ctrl+S（macOS 上 ⌘S）；保存由宿主做，存好后调 markSaved()。 */
+  /** 在画布上按了 Ctrl+S（macOS 上 ⌘S），或点了「文件」菜单的「保存」（命令 save）；保存由宿主做，存好后调 markSaved()。 */
   'save': CustomEvent<Record<string, never>>
   /** 在设计与预览之间切换了。 */
   'mode-change': CustomEvent<{ mode: ReportDesignerMode }>
@@ -162,8 +166,13 @@ const FRAME_REGIONS: readonly DesignerFrameRegion[] = DESIGNER_FRAME_REGIONS.fla
   return [region]
 })
 
+/** 宿主写在设计器上、转交给外框的 slot：菜单栏右边一段。 */
+const FORWARDED_SLOTS = ['menubar-end']
+
 interface Layers {
   readonly frame: XhDesignerFrameElement
+  /** 菜单栏：放进外框的菜单栏区，窄屏时收成一颗「菜单」钮。 */
+  readonly menubar: CommandMenubar<ReportDesignerContext>
   readonly toolbar: HTMLElement
   readonly commandBar: CommandToolbar<ReportDesignerContext>
   /** 选中卡片时浮在选中框上方的选中工具条；排列为空时不放进覆盖层。 */
@@ -290,7 +299,10 @@ export class XhReportDesigner extends XhReactiveElement {
   declare formatter: ReportFormatter | undefined
   /** 预览与画布取数用的报表参数取值。 */
   declare parameters: ParameterValues | undefined
-  /** 工具栏、右键菜单（menu:card、menu:blank）与选中工具条（selection:card、selection:multiple）的命令排列；写了某个位置就只显示列出的命令。 */
+  /**
+   * 工具栏、菜单栏的各张菜单（menubar:file、menubar:edit、menubar:view、menubar:data、menubar:help）、右键菜单（menu:card、menu:blank）
+   * 与选中工具条（selection:card、selection:multiple）的命令排列；写了某个位置就只显示列出的命令。
+   */
   declare commandLayout: DesignerCommandLayout | undefined
   /** 元素自己的文案，压在全局配置之上。 */
   declare translations: Partial<ReportDesignerTranslations> | undefined
@@ -346,6 +358,8 @@ export class XhReportDesigner extends XhReactiveElement {
   /** 事务里执行过的操作，提交时一起报出。 */
   #pending: ReportOperation[] = []
   #resize: ResizeObserver | undefined
+  /** 停止把宿主写的 menubar-end 转交给外框。 */
+  #releaseSlots: (() => void) | undefined
   #gesture: CardGesture | undefined
   #pan: CanvasPan | undefined
   #hoverId: string | undefined
@@ -396,6 +410,14 @@ export class XhReportDesigner extends XhReactiveElement {
     builtins: [REPORT_DESIGNER_EXTENSION],
     context: () => this.#context(),
   })
+
+  constructor() {
+    super()
+    DESIGNER_INTERNALS.set(this, {
+      save: () => emitEvent(this, 'save', {}),
+      changeSetting: (key, value) => this.#commitSettings({ key, value, settings: { ...this.settings, [key]: value } }),
+    })
+  }
 
   /**
    * 扩展：卡片与视图种类、渲染、属性编辑器、命令、面板与物料都从这里来，内置扩展自动排在最前。
@@ -777,6 +799,8 @@ export class XhReportDesigner extends XhReactiveElement {
     doc.addEventListener('cut', this.#onClipboard)
     doc.addEventListener('paste', this.#onClipboard)
     this.#host.assign(this.#extensions ?? NO_EXTENSIONS)
+    if (this.#layers && !this.#releaseSlots)
+      this.#releaseSlots = forwardFrameSlots(this, this.#layers.frame, FORWARDED_SLOTS)
   }
 
   override disconnectedCallback(): void {
@@ -786,6 +810,8 @@ export class XhReportDesigner extends XhReactiveElement {
     doc.removeEventListener('cut', this.#onClipboard)
     doc.removeEventListener('paste', this.#onClipboard)
     this.#pan?.stop()
+    this.#releaseSlots?.()
+    this.#releaseSlots = undefined
     this.#resize?.disconnect()
     this.#resize = undefined
     this.#content?.dispose()
@@ -1001,7 +1027,7 @@ export class XhReportDesigner extends XhReactiveElement {
 
   /**
    * 新手引导的步骤与设置对话框的帮助、快捷键、关于三页，按此刻的语言与命令表现算，内容没变不重设：
-   * 帮助页是几段操作说明与「开始引导」「帮助」两颗钮；快捷键表从命令表生成，另加本设计器不是命令的几个键（剪贴板三键、删除与保存），
+   * 帮助页是几段操作说明与「开始引导」「帮助」两颗钮；快捷键表从命令表生成，另加本设计器不是命令的几个键（剪贴板三键与删除），
    * 通用组里去掉看板上没有的按住空格拖动画布、Shift 加方向键改写成改卡片大小；
    * 关于页是报表设计器的版本与许可证，后面接扩展给的几行。
    */
@@ -1025,7 +1051,6 @@ export class XhReportDesigner extends XhReactiveElement {
         { label: context.commands.cut, keys: [['Mod', 'X']] },
         { label: context.commands.paste, keys: [['Mod', 'V']] },
         { label: context.commands.delete, keys: [['Backspace']] },
-        { label: t.shortcutSave, keys: [['Mod', 'S']] },
       ],
       // 看板上没有按住空格拖动画布；Shift 加方向键是把选中的卡片改大或改小一格
       commonKeys: DESIGNER_COMMON_KEYS.filter(key => key.id !== 'pan').map(key => key.id === 'nudgeLarge' ? { ...key, label: t.shortcutResize } : key),
@@ -1106,6 +1131,8 @@ export class XhReportDesigner extends XhReactiveElement {
     const selectionBar = createCommandToolbar<ReportDesignerContext>(doc, { platform: this.#kbdPlatform() })
     selectionBar.element.slot = 'toolbar'
     const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'command-bar' }, [commandBar.element])
+    const menubar = createCommandMenubar<ReportDesignerContext>(doc, { platform: this.#kbdPlatform(), menuIcon: MenuIcon })
+    menubar.element.slot = 'menubar'
     const content = createAuthoredElement(doc, 'div', { 'data-part': 'content' })
     const empty = createAuthoredElement(doc, 'div', { 'data-part': 'empty', 'hidden': true })
     const dropPreview = createAuthoredElement(doc, 'div', { 'data-part': 'drop-preview', 'hidden': true })
@@ -1184,7 +1211,7 @@ export class XhReportDesigner extends XhReactiveElement {
     issueSummary.slot = 'issues-actions'
     const datasetActions = createPanelActions<ReportDesignerContext>(doc, 'datasets')
     const parameterActions = createPanelActions<ReportDesignerContext>(doc, 'parameters')
-    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, data.datasets, data.parameters, palette, workspace, wells.element, properties.element, issues.element, issueSummary, datasetActions.element, parameterActions.element]) as XhDesignerFrameElement
+    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [menubar.element, toolbar, data.datasets, data.parameters, palette, workspace, wells.element, properties.element, issues.element, issueSummary, datasetActions.element, parameterActions.element]) as XhDesignerFrameElement
     frame.addEventListener('layout-change', this.#onLayoutChange)
     // 换了画布工具（拖动工具命令、写 canvasTool 或 Esc 退出）时重画，工具栏上拖动钮的按下态跟着变
     frame.addEventListener('canvas-tool-change', () => this.requestUpdate())
@@ -1203,6 +1230,9 @@ export class XhReportDesigner extends XhReactiveElement {
     const tour = createGeneratedElement(doc, 'xh-designer-tour', { 'data-part': 'tour' }) as XhDesignerTourElement
     tour.frame = frame
     tour.addEventListener('tour-end', this.#onTourEnd)
+    // 宿主写在设计器上的 slot="menubar-end"（如模板标题与保存状态）先转交给外框，放在菜单栏右边，再换上设计器自己的内容
+    this.#releaseSlots?.()
+    this.#releaseSlots = forwardFrameSlots(this, frame, FORWARDED_SLOTS)
     this.replaceChildren(frame, settings, fieldImport, jsonEditor, tour)
     this.#layers?.panels.dispose()
     const panels = createPanelHost<ReportDesignerContext>(frame, { regions: FRAME_REGIONS, commands: () => this.#model.commands })
@@ -1235,7 +1265,7 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#regionsKey = ''
     this.#viewer = undefined
     this.#settingsDialogKey = ''
-    this.#layers = { frame, toolbar, commandBar, selectionBar, panels, menu, menuContent, menuTrigger, canvas, scroller, sizer, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, datasetActions, parameterActions, fieldImport, jsonEditor, tour, settings, selectionStatus, zoomStatus }
+    this.#layers = { frame, menubar, toolbar, commandBar, selectionBar, panels, menu, menuContent, menuTrigger, canvas, scroller, sizer, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, datasetActions, parameterActions, fieldImport, jsonEditor, tour, settings, selectionStatus, zoomStatus }
     panels.assign(this.#model.extensions, this.#context())
     this.#fillMenu('blank')
     return this.#layers
@@ -1379,14 +1409,16 @@ export class XhReportDesigner extends XhReactiveElement {
   }
 
   /**
-   * 这个区此刻登记不登记：预览态只登记工具栏与画布；没有报表参数又不能新增时不登记那块卡片，
-   * 设置里关了状态栏或工具栏时不登记它们（命令照样能经快捷键与右键菜单执行）。
+   * 这个区此刻登记不登记：预览态只登记菜单栏、工具栏与画布；没有报表参数又不能新增时不登记那块卡片，
+   * 设置里关了菜单栏、工具栏或状态栏时不登记它们（命令照样能经快捷键与右键菜单执行）。
    */
   #registers(name: string): boolean {
     if (name === 'toolbar' && !toolbarVisibleOf(this.settings))
       return false
+    if (name === 'menubar' && !menubarVisibleOf(this.settings))
+      return false
     if (this.#mode() === 'preview')
-      return name === 'toolbar' || name === 'canvas'
+      return name === 'menubar' || name === 'toolbar' || name === 'canvas'
     if (name === 'parameters')
       return this.#hasParameters()
     if (name === 'status')
@@ -1989,10 +2021,11 @@ export class XhReportDesigner extends XhReactiveElement {
       layers.issues.update(editor.document, this.#issues, shown)
       const { commands } = this.#model
       // 工具栏先按 commandLayout 或缺省排列排出分组，再套用户在设置「工具栏」页的定制；同一份排列交给设置对话框列按钮表
-      const defaults = this.#model.importers.length > 0 ? [[REPORT_IMPORT_TEMPLATE_COMMAND], ...REPORT_TOOLBAR_LAYOUT] : REPORT_TOOLBAR_LAYOUT
+      const defaults = reportToolbarLayout(this.#model.importers.length > 0, menubarVisibleOf(this.settings))
       const arranged = arrangeCommands('toolbar', commands, defaults, this.commandLayout)
       layers.commandBar.setDisplay(toolbarDisplayOf(this.#resolvedSettings))
       layers.commandBar.update(applyToolbarCustomization(arranged, toolbarCustomizationOf(this.settings)), commands, context, context.commands.toolbar)
+      layers.menubar.update(arrangeMenubar(this.#model.menubarMenus, commands, reportMenubarLayout(commands), this.commandLayout), commands, context, context.commands)
       const source = toolbarSettingsSource(arranged, commands, context)
       const sourceKey = JSON.stringify(source)
       if (sourceKey !== this.#toolbarSourceKey) {
@@ -2227,8 +2260,8 @@ export class XhReportDesigner extends XhReactiveElement {
   }
 
   /**
-   * 画布上的按键：Alt+F10 把焦点交给选中工具条；再找快捷键命中、此刻可用的命令；没有命令占用时，Ctrl / ⌘ + S 派发 save，
-   * Backspace 删除选中的对象，= 与按着 Shift 的 + 放大，Escape 清空选择，方向键挪动或改大小卡片。
+   * 画布上的按键：Alt+F10 把焦点交给选中工具条；再找快捷键命中、此刻可用的命令（Ctrl / ⌘ + S 是外壳的保存命令）；
+   * 没有命令占用时，Backspace 删除选中的对象，= 与按着 Shift 的 + 放大，Escape 清空选择，方向键挪动或改大小卡片。
    */
   readonly #onKeyDown = (event: KeyboardEvent): void => {
     const editor = this.#editor
@@ -2258,11 +2291,7 @@ export class XhReportDesigner extends XhReactiveElement {
     }
     const command = event.ctrlKey || event.metaKey
     let handled = true
-    const key = event.key.toLowerCase()
-    if (command && key === 's') {
-      emitEvent(this, 'save', {})
-    }
-    else if (!command && event.key === 'Backspace') {
+    if (!command && event.key === 'Backspace') {
       this.deleteSelection()
     }
     else if (!command && (event.key === '+' || event.key === '=')) {

@@ -8,16 +8,17 @@
 import type { ReportCardType, ReportDocument, ReportRuleContext } from '@xihan-report/core'
 import type { ReportDesignerTranslations, ReportRuntimeExtension, ReportRuntimeModel, ReportTourStepKey } from '@xihan-report/runtime'
 import type { IconRecord } from '@xihan-ui/core'
+import type { JsonValue } from '@xihan-ui/core/json'
 import type { DesignerCommand, DesignerExtensionCore, DesignerImporter, ExtensionKeySpaces } from '@xihan-ui/designer-kit'
-import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerHistoryCommandTarget, DesignerHistoryTranslations, DesignerPaletteSource, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension, DesignerTourStep, DesignerTourTarget, XhDesignerFrameElement } from '@xihan-ui/designer-shell'
+import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerHistoryCommandTarget, DesignerHistoryTranslations, DesignerMenubarMenu, DesignerPaletteSource, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension, DesignerTourStep, DesignerTourTarget, XhDesignerFrameElement } from '@xihan-ui/designer-shell'
 import type { DialogService } from '@xihan-ui/web-components/services'
 import type { ReportAddCardInit } from './editor'
 import type { XhReportDesigner } from './report-designer'
 import { cardTemplate, REPORT_CARD_TYPES } from '@xihan-report/core'
 import { createReportRuntimeModel } from '@xihan-report/runtime'
 import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
-import { collectPaletteSources, collectSettingsSections, collectTourSteps, createHistoryPanel, createOutlinePanel, designerHistoryCommands, designerPanelCommands, designerShellCommands } from '@xihan-ui/designer-shell'
-import { CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, FileCodeIcon, FilePlusIcon, FolderOpenIcon, HandIcon, HistoryIcon, LightbulbIcon, ListTreeIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TrashIcon, UndoIcon, UploadIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { collectMenubarMenus, collectPaletteSources, collectSettingsSections, collectTourSteps, createHistoryPanel, createOutlinePanel, designerHistoryCommands, designerMenubarLayout, designerMenubarMenus, designerPanelCommands, designerShellCommands } from '@xihan-ui/designer-shell'
+import { CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, FileCodeIcon, FilePlusIcon, FolderOpenIcon, HandIcon, HistoryIcon, InfoIcon, LightbulbIcon, ListTreeIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, SaveIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TrashIcon, UndoIcon, UploadIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { REPORT_CARD_TYPE_ICONS } from './card-icons'
 import { REPORT_OUTLINE_ADAPTER } from './outline'
 
@@ -129,7 +130,25 @@ function isDashboard(designer: XhReportDesigner): boolean {
   return designer.schema?.body.type === 'dashboard'
 }
 
-/** 命令「导入模板」的 id：登记了导入器才进命令表，工具栏缺省排列的最前面多这一组。 */
+/** 设计器交给内置命令、不对外公开的两个动作。 */
+export interface ReportDesignerInternals {
+  /** 派发 save。 */
+  readonly save: () => void
+  /** 改一条设置：换成新的 settings，给了存储键就存起来，再派发 settings-change。 */
+  readonly changeSetting: (key: string, value: JsonValue) => void
+}
+
+/** 各设计器元素的内部动作，元素建出来时登记。 */
+export const DESIGNER_INTERNALS = new WeakMap<XhReportDesigner, ReportDesignerInternals>()
+
+function internalsOf(designer: XhReportDesigner): ReportDesignerInternals {
+  const internals = DESIGNER_INTERNALS.get(designer)
+  if (!internals)
+    throw new Error('[report-designer] this designer has no internals registered')
+  return internals
+}
+
+/** 命令「导入模板」的 id：登记了导入器才进命令表，工具栏缺省排列的最前面多这一组，数据菜单的末尾也有它。 */
 export const REPORT_IMPORT_TEMPLATE_COMMAND = 'import-template'
 
 /** 内置命令 help 打开的帮助页：报表文档站的设计器一页。 */
@@ -149,8 +168,8 @@ export const REPORT_DESIGNER_PANELS = {
 
 /**
  * 内置命令：导入模板（登记了导入器才进命令表），撤销、重做与清空历史，剪贴板、创建副本与删除、全选、缩放、设计与预览，designer-shell
- * 内置的面板、显示或隐藏所有面板、还原面板显隐、恢复默认布局、拖动工具、设置、帮助、导入字段、编辑 JSON 与开始引导，导入数据集与
- * 导入参数，以及每块内置面板一条开关命令 panel:<面板 id>。
+ * 内置的保存、面板、显示或隐藏所有面板、还原面板显隐、恢复默认布局、拖动工具、设置、快捷键、关于、帮助、导入字段、编辑 JSON、开始引导
+ * 与工具栏、状态栏、菜单栏的显示开关，导入数据集与导入参数，以及每块内置面板一条开关命令 panel:<面板 id>。
  */
 const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
   { id: REPORT_IMPORT_TEMPLATE_COMMAND, label: ({ translations }) => translations.importTemplate, icon: FolderOpenIcon, enabled: editable(() => true), run: ({ designer }) => void designer.importTemplate() },
@@ -181,14 +200,20 @@ const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
   } },
   ...designerShellCommands<ReportDesignerContext>({
     translations: context => context.commands,
+    save: ({ designer }) => internalsOf(designer).save(),
     frame: context => context.frame,
-    openSettings: ({ designer }) => designer.openSettings(),
+    openSettings: ({ designer }, section) => designer.openSettings(section),
     helpUrl: () => REPORT_DESIGNER_HELP_URL,
     openFieldImport: ({ designer }) => void designer.openDataImport('fields'),
     fieldImportDisabled: ({ designer }) => !designer.canImportData('fields'),
     openJsonEditor: ({ designer }) => void designer.openJsonEditor(),
     startTour: ({ designer }) => designer.startTour(),
-    icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: UploadIcon, editJson: FileCodeIcon, startTour: LightbulbIcon, panTool: HandIcon },
+    settings: {
+      read: context => context.settings,
+      change: ({ designer }, key, value) => internalsOf(designer).changeSetting(key, value),
+      policy: ({ designer }) => designer.settingsPolicy,
+    },
+    icons: { save: SaveIcon, panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: UploadIcon, editJson: FileCodeIcon, startTour: LightbulbIcon, panTool: HandIcon, about: InfoIcon },
   }),
   { id: 'import-dataset', label: ({ translations }) => translations.importDataset, icon: FilePlusIcon, enabled: ({ designer }) => designer.canImportData('dataset'), run: ({ designer }) => void designer.openDataImport('dataset') },
   { id: 'import-parameters', label: ({ translations }) => translations.importParameters, icon: UploadIcon, enabled: ({ designer }) => designer.canImportData('parameters'), run: ({ designer }) => void designer.openDataImport('parameters') },
@@ -249,10 +274,17 @@ const OUTLINE_PANEL = createOutlinePanel<ReportDesignerContext>(REPORT_OUTLINE_A
   readonly: ({ designer }) => designer.readonly === true,
 })
 
-/** 设计器的内置扩展：内置命令、物料、页面结构与历史记录面板、新手引导的报表步骤。卡片种类、渲染与导出等内置部分在 core 与 runtime 的内置扩展里。 */
+/** 菜单栏上报表自己的菜单「数据」的 id。 */
+export const REPORT_DATA_MENU = 'data'
+
+/**
+ * 设计器的内置扩展：内置命令、菜单栏的数据菜单、物料、页面结构与历史记录面板、新手引导的报表步骤。卡片种类、渲染与导出等内置部分在
+ * core 与 runtime 的内置扩展里。
+ */
 export const REPORT_DESIGNER_EXTENSION: ReportDesignerExtension = {
   id: '@xihan-report/designer',
   commands: BUILTIN_COMMANDS,
+  menubarMenus: [{ id: REPORT_DATA_MENU, label: ({ translations }) => translations.menuData, order: 30 }],
   tourSteps: REPORT_TOUR_STEPS,
   panels: [OUTLINE_PANEL, HISTORY_PANEL],
   paletteGroups: BUILTIN_GROUPS.map(group => ({ id: group, label: ({ translations }: ReportDesignerContext) => translations.paletteGroups[group] ?? group })),
@@ -261,15 +293,42 @@ export const REPORT_DESIGNER_EXTENSION: ReportDesignerExtension = {
 
 /**
  * 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。
- * 登记了导入器时最前面多一组导入模板（REPORT_IMPORT_TEMPLATE_COMMAND）。
+ * 设置与帮助在菜单栏里，末组只留面板；登记了导入器、或菜单栏关掉时的变化见 reportToolbarLayout。
  */
 export const REPORT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['undo', 'redo'],
   ['cut', 'copy', 'paste', 'duplicate', 'delete'],
   ['pan-tool', 'zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual'],
   ['design', 'preview'],
-  ['panels', 'settings', 'help'],
+  ['panels'],
 ]
+
+/**
+ * 工具栏此刻的缺省排列：登记了导入器时在 REPORT_TOOLBAR_LAYOUT 前面多一组导入模板（REPORT_IMPORT_TEMPLATE_COMMAND）；
+ * 菜单栏关掉（menubar 为假）时末组放回设置与帮助，它们才有入口。
+ */
+export function reportToolbarLayout(hasImporters: boolean, menubar: boolean = true): (readonly string[])[] {
+  const last = REPORT_TOOLBAR_LAYOUT.at(-1)!
+  const groups = [...REPORT_TOOLBAR_LAYOUT.slice(0, -1), menubar ? last : [...last, 'settings', 'help']]
+  return hasImporters ? [[REPORT_IMPORT_TEMPLATE_COMMAND], ...groups] : groups
+}
+
+/** 数据菜单的缺省排列：导入数据集、导入字段、导入参数 / 导入模板。 */
+const DATA_MENU_LAYOUT: readonly (readonly string[])[] = [
+  ['import-dataset', 'import-fields', 'import-parameters'],
+  [REPORT_IMPORT_TEMPLATE_COMMAND],
+]
+
+/**
+ * 菜单栏的缺省排列：designer-shell 四张菜单的缺省排列，加上数据菜单；只留命令表里有的命令，没有导入器时数据菜单里不列导入模板，
+ * 与工具栏一致。
+ */
+export function reportMenubarLayout(commands: DesignerCommandTable<ReportDesignerContext>): Record<string, string[][]> {
+  return {
+    ...designerMenubarLayout(commands),
+    [REPORT_DATA_MENU]: DATA_MENU_LAYOUT.map(group => group.filter(id => commands.has(id))).filter(group => group.length > 0),
+  }
+}
 
 /** 选中工具条落在哪类选中上：看板上的一张卡片，或几张卡片。 */
 export type ReportSelectionSubject = 'card' | 'multiple'
@@ -316,12 +375,14 @@ export interface ReportDesignerModel {
   readonly importers: readonly ReportDesignerImporter[]
   /** 各扩展的物料来源，按 order 排；分组接在内置物料组后面。 */
   readonly paletteSources: readonly DesignerPaletteSource<ReportDesignerContext, ReportPaletteDrop>[]
+  /** 菜单栏上的菜单：designer-shell 内置的文件、编辑、视图、帮助在前，报表的数据菜单与各扩展登记的在后。 */
+  readonly menubarMenus: readonly DesignerMenubarMenu<ReportDesignerContext>[]
 }
 
 const MODELS = new WeakMap<readonly ReportDesignerExtension[], ReportDesignerModel>()
 
 /**
- * 合出设计器用的模型；任何一处重名（含设置分区、引导步骤与物料来源）都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。
+ * 合出设计器用的模型；任何一处重名（含设置分区、引导步骤、物料来源与菜单栏的菜单）都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。
  * 同一个数组只合一次。
  */
 export function createReportDesignerModel(extensions: readonly ReportDesignerExtension[]): ReportDesignerModel {
@@ -353,6 +414,7 @@ export function createReportDesignerModel(extensions: readonly ReportDesignerExt
     tourSteps: collectTourSteps(all),
     paletteSources: collectPaletteSources(all),
     importers,
+    menubarMenus: collectMenubarMenus(designerMenubarMenus<ReportDesignerContext>({ translations: context => context.commands }), all),
   }
   MODELS.set(extensions, model)
   return model

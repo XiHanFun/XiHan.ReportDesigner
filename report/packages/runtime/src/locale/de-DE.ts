@@ -183,6 +183,7 @@ const designer: ReportDesignerLocale = {
   importDataset: 'Dataset importieren',
   importParameters: 'Parameter importieren',
   importTemplate: 'Vorlage importieren',
+  menuData: 'Daten',
   tourSteps: {
     datasets: { title: 'Daten', description: 'Datasets mit ihren Feldern sowie die Berichtsparameter. Zieh ein Feld auf eine Karte, um es dort anzuzeigen.' },
     wells: { title: 'Felder', description: 'Was die ausgewählte Karte zeigt: Dimensionen, Kennzahlen, Reihen oder Spalten. Zieh Felder hinein, ordne sie per Ziehen um und entferne sie mit ×.' },
@@ -196,7 +197,6 @@ const designer: ReportDesignerLocale = {
     'Wechsle zur Vorschau, um den Bericht mit Daten und Parametern auszuführen. Mit Strg+S (⌘S unter macOS) speicherst du. Wo der Bericht abgelegt wird, entscheidet das System, in dem du ihn verwendest.',
   ],
   shortcutResize: 'Ausgewählte Karte um eine Zelle vergrößern oder verkleinern',
-  shortcutSave: 'Speichern',
   statusDocument: (datasets, cards) => `${datasets} ${datasets === 1 ? 'Dataset' : 'Datasets'}${cards === undefined ? '' : ` · ${cards} ${cards === 1 ? 'Karte' : 'Karten'}`}`,
   statusCell: (column, row, width, height) => `Spalte ${column}, Zeile ${row} · ${width} × ${height}`,
   statusZoom: 'Zoom',

@@ -89,14 +89,14 @@ export interface ReportDesignerTranslations {
   readonly importParameters: string
   /** 命令「导入模板」的文字，也是导入后那一步撤销的说明；登记了导入器才有这条命令。 */
   readonly importTemplate: string
+  /** 菜单栏上报表自己那张菜单「数据」的名字：导入数据集、字段、参数与模板在里面。 */
+  readonly menuData: string
   /** 新手引导里报表自己的几步，各一个标题与说明；键见 ReportTourStepKey。 */
   readonly tourSteps: Readonly<Record<ReportTourStepKey, ReportTourStepText>>
   /** 设置对话框「帮助」页的几段操作说明。 */
   readonly helpNotes: readonly string[]
   /** 快捷键表里 Shift 加方向键那一行：把选中的卡片改大或改小一格。 */
   readonly shortcutResize: string
-  /** 快捷键表里 Ctrl / ⌘ + S 那一行。 */
-  readonly shortcutSave: string
   /** 状态栏左段没选中时：数据集数，主体是看板时再写卡片数（不是看板时 cards 为 undefined）。 */
   readonly statusDocument: (datasets: number, cards: number | undefined) => string
   /** 状态栏左段选中一张卡片时：它左上角所在的列与行（从 1 数起）和占的格数。 */
@@ -630,6 +630,7 @@ export const REPORT_DESIGNER_EN_US: ReportDesignerLocale = {
   importDataset: 'Import dataset',
   importParameters: 'Import parameters',
   importTemplate: 'Import template',
+  menuData: 'Data',
   tourSteps: {
     datasets: { title: 'Data', description: 'Datasets with their fields, and the report parameters. Drag a field onto a card to show it there.' },
     wells: { title: 'Fields', description: 'What the selected card shows: dimensions, measures, series or columns. Drag fields in, drag to reorder, and remove them with ×.' },
@@ -643,7 +644,6 @@ export const REPORT_DESIGNER_EN_US: ReportDesignerLocale = {
     'Switch to Preview to run the report with data and parameters. Press Ctrl+S (⌘S on macOS) to save; where the report is stored is up to the system you use it in.',
   ],
   shortcutResize: 'Resize the selected card by one cell',
-  shortcutSave: 'Save',
   statusDocument: (datasets, cards) => `${datasets} ${datasets === 1 ? 'dataset' : 'datasets'}${cards === undefined ? '' : ` · ${cards} ${cards === 1 ? 'card' : 'cards'}`}`,
   statusCell: (column, row, width, height) => `Column ${column}, row ${row} · ${width} × ${height}`,
   statusZoom: 'Zoom',

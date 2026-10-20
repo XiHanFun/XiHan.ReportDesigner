@@ -204,7 +204,7 @@ describe('设置', () => {
     expect(frame.showsPanel('toolbar')).toBe(false)
   })
 
-  it('帮助、快捷键、关于三页：帮助页是操作说明与开始引导、帮助两颗钮，点钮先关上对话框再跑命令；快捷键表按命令表生成并带上报表自己的按键（剪贴板三键、Backspace 删除、Ctrl / ⌘ + S），通用组去掉按住空格拖动画布、Shift 加方向键写成改卡片大小；关于页写报表设计器的版本与许可证，后面接扩展给的几行', async () => {
+  it('帮助、快捷键、关于三页：帮助页是操作说明与开始引导、帮助两颗钮，点钮先关上对话框再跑命令；快捷键表按命令表生成并带上报表自己的按键（剪贴板三键与 Backspace 删除），保存是外壳命令、归在通用组，通用组里有 F10、去掉按住空格拖动画布、Shift 加方向键写成改卡片大小；关于页写报表设计器的版本与许可证，后面接扩展给的几行', async () => {
     const t = DEFAULT_REPORT_DESIGNER_TRANSLATIONS
     const designer = await mount(element => (element.extensions = [{ id: 'acme', about: [{ label: 'Acme', value: '2.0' }], commands: [{ id: 'acme.go', label: 'Go', shortcut: ['Mod', 'G'], run: () => {} }] }]))
     const dialog = designer.querySelector<HTMLElement & {
@@ -217,18 +217,21 @@ describe('设置', () => {
     const groups = new Map(dialog.shortcuts!.groups.map(group => [group.id, group.rows]))
     expect([...groups.keys()]).toEqual(['common', 'edit', 'designer', 'extensions'])
     expect(groups.get('edit')).toContainEqual({ label: 'Undo', keys: [['Mod', 'Z']] })
-    expect(groups.get('designer')!.slice(-5)).toEqual([
+    expect(groups.get('common')).toContainEqual({ label: DESIGNER_COMMANDS_EN_US.save, keys: [['Mod', 'S']] })
+    expect(groups.get('designer')!.map(row => row.keys)).not.toContainEqual([['Mod', 'S']])
+    expect(groups.get('designer')!.slice(-4)).toEqual([
       { label: DESIGNER_COMMANDS_EN_US.copy, keys: [['Mod', 'C']] },
       { label: DESIGNER_COMMANDS_EN_US.cut, keys: [['Mod', 'X']] },
       { label: DESIGNER_COMMANDS_EN_US.paste, keys: [['Mod', 'V']] },
       { label: DESIGNER_COMMANDS_EN_US.delete, keys: [['Backspace']] },
-      { label: t.shortcutSave, keys: [['Mod', 'S']] },
     ])
+    const common = (id: string): unknown => DESIGNER_COMMON_KEYS.find(key => key.id === id)
     expect(dialog.shortcuts!.commonKeys).toEqual([
-      DESIGNER_COMMON_KEYS[0],
-      { ...DESIGNER_COMMON_KEYS[1], label: t.shortcutResize },
-      DESIGNER_COMMON_KEYS[3],
-      DESIGNER_COMMON_KEYS[4],
+      common('nudge'),
+      { ...DESIGNER_COMMON_KEYS.find(key => key.id === 'nudgeLarge')!, label: t.shortcutResize },
+      common('menubar'),
+      common('selectionToolbar'),
+      common('cancel'),
     ])
     expect(groups.get('extensions')).toEqual([{ label: 'Go', keys: [['Mod', 'G']] }])
     expect(dialog.about).toEqual({ product: t.label, version: REPORT_VERSION, license: 'MIT', rows: [{ label: 'Acme', value: '2.0' }] })
