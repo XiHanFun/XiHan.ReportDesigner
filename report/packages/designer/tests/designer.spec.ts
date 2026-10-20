@@ -854,13 +854,13 @@ describe('<xh-report-designer>：编辑', () => {
     expect(values.filter(value => !value.startsWith('item:'))).toEqual(expect.arrayContaining([expect.stringContaining('panels-toggle-all'), expect.stringContaining('panels-restore'), expect.stringContaining('layout-reset')]))
     expect([...menu.checkboxValue!].sort()).toEqual(all.filter(value => value !== 'item:history').sort())
     const seen = events(designer, 'settings-change') as { key: string, value: { hidden: string[] } }[]
-    menu.dispatchEvent(new CustomEvent('select', { detail: { value: 'item:wells' } }))
+    menu.dispatchEvent(new CustomEvent('item-select', { detail: { value: 'item:wells' } }))
     await designer.updateComplete
     await frame.updateComplete
     expect(seen.map(change => [change.key, change.value.hidden])).toEqual([[DESIGNER_SETTING_KEYS.layout, ['history', 'wells']]])
     expect(frame.showsPanel('wells')).toBe(false)
     expect(menu.checkboxValue).not.toContain('item:wells')
-    menu.dispatchEvent(new CustomEvent('select', { detail: { value: 'item:wells' } }))
+    menu.dispatchEvent(new CustomEvent('item-select', { detail: { value: 'item:wells' } }))
     await designer.updateComplete
     await frame.updateComplete
     expect(frame.showsPanel('wells')).toBe(true)
@@ -1400,7 +1400,7 @@ describe('<xh-report-designer>：编辑', () => {
     expect(content.querySelector('[data-xh-part="item"][value="cut"]')!.textContent).toBe('Cut')
     expect([...content.querySelectorAll('[data-xh-part="item"]')].filter(item => !item.querySelector('[data-xh-part="item-icon"] xh-icon')).map(item => item.getAttribute('value'))).toEqual([])
     expect(content.querySelector('[data-xh-part="item"][value="delete"]')!.getAttribute('data-tone')).toBe('danger')
-    designer.querySelector('xh-context-menu')!.dispatchEvent(new CustomEvent('select', { detail: { value: 'delete' } }))
+    designer.querySelector('xh-context-menu')!.dispatchEvent(new CustomEvent('item-select', { detail: { value: 'delete' } }))
     expect(cards(designer).map(item => item.id)).toEqual(['pie', 'b'])
     designer.querySelector('[data-part="surface"]')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
     expect(entries()).toEqual([['paste', true], ['select-all', false], ['zoom-to-fit', false], ['edit-json', false]])

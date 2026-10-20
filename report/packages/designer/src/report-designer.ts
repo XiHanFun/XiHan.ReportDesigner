@@ -1122,7 +1122,7 @@ export class XhReportDesigner extends XhReactiveElement {
         createAuthoredElement(doc, 'div', { 'data-xh-part': 'positioner' }, [menuContent]),
       ]),
     ])
-    menu.addEventListener('select', this.#onMenuSelect)
+    menu.addEventListener('item-select', this.#onMenuSelect)
     registerDropTarget(scroller, {
       over: (point, payload) => this.#dropOver(point, payload),
       drop: () => this.#fieldDrop ? this.#dropField() : this.#dropCard(),
@@ -2164,10 +2164,8 @@ export class XhReportDesigner extends XhReactiveElement {
     return layers !== undefined && (target === layers.scroller || target === layers.menuTrigger)
   }
 
+  /** 选了右键菜单的条目：执行那条命令。 */
   readonly #onMenuSelect = (event: Event): void => {
-    // 画布里输入框选中文字时，原生 select 事件也会冒泡到这里
-    if (event.target !== event.currentTarget)
-      return
     const { value } = (event as CustomEvent<{ value: string }>).detail
     runCommand(this.#model.commands, value, this.#context())
   }
