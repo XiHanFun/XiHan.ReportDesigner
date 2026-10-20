@@ -150,6 +150,17 @@ xh-report-designer [data-part='canvas'][data-gesture='drop'] {
   cursor: copy;
 }
 
+/* 拖动工具开着：画布与里面的卡片一律手形，拖动中握拳 */
+xh-report-designer [data-canvas-tool='pan'] [data-part='scroller'],
+xh-report-designer [data-canvas-tool='pan'] [data-part='scroller'] * {
+  cursor: grab;
+}
+
+xh-report-designer [data-canvas-tool='pan'] [data-part='canvas'][data-gesture='pan'] [data-part='scroller'],
+xh-report-designer [data-canvas-tool='pan'] [data-part='canvas'][data-gesture='pan'] [data-part='scroller'] * {
+  cursor: grabbing;
+}
+
 /* 数据集与报表参数两块卡片的正文：一棵树，下面是新增钮 */
 xh-report-designer :is([data-part='datasets'], [data-part='parameters']) {
   display: flex;

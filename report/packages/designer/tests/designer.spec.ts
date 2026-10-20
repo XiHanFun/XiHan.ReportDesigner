@@ -1645,6 +1645,49 @@ describe('<xh-report-designer>：缩放', () => {
     expect([frame.canvasTool, pan.getAttribute('aria-pressed')]).toEqual(['pan', 'true'])
   })
 
+  it('拖动工具开着：在卡片或空白处按住拖动都是平移，不选中、不挪卡片，只点一下不清掉选中，双击不派发 card-dblclick；拖动途中 Esc 只取消这一次，不在拖动时 Esc 交给外框退出拖动工具', async () => {
+    const designer = await mount()
+    placeGrid(designer)
+    const frame = designer.querySelector('xh-designer-frame')!
+    const canvas = designer.querySelector<HTMLElement>('[data-part="canvas"]')!
+    const scroller = designer.querySelector<HTMLElement>('[data-part="scroller"]')!
+    let left = 0
+    let top = 0
+    Object.defineProperty(scroller, 'scrollLeft', { configurable: true, get: () => left, set: (value: number) => (left = value) })
+    Object.defineProperty(scroller, 'scrollTop', { configurable: true, get: () => top, set: (value: number) => (top = value) })
+    const pointer = (target: EventTarget, type: string, x: number, y: number): void => {
+      target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, button: 0, pointerId: 1, isPrimary: true, pointerType: 'mouse', clientX: x, clientY: y }))
+    }
+    designer.select({ cards: ['b'] })
+    frame.canvasTool = 'pan'
+    await designer.updateComplete
+    expect(designer.querySelector('xh-designer-transform')!.readonly).toBe(true)
+    const before = structuredClone(cards(designer))
+    pointer(card(designer, 'a'), 'pointerdown', 450, 30)
+    expect(canvas.dataset.gesture).toBe('pan')
+    pointer(document, 'pointermove', 400, 10)
+    pointer(document, 'pointerup', 400, 10)
+    expect([left, top, designer.getSelection(), cards(designer), canvas.dataset.gesture]).toEqual([50, 20, { cards: ['b'] }, before, undefined])
+    pointer(designer.querySelector('[data-part="surface"]')!, 'pointerdown', 600, 700)
+    pointer(document, 'pointerup', 600, 700)
+    expect([left, top, designer.getSelection()]).toEqual([50, 20, { cards: ['b'] }])
+    const dblclicks = events(designer, 'card-dblclick')
+    card(designer, 'a').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+    expect(dblclicks).toEqual([])
+    pointer(card(designer, 'a'), 'pointerdown', 450, 30)
+    pointer(document, 'pointermove', 420, 30)
+    expect(left).toBe(80)
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    scroller.dispatchEvent(escape)
+    expect([escape.defaultPrevented, left, top, frame.canvasTool, canvas.dataset.gesture]).toEqual([true, 50, 20, 'pan', undefined])
+    pointer(document, 'pointermove', 300, 30)
+    pointer(document, 'pointerup', 300, 30)
+    expect(left).toBe(50)
+    key(designer, 'Escape')
+    await designer.updateComplete
+    expect([frame.canvasTool, designer.getSelection(), designer.querySelector('xh-designer-transform')!.readonly]).toEqual(['select', { cards: ['b'] }, false])
+  })
+
   it('放大、缩小以可见区中心为锚：中心对着的画布点缩放前后都在中心', async () => {
     const designer = await mount()
     const scroller = placeViewport(designer)

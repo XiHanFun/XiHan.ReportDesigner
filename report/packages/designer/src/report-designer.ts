@@ -223,6 +223,12 @@ interface CardDrop {
   readonly sourced?: true
 }
 
+/** 拖动工具开着时进行中的平移：按下时的滚动位置（取消时滚回去）与收尾。 */
+interface CanvasPan {
+  readonly scroll: Point
+  readonly stop: () => void
+}
+
 /** 进行中的卡片拖动或改大小：编辑模型的布局手势与最近一次写进去的格坐标。 */
 interface CardGesture {
   readonly layout: LayoutGesture
@@ -341,6 +347,7 @@ export class XhReportDesigner extends XhReactiveElement {
   #pending: ReportOperation[] = []
   #resize: ResizeObserver | undefined
   #gesture: CardGesture | undefined
+  #pan: CanvasPan | undefined
   #hoverId: string | undefined
   #viewport: Viewport | undefined
   /** 尺寸徽标换算用的网格度量：每次画选中框时量一次。 */
@@ -778,6 +785,7 @@ export class XhReportDesigner extends XhReactiveElement {
     doc.removeEventListener('copy', this.#onClipboard)
     doc.removeEventListener('cut', this.#onClipboard)
     doc.removeEventListener('paste', this.#onClipboard)
+    this.#pan?.stop()
     this.#resize?.disconnect()
     this.#resize = undefined
     this.#content?.dispose()
@@ -803,7 +811,8 @@ export class XhReportDesigner extends XhReactiveElement {
       this.#lastMode = mode
       emitEvent(this, 'mode-change', { mode })
     }
-    layers.overlay.readonly = this.readonly === true
+    // 拖动工具开着时不画控制柄、不起移动，在哪儿按下都是平移
+    layers.overlay.readonly = this.readonly === true || this.#panTool()
     this.#syncPalette(layers.palette, t)
     this.#syncData()
     this.#renderCanvas()
@@ -1701,6 +1710,10 @@ export class XhReportDesigner extends XhReactiveElement {
       return
     scroller.focus({ preventScroll: true })
     this.#autoFit = false
+    if (this.#panTool()) {
+      this.#startPan(event)
+      return
+    }
     const id = this.#cardAt(event.target)
     const additive = event.shiftKey || event.ctrlKey || event.metaKey
     if (id === undefined) {
@@ -1717,6 +1730,59 @@ export class XhReportDesigner extends XhReactiveElement {
     if (cards.length !== 1 || cards[0] !== id)
       editor.select({ cards: [id] })
     layers.overlay.startMove(event)
+  }
+
+  /** 外框的画布工具此刻是拖动。 */
+  #panTool(): boolean {
+    return this.#layers?.frame.canvasTool === 'pan'
+  }
+
+  /**
+   * 拖动工具开着时按住拖动平移画布：滚动区跟着指针滚，不选中、不挪卡片，只点一下也不改选中；拖动中画布标 data-gesture="pan"。
+   * cancelPan 滚回按下时的位置。
+   */
+  #startPan(event: PointerEvent): void {
+    const layers = this.#layers!
+    const { scroller, canvas } = layers
+    const doc = this.ownerDocument
+    const pointerId = event.pointerId
+    const start = { x: event.clientX, y: event.clientY }
+    const move = (next: PointerEvent): void => {
+      if (next.pointerId !== pointerId)
+        return
+      scroller.scrollLeft = this.#pan!.scroll.x + start.x - next.clientX
+      scroller.scrollTop = this.#pan!.scroll.y + start.y - next.clientY
+      this.#renderSelection()
+    }
+    const end = (next: PointerEvent): void => {
+      if (next.pointerId === pointerId)
+        this.#pan?.stop()
+    }
+    const stop = (): void => {
+      doc.removeEventListener('pointermove', move)
+      doc.removeEventListener('pointerup', end)
+      doc.removeEventListener('pointercancel', end)
+      this.#pan = undefined
+      delete canvas.dataset.gesture
+    }
+    this.#pan?.stop()
+    this.#pan = { scroll: { x: scroller.scrollLeft, y: scroller.scrollTop }, stop }
+    canvas.dataset.gesture = 'pan'
+    doc.addEventListener('pointermove', move)
+    doc.addEventListener('pointerup', end)
+    doc.addEventListener('pointercancel', end)
+  }
+
+  /** 取消进行中的平移：滚回按下时的位置。 */
+  #cancelPan(): void {
+    const pan = this.#pan
+    const layers = this.#layers
+    if (!pan || !layers)
+      return
+    pan.stop()
+    layers.scroller.scrollLeft = pan.scroll.x
+    layers.scroller.scrollTop = pan.scroll.y
+    this.#renderSelection()
   }
 
   /**
@@ -2115,6 +2181,8 @@ export class XhReportDesigner extends XhReactiveElement {
   }
 
   readonly #onDoubleClick = (event: MouseEvent): void => {
+    if (this.#panTool())
+      return
     const id = this.#cardAt(event.target)
     if (id !== undefined)
       emitEvent(this, 'card-dblclick', { id })
@@ -2165,6 +2233,15 @@ export class XhReportDesigner extends XhReactiveElement {
   readonly #onKeyDown = (event: KeyboardEvent): void => {
     const editor = this.#editor
     if (!editor || !this.#isCanvasFocus(event.target) || this.#gesture)
+      return
+    if (event.key === 'Escape' && this.#pan) {
+      // 拖动途中的 Esc 只取消这一次拖动，外框不退出拖动工具
+      this.#cancelPan()
+      event.preventDefault()
+      return
+    }
+    // 拖动工具开着、没在拖动时 Esc 交给外框退出拖动工具
+    if (event.key === 'Escape' && this.#panTool())
       return
     if (event.altKey && event.key === 'F10') {
       // Alt+F10 把焦点交给选中工具条（排列为空时交给尺寸徽标），在里面按 Esc 回到画布
