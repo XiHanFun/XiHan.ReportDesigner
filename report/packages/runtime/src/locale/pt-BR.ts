@@ -186,10 +186,11 @@ const designer: ReportDesignerLocale = {
   menuData: 'Dados',
   tourSteps: {
     datasets: { title: 'Dados', description: 'Os conjuntos de dados com seus campos e os parâmetros do relatório. Arraste um campo para um cartão para exibi-lo nele.' },
+    data: { title: 'Importar', description: 'O menu Dados importa conjuntos de dados, campos e parâmetros do relatório a partir de um exemplo JSON ou de um JSON Schema.', templateDescription: 'O menu Dados importa conjuntos de dados, campos e parâmetros do relatório a partir de um exemplo JSON ou de um JSON Schema. “Importar modelo”, no fim, substitui o relatório inteiro por um modelo de um arquivo.' },
     wells: { title: 'Campos', description: 'O que o cartão selecionado mostra: dimensões, medidas, séries ou colunas. Arraste campos para cá, arraste para reordenar e remova com ×.' },
     cards: { title: 'Cartões', description: 'Arraste um cartão para movê-lo e as bordas para redimensioná-lo; ele se encaixa na grade. Com um cartão selecionado, a barra acima o copia ou exclui e o selo abaixo mostra seu tamanho em células.' },
     links: { title: 'Vínculos', description: 'Abaixo dos campos de um cartão selecionado, vincule-o a outros cartões. Ao clicar em um valor deste cartão, os cartões vinculados são filtrados por ele.' },
-    preview: { title: 'Visualização', description: 'Execute o relatório com dados e parâmetros, do jeito que os usuários vão vê-lo.' },
+    preview: { title: 'Visualização', description: 'Execute o relatório com dados e parâmetros, do jeito que os usuários vão vê-lo.', menubarDescription: 'Execute o relatório com dados e parâmetros, do jeito que os usuários vão vê-lo. O menu Exibir também alterna entre design e visualização.' },
   },
   helpNotes: [
     'Arraste campos do painel de dados para um cartão ou para os campos dele para escolher o que o cartão mostra. Campos numéricos viram medidas; os demais, dimensões.',

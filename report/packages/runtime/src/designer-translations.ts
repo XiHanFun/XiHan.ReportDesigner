@@ -40,13 +40,17 @@ export interface ReportHistoryStepText {
   readonly cascade?: number
 }
 
-/** 新手引导里报表自己的几步：数据面板、字段栏、卡片、联动与预览。 */
-export type ReportTourStepKey = 'datasets' | 'wells' | 'cards' | 'links' | 'preview'
+/** 新手引导里报表自己的几步：数据面板、「数据」菜单、字段栏、卡片、联动与预览。 */
+export type ReportTourStepKey = 'datasets' | 'data' | 'wells' | 'cards' | 'links' | 'preview'
 
 /** 引导一步的标题与说明。 */
 export interface ReportTourStepText {
   readonly title: string
   readonly description: string
+  /** 菜单栏显示着时换用的说明：多一句这一步的命令也在哪张菜单里。 */
+  readonly menubarDescription?: string
+  /** 登记了导入器、「数据」菜单里有导入模板时换用的说明。 */
+  readonly templateDescription?: string
 }
 
 /** 设计器的内建文案。 */
@@ -633,10 +637,11 @@ export const REPORT_DESIGNER_EN_US: ReportDesignerLocale = {
   menuData: 'Data',
   tourSteps: {
     datasets: { title: 'Data', description: 'Datasets with their fields, and the report parameters. Drag a field onto a card to show it there.' },
+    data: { title: 'Import', description: 'The Data menu imports datasets, fields and report parameters from a JSON sample or a JSON Schema.', templateDescription: 'The Data menu imports datasets, fields and report parameters from a JSON sample or a JSON Schema. Import template at the bottom replaces the whole report with a template from a file.' },
     wells: { title: 'Fields', description: 'What the selected card shows: dimensions, measures, series or columns. Drag fields in, drag to reorder, and remove them with ×.' },
     cards: { title: 'Cards', description: 'Drag a card to move it and drag its edges to resize it; it snaps to the grid. When a card is selected, the bar above copies or deletes it and the badge below shows its size in cells.' },
     links: { title: 'Links', description: 'Below the fields of a selected card, link it to other cards: clicking a value in this card then filters the cards it links to.' },
-    preview: { title: 'Preview', description: 'Run the report with data and parameters, the way its users will see it.' },
+    preview: { title: 'Preview', description: 'Run the report with data and parameters, the way its users will see it.', menubarDescription: 'Run the report with data and parameters, the way its users will see it. The View menu switches between design and preview too.' },
   },
   helpNotes: [
     'Drag fields from the Data panel onto a card or into its fields to choose what the card shows. Number fields become measures; the others become dimensions.',

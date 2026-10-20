@@ -186,10 +186,11 @@ const designer: ReportDesignerLocale = {
   menuData: 'Datos',
   tourSteps: {
     datasets: { title: 'Datos', description: 'Los conjuntos de datos con sus campos y los parámetros del informe. Arrastra un campo a una tarjeta para mostrarlo en ella.' },
+    data: { title: 'Importar', description: 'El menú Datos importa conjuntos de datos, campos y parámetros del informe a partir de un ejemplo JSON o un JSON Schema.', templateDescription: 'El menú Datos importa conjuntos de datos, campos y parámetros del informe a partir de un ejemplo JSON o un JSON Schema. «Importar plantilla», al final, sustituye todo el informe por una plantilla de un archivo.' },
     wells: { title: 'Campos', description: 'Lo que muestra la tarjeta seleccionada: dimensiones, medidas, series o columnas. Arrastra campos aquí, arrástralos para reordenarlos y quítalos con ×.' },
     cards: { title: 'Tarjetas', description: 'Arrastra una tarjeta para moverla y sus bordes para cambiar su tamaño; se ajusta a la cuadrícula. Con una tarjeta seleccionada, la barra de arriba la copia o la elimina y la insignia de abajo muestra su tamaño en celdas.' },
     links: { title: 'Vínculos', description: 'Debajo de los campos de una tarjeta seleccionada, vincúlala con otras tarjetas. Al hacer clic en un valor de esta tarjeta, las tarjetas vinculadas se filtran por él.' },
-    preview: { title: 'Vista previa', description: 'Ejecuta el informe con datos y parámetros y míralo como lo verán sus usuarios.' },
+    preview: { title: 'Vista previa', description: 'Ejecuta el informe con datos y parámetros y míralo como lo verán sus usuarios.', menubarDescription: 'Ejecuta el informe con datos y parámetros y míralo como lo verán sus usuarios. El menú Ver también cambia entre diseño y vista previa.' },
   },
   helpNotes: [
     'Arrastra campos del panel de datos a una tarjeta o a sus campos para decidir qué muestra la tarjeta. Los campos numéricos pasan a ser medidas y los demás, dimensiones.',

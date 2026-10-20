@@ -186,10 +186,11 @@ const designer: ReportDesignerLocale = {
   menuData: 'Daten',
   tourSteps: {
     datasets: { title: 'Daten', description: 'Datasets mit ihren Feldern sowie die Berichtsparameter. Zieh ein Feld auf eine Karte, um es dort anzuzeigen.' },
+    data: { title: 'Importieren', description: 'Im Menü Daten importierst du Datasets, Felder und Berichtsparameter aus einem JSON-Beispiel oder einem JSON Schema.', templateDescription: 'Im Menü Daten importierst du Datasets, Felder und Berichtsparameter aus einem JSON-Beispiel oder einem JSON Schema. „Vorlage importieren“ ganz unten ersetzt den ganzen Bericht durch eine Vorlage aus einer Datei.' },
     wells: { title: 'Felder', description: 'Was die ausgewählte Karte zeigt: Dimensionen, Kennzahlen, Reihen oder Spalten. Zieh Felder hinein, ordne sie per Ziehen um und entferne sie mit ×.' },
     cards: { title: 'Karten', description: 'Zieh eine Karte, um sie zu verschieben, und zieh ihre Ränder, um die Größe zu ändern. Sie rastet am Raster ein. Bei einer ausgewählten Karte kopiert oder löscht die Leiste darüber sie, und das Abzeichen darunter zeigt ihre Größe in Zellen.' },
     links: { title: 'Verknüpfungen', description: 'Unter den Feldern einer ausgewählten Karte verknüpfst du sie mit anderen Karten. Ein Klick auf einen Wert in dieser Karte filtert dann die verknüpften Karten.' },
-    preview: { title: 'Vorschau', description: 'Führe den Bericht mit Daten und Parametern aus und sieh ihn so, wie seine Nutzer ihn sehen.' },
+    preview: { title: 'Vorschau', description: 'Führe den Bericht mit Daten und Parametern aus und sieh ihn so, wie seine Nutzer ihn sehen.', menubarDescription: 'Führe den Bericht mit Daten und Parametern aus und sieh ihn so, wie seine Nutzer ihn sehen. Auch im Menü Ansicht wechselst du zwischen Entwurf und Vorschau.' },
   },
   helpNotes: [
     'Zieh Felder aus dem Datenbereich auf eine Karte oder in ihre Felder, um festzulegen, was die Karte zeigt. Zahlenfelder werden zu Kennzahlen, alle anderen zu Dimensionen.',

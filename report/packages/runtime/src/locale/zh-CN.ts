@@ -186,10 +186,11 @@ const designer: ReportDesignerLocale = {
   menuData: '数据',
   tourSteps: {
     datasets: { title: '数据', description: '数据集与它们的字段，以及报表参数。把字段拖到卡片上，卡片就显示它。' },
+    data: { title: '导入', description: '「数据」菜单里能从 JSON 样例或 JSON Schema 导入数据集、字段与报表参数。', templateDescription: '「数据」菜单里能从 JSON 样例或 JSON Schema 导入数据集、字段与报表参数；最下面的「导入模板」从文件换上整份报表模板。' },
     wells: { title: '字段', description: '选中的卡片显示什么：维度、度量、系列或列。把字段拖进来，拖动换序，点叉移除。' },
     cards: { title: '卡片', description: '拖动卡片挪位置，拖边角改大小，都落在网格上。选中卡片后，上方的工具条复制或删除它，下方的徽标写着它占几格。' },
     links: { title: '联动', description: '选中卡片后，在字段下面把它和别的卡片联动起来：点这张卡片里的一个值，联动的卡片就按它筛选。' },
-    preview: { title: '预览', description: '按数据与参数运行报表，看使用者看到的样子。' },
+    preview: { title: '预览', description: '按数据与参数运行报表，看使用者看到的样子。', menubarDescription: '按数据与参数运行报表，看使用者看到的样子。「视图」菜单里也能在设计与预览之间切换。' },
   },
   helpNotes: [
     '把数据面板里的字段拖到卡片上或字段卡片里，决定卡片显示什么：数值字段进度量，其余进维度。',

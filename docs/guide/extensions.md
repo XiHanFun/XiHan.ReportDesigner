@@ -95,7 +95,7 @@ aside: false
 
 - `panels`：放进设计器外框某个区的面板，或开一个新区；它同样记在面板布局里，用户能隐藏、挪动与浮出，「面板」菜单里也能开关它。
 - `menubarMenus`：菜单栏上的菜单 `{ id, label, order? }`，`order` 写在 30–80 之间，排在「视图」与「帮助」之间（报表的「数据」菜单是 30），命令写 `menubar:<菜单 id>` 落进去；没有命令的菜单不出现。菜单 id 与内置的或别的扩展的重名时，给 `extensions` 赋值就抛 `DesignerExtensionError`。
-- `tourSteps`：新手引导里的几步，`order` 从 200 起，排在报表的几步之后；id 写扩展 id 加点，不能重名。
+- `tourSteps`：新手引导里的几步，`order` 从 200 起，排在报表的几步之后；id 写扩展 id 加点，不能重名。`target` 指要高亮的目标：`{ panel }` 一块面板，`{ command }` 工具栏上的一条命令，`{ region }` 外框的区，`{ menubar }` 菜单栏上的一张菜单（菜单 id，如 `file`、`data`，窄屏时落在「菜单」钮上），`{ selector }` 设计器里的任意节点；目标看不见的那步自动跳过，菜单栏关掉时指向菜单的那步也跳过。
 - `about`：设置「关于」页里的几行 `{ label, value }`，如附加包的版本与授权。
 - `fieldSources`：导入对话框里在 JSON 样例、JSON Schema 两页之后多出的来源页。页里拿到内容（样例、Schema 或现成的字段）后交给对话框，推断、预览与确认走对话框自己的，导进报表时照内置两页的规则。
 - `paletteSources`：物料来源，往物料面板里加几组（如附加包的「我的物料」、模板库），接在所有物料组后面，每次刷新面板时现取。条目被点按时交给来源的 `insert(item, context)`；拖到看板上放下时再带上落点 `ReportPaletteDrop`，即指针所在的格（`x` 列、`y` 行，从 0 起）。插什么、插在哪由来源自己定，如经 `context.designer.addCard()` 新建卡片。来源 id 不能重名；只读或报表主体不是看板时物料面板只能浏览。
