@@ -86,12 +86,17 @@ function pages(): string[] {
 }
 
 describe('设置', () => {
-  it('openSettings 打开设置对话框：报表没有自己那一页；基础、布局、工具栏三页在前、帮助、快捷键、关于三页在后，基础列出主题与状态栏，工具栏页列出按钮显示方式、显示工具栏与按钮表', async () => {
+  it('openSettings 打开设置对话框：报表没有自己那一页；基础、语言、布局、工具栏四页在前、帮助、快捷键、关于三页在后，基础列出主题与状态栏，工具栏页列出按钮显示方式、显示工具栏与按钮表', async () => {
     const designer = await mount()
     expect(designer.querySelector('xh-designer-settings')!.parentElement).toBe(designer)
     designer.openSettings()
     await settle(designer)
-    expect(pages()).toEqual(['general', 'layout', 'toolbar', 'help', 'shortcuts', 'about'])
+    expect(pages()).toEqual(['general', 'language', 'layout', 'toolbar', 'help', 'shortcuts', 'about'])
+    designer.openSettings('language')
+    await settle(designer)
+    expect(row(DESIGNER_SETTING_KEYS.language)).not.toBeNull()
+    designer.openSettings('general')
+    await settle(designer)
     expect([DESIGNER_SETTING_KEYS.theme, DESIGNER_SETTING_KEYS.statusBar, 'general.toolbarDisplay'].map(key => row(key) !== null)).toEqual([true, true, false])
     designer.openSettings('toolbar')
     await settle(designer)
@@ -102,7 +107,7 @@ describe('设置', () => {
     const designer = await mount(element => (element.extensions = [{ id: 'acme', settings: [acme] }]))
     designer.openSettings('acme')
     await settle(designer)
-    expect(pages()).toEqual(['general', 'layout', 'toolbar', 'acme', 'help', 'shortcuts', 'about'])
+    expect(pages()).toEqual(['general', 'language', 'layout', 'toolbar', 'acme', 'help', 'shortcuts', 'about'])
     expect(row('acme.token')!.querySelector('xh-password-input')).not.toBeNull()
     const before = designer.extensions
     expect(() => (designer.extensions = [{ id: 'acme', settings: [{ ...acme, id: 'general' }] }])).toThrow(DesignerExtensionError)
@@ -117,7 +122,7 @@ describe('设置', () => {
     })
     designer.openSettings()
     await settle(designer)
-    expect(pages()).toEqual(['layout', 'toolbar', 'acme', 'help', 'shortcuts', 'about'])
+    expect(pages()).toEqual(['language', 'layout', 'toolbar', 'acme', 'help', 'shortcuts', 'about'])
     expect(row('acme.token')!.querySelector('xh-field')!.hasAttribute('read-only')).toBe(true)
   })
 
@@ -170,6 +175,26 @@ describe('设置', () => {
     designer.settings = {}
     await designer.updateComplete
     expect([designer.hasAttribute('data-theme'), designer.hasAttribute('data-brand')]).toEqual([false, false])
+  })
+
+  it('设置里选了语言：设计器根交出这一语言的配置，报表自己的文案、外壳零件与 UI 元素都换，页面别处照旧；跟随页面换回来', async () => {
+    const designer = await mount()
+    const other = await mount()
+    const labelOf = (element: XhReportDesigner): string | null => element.querySelector('[data-part="command-bar"] xh-toolbar [data-xh-part="root"]')!.getAttribute('aria-label')
+    const label = (): string | null => labelOf(designer)
+    const name = (id: string): string | null => designer.querySelector(`[data-part="command-bar"] button[value="${id}"]`)!.getAttribute('aria-label')
+    const menus = (): string[] => designer.querySelector<HTMLElement & { collection?: { label?: string }[] }>('xh-menubar')!.collection!.map(node => node.label ?? '')
+    expect([label(), name('undo'), menus().at(3), designer.querySelector('[data-region="datasets"] [data-part="panel-title"]')!.textContent]).toEqual(['Designer actions', 'Undo', 'Data', 'Datasets'])
+    designer.settings = { [DESIGNER_SETTING_KEYS.language]: 'zh-CN' }
+    for (let round = 0; round < 50 && (designer.xhConfig as { locale?: string }).locale !== 'zh-CN'; round++)
+      await new Promise(resolve => setTimeout(resolve, 10))
+    await settle(designer)
+    expect([(designer.xhConfig as { locale?: string }).locale, label(), name('undo'), menus().at(3), designer.querySelector('[data-region="datasets"] [data-part="panel-title"]')!.textContent]).toEqual(['zh-CN', '设计器操作', '撤销', '数据', '数据集'])
+    expect(designer.xhConfig.translations).toHaveProperty(['xh-report-designer'])
+    expect([other.xhConfig, labelOf(other)]).toEqual([{}, 'Designer actions'])
+    designer.settings = {}
+    await settle(designer)
+    expect([designer.xhConfig, label(), menus().at(3)]).toEqual([{}, 'Designer actions', 'Data'])
   })
 
   it('工具栏的按钮显示方式取设置里的 toolbar.display，缺省只显示图标；换显示方式不重铺按钮', async () => {
