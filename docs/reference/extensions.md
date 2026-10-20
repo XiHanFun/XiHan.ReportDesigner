@@ -376,7 +376,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | `label` | `string \| ((context: ReportDesignerContext) => string)` | 按钮与菜单项上的文字；给函数时每次刷新现取，随语言变。 |
 | `placement?` | `readonly DesignerCommandPlacement[]` | 缺省排列里出现在哪些位置；不给即只经快捷键或 commandLayout 出现。 |
 | `shortcut?` | `readonly string[]` | 快捷键，写法同 xh-kbd 的 keys：['Mod', 'Shift', 'P']，Mod 在 macOS 上是 ⌘，其余平台是 Ctrl。 |
-| `shortLabel?` | `string \| ((context: ReportDesignerContext) => string)` | 按钮上看得见的短文字：顶栏按钮图标下的那一行，工具栏只显示图标时没有图标的按钮上也写它；不给用 label。名字（读屏与提示）仍取 label，所以短文字要出现在 label 里（不分大小写），开发期不在时报一条告警。 |
+| `shortLabel?` | `string \| ((context: ReportDesignerContext) => string)` | 按钮上看得见的短文字：工具栏只显示图标时没有图标的按钮上写它；不给用 label。名字（读屏与提示）仍取 label，所以短文字要出现在 label 里（不分大小写），开发期不在时报一条告警。 |
 | `tone?` | `Tone` | 语气：按钮与菜单项按这族色显示，破坏性命令写 danger。不给即不带语气。 |
 
 | 方法 | 说明 |
@@ -459,7 +459,7 @@ type ReportCardTemplate = ReportAddCardInit & { readonly id?: never }
 const REPORT_TOOLBAR_LAYOUT = [
   ['undo', 'redo'],
   ['cut', 'copy', 'paste', 'duplicate', 'delete'],
-  ['zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual'],
+  ['pan-tool', 'zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual'],
   ['design', 'preview'],
   ['panels', 'settings', 'help'],
 ]

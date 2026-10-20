@@ -79,8 +79,6 @@ export interface ReportDesignerTranslations {
   readonly propertiesHelp: string
   /** 问题卡片的帮助。 */
   readonly issuesHelp: string
-  /** 顶栏那一条插入钮的名字。 */
-  readonly insertToolbar: string
   /** 选中卡片时浮在选中框上方那一条工具条的名字。 */
   readonly selectionToolbar: string
   /** 尺寸徽标里卡片宽高的单位：看板按格计。 */
@@ -99,8 +97,6 @@ export interface ReportDesignerTranslations {
   readonly shortcutResize: string
   /** 快捷键表里 Ctrl / ⌘ + S 那一行。 */
   readonly shortcutSave: string
-  /** 顶栏插入钮的名字与提示，label 是物料名。 */
-  readonly insertCard: (label: string) => string
   /** 状态栏左段没选中时：数据集数，主体是看板时再写卡片数（不是看板时 cards 为 undefined）。 */
   readonly statusDocument: (datasets: number, cards: number | undefined) => string
   /** 状态栏左段选中一张卡片时：它左上角所在的列与行（从 1 数起）和占的格数。 */
@@ -629,7 +625,6 @@ export const REPORT_DESIGNER_EN_US: ReportDesignerLocale = {
   wellsHelp: 'Dimensions, measures, series and columns of the selected card. Drag fields in, drag to reorder, and use the cross to remove.',
   propertiesHelp: 'Properties of the selected object. With several cards selected, only the properties they share are listed.',
   issuesHelp: 'Validation problems in the report. Select one to select the object it is about.',
-  insertToolbar: 'Insert cards',
   selectionToolbar: 'Selected cards',
   sizeUnit: 'cells',
   importDataset: 'Import dataset',
@@ -649,7 +644,6 @@ export const REPORT_DESIGNER_EN_US: ReportDesignerLocale = {
   ],
   shortcutResize: 'Resize the selected card by one cell',
   shortcutSave: 'Save',
-  insertCard: label => `Add ${label}`,
   statusDocument: (datasets, cards) => `${datasets} ${datasets === 1 ? 'dataset' : 'datasets'}${cards === undefined ? '' : ` · ${cards} ${cards === 1 ? 'card' : 'cards'}`}`,
   statusCell: (column, row, width, height) => `Column ${column}, row ${row} · ${width} × ${height}`,
   statusZoom: 'Zoom',

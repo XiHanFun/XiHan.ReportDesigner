@@ -17,7 +17,7 @@ import { cardTemplate, REPORT_CARD_TYPES } from '@xihan-report/core'
 import { createReportRuntimeModel } from '@xihan-report/runtime'
 import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
 import { collectPaletteSources, collectSettingsSections, collectTourSteps, createHistoryPanel, createOutlinePanel, designerHistoryCommands, designerPanelCommands, designerShellCommands } from '@xihan-ui/designer-shell'
-import { CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, FileCodeIcon, FilePlusIcon, FolderOpenIcon, HistoryIcon, LightbulbIcon, ListTreeIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TrashIcon, UndoIcon, UploadIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, FileCodeIcon, FilePlusIcon, FolderOpenIcon, HandIcon, HistoryIcon, LightbulbIcon, ListTreeIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TrashIcon, UndoIcon, UploadIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { REPORT_CARD_TYPE_ICONS } from './card-icons'
 import { REPORT_OUTLINE_ADAPTER } from './outline'
 
@@ -129,20 +129,6 @@ function isDashboard(designer: XhReportDesigner): boolean {
   return designer.schema?.body.type === 'dashboard'
 }
 
-/** 顶栏插入钮的常用物料，按钮依次排开；钮上写物料名，图标取卡片种类的图标。 */
-const QUICK_INSERT: readonly ReportCardType[] = ['chart.cartesian', 'chart.pie', 'metric', 'table.table', 'table.crosstab']
-
-/** 顶栏的插入命令：点一下照点物料的做法新建卡片；只读、预览态或主体不是看板时不可用。 */
-const QUICK_INSERT_COMMANDS: readonly ReportDesignerCommand[] = QUICK_INSERT.map((type): ReportDesignerCommand => ({
-  id: `insert:${type}`,
-  label: ({ translations }) => translations.insertCard(translations.cardTypes[type] ?? type),
-  shortLabel: ({ translations }) => translations.cardTypes[type] ?? type,
-  icon: REPORT_CARD_TYPE_ICONS[type],
-  placement: ['header'],
-  enabled: editable(isDashboard),
-  run: ({ designer }) => void designer.addPaletteItem(type),
-}))
-
 /** 命令「导入模板」的 id：登记了导入器才进命令表，工具栏缺省排列的最前面多这一组。 */
 export const REPORT_IMPORT_TEMPLATE_COMMAND = 'import-template'
 
@@ -163,8 +149,8 @@ export const REPORT_DESIGNER_PANELS = {
 
 /**
  * 内置命令：导入模板（登记了导入器才进命令表），撤销、重做与清空历史，剪贴板、创建副本与删除、全选、缩放、设计与预览，designer-shell
- * 内置的面板、显示或隐藏所有面板、还原面板显隐、恢复默认布局、设置、帮助、导入字段、编辑 JSON 与开始引导，导入数据集与导入参数，
- * 以及每块内置面板一条开关命令 panel:<面板 id>。
+ * 内置的面板、显示或隐藏所有面板、还原面板显隐、恢复默认布局、拖动工具、设置、帮助、导入字段、编辑 JSON 与开始引导，导入数据集与
+ * 导入参数，以及每块内置面板一条开关命令 panel:<面板 id>。
  */
 const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
   { id: REPORT_IMPORT_TEMPLATE_COMMAND, label: ({ translations }) => translations.importTemplate, icon: FolderOpenIcon, enabled: editable(() => true), run: ({ designer }) => void designer.importTemplate() },
@@ -202,12 +188,11 @@ const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
     fieldImportDisabled: ({ designer }) => !designer.canImportData('fields'),
     openJsonEditor: ({ designer }) => void designer.openJsonEditor(),
     startTour: ({ designer }) => designer.startTour(),
-    icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: UploadIcon, editJson: FileCodeIcon, startTour: LightbulbIcon },
+    icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: UploadIcon, editJson: FileCodeIcon, startTour: LightbulbIcon, panTool: HandIcon },
   }),
   { id: 'import-dataset', label: ({ translations }) => translations.importDataset, icon: FilePlusIcon, enabled: ({ designer }) => designer.canImportData('dataset'), run: ({ designer }) => void designer.openDataImport('dataset') },
   { id: 'import-parameters', label: ({ translations }) => translations.importParameters, icon: UploadIcon, enabled: ({ designer }) => designer.canImportData('parameters'), run: ({ designer }) => void designer.openDataImport('parameters') },
   ...designerPanelCommands<ReportDesignerContext>({ panels: Object.values(REPORT_DESIGNER_PANELS), frame: context => context.frame }),
-  ...QUICK_INSERT_COMMANDS,
 ]
 
 const BUILTIN_GROUPS = ['charts', 'metrics', 'tables'] as const
@@ -281,7 +266,7 @@ export const REPORT_DESIGNER_EXTENSION: ReportDesignerExtension = {
 export const REPORT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['undo', 'redo'],
   ['cut', 'copy', 'paste', 'duplicate', 'delete'],
-  ['zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual'],
+  ['pan-tool', 'zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual'],
   ['design', 'preview'],
   ['panels', 'settings', 'help'],
 ]

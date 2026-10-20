@@ -18,7 +18,7 @@ import { inferDataFields } from '@xihan-ui/designer-kit/field-inference'
 import { DESIGNER_COMMANDS_EN_US, DESIGNER_HISTORY_EN_US, DESIGNER_SETTING_KEYS, startDrag } from '@xihan-ui/designer-shell'
 import { setXhConfig } from '@xihan-ui/web-components'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineReportDesigner, REPORT_CARD_TYPE_ICONS, REPORT_DESIGNER_HELP_URL, REPORT_DESIGNER_PANELS, REPORT_MENU_LAYOUT } from '../src'
+import { createReportDesignerModel, defineReportDesigner, REPORT_CARD_TYPE_ICONS, REPORT_DESIGNER_HELP_URL, REPORT_DESIGNER_PANELS, REPORT_MENU_LAYOUT } from '../src'
 
 function metric(id: string, x: number): DashboardView['cards'][number] {
   return {
@@ -709,7 +709,7 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.getSelection()).toEqual({ cards: ['pie'] })
   })
 
-  it('切到预览态：画布换成查看器，交给它当前的报表与取数回调，外框只登记顶栏、工具栏与画布；切换时派发 mode-change', async () => {
+  it('切到预览态：画布换成查看器，交给它当前的报表与取数回调，外框只登记工具栏与画布；切换时派发 mode-change', async () => {
     const designer = await mount()
     const modes = events(designer, 'mode-change')
     const settings = designer.settings
@@ -718,7 +718,7 @@ describe('<xh-report-designer>：编辑', () => {
     const viewer = designer.querySelector<XhReportViewer>('[data-part="preview"] xh-report-viewer')!
     expect(viewer.schema).toBe(designer.schema)
     expect(designer.querySelector<HTMLElement>('[data-part="canvas"]')!.hidden).toBe(true)
-    expect(designer.querySelector('xh-designer-frame')!.regions!.map(region => region.name)).toEqual(['header', 'toolbar', 'canvas'])
+    expect(designer.querySelector('xh-designer-frame')!.regions!.map(region => region.name)).toEqual(['toolbar', 'canvas'])
     expect(designer.querySelector('[data-region="palette"]')).toBeNull()
     expect(designer.settings).toBe(settings)
     designer.mode = 'preview'
@@ -782,7 +782,7 @@ describe('<xh-report-designer>：编辑', () => {
   it('工具栏：按钮随选择与历史启用，点按钮执行命令，设计与预览两个按钮切换模式；只读时编辑类命令不可用', async () => {
     const designer = await mount()
     const button = (command: string): HTMLButtonElement => designer.querySelector(`[data-region="toolbar"] button[value="${command}"]`)!
-    expect([...designer.querySelectorAll('[data-region="toolbar"] button[value]')].map(item => item.textContent)).toEqual(['Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Duplicate', 'Delete', 'Zoom out', 'Zoom in', 'Zoom to fit', 'Actual size', 'Design', 'Preview', 'Panels', 'Settings', 'Help'])
+    expect([...designer.querySelectorAll('[data-region="toolbar"] button[value]')].map(item => item.textContent)).toEqual(['Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Duplicate', 'Delete', 'Hand tool', 'Zoom out', 'Zoom in', 'Zoom to fit', 'Actual size', 'Design', 'Preview', 'Panels', 'Settings', 'Help'])
     expect([button('undo').disabled, button('delete').disabled]).toEqual([true, true])
     designer.select({ cards: ['a'] })
     await designer.updateComplete
@@ -815,26 +815,12 @@ describe('<xh-report-designer>：编辑', () => {
     expect(open).toHaveBeenCalledWith(REPORT_DESIGNER_HELP_URL, '_blank', 'noopener,noreferrer')
   })
 
-  it('顶栏中段是常用物料的插入钮：图标在上、物料名在下，点一下照点物料的做法新建并选中卡片；只读时不可用，commandLayout 的 header 写空就没有顶栏', async () => {
+  it('没有顶栏与插入钮：外框不登记 header 区，设计器里没有放进顶栏的内容，命令表里没有 insert:<种类>；物料只从物料面板拖或点', async () => {
     const designer = await mount()
-    const t = DEFAULT_REPORT_DESIGNER_TRANSLATIONS
-    const shell = designer.querySelector('[data-region="header"] xh-tooltip[data-scope="designer-commands"]')!
-    expect(shell.getAttribute('data-display')).toBe('stacked')
-    const buttons = (): HTMLButtonElement[] => [...designer.querySelectorAll<HTMLButtonElement>('[data-region="header"] button[value]')]
-    expect(buttons().map(button => button.value)).toEqual(['insert:chart.cartesian', 'insert:chart.pie', 'insert:metric', 'insert:table.table', 'insert:table.crosstab'])
-    expect(buttons().map(button => button.getAttribute('aria-label'))).toEqual(['chart.cartesian', 'chart.pie', 'metric', 'table.table', 'table.crosstab'].map(type => t.insertCard(t.cardTypes[type]!)))
-    expect(buttons()[2]!.querySelector('[data-part="label"]')!.textContent).toBe(t.cardTypes.metric)
-    expect(buttons().every(button => button.hasAttribute('data-icon'))).toBe(true)
-    const before = cards(designer).length
-    buttons()[2]!.click()
-    expect(cards(designer)).toHaveLength(before + 1)
-    expect(designer.getSelection().cards).toEqual([cards(designer).at(-1)!.id])
-    designer.readonly = true
-    await designer.updateComplete
-    expect(buttons().every(button => button.disabled)).toBe(true)
-    designer.commandLayout = { header: [] }
-    await designer.updateComplete
-    expect(designer.querySelector('[data-region="header"] button[value]')).toBeNull()
+    const frame = designer.querySelector('xh-designer-frame')!
+    expect(frame.regions!.map(region => region.name)).not.toContain('header')
+    expect(designer.querySelector('[slot^="header"]')).toBeNull()
+    expect([...createReportDesignerModel([]).commands.keys()].filter(id => id.startsWith('insert:'))).toEqual([])
   })
 
   it('「面板」点开一张锚在按钮上的菜单，列出能开关的八块卡片（勾选的显示，历史记录缺省不勾），再列显示或隐藏所有面板、还原面板显隐与恢复默认布局；选中一块卡片开关它并写进设置', async () => {
@@ -1380,7 +1366,7 @@ describe('<xh-report-designer>：编辑', () => {
       setXhConfig(reportZhCN)
       designer.requestUpdate()
       await designer.updateComplete
-      expect(buttons().map(item => item.getAttribute('aria-label'))).toEqual(['撤销', '重做', '剪切', '复制', '粘贴', '创建副本', '删除', '缩小', '放大', '适合窗口', '实际大小', '设计', '预览', '面板', '设置', '帮助'])
+      expect(buttons().map(item => item.getAttribute('aria-label'))).toEqual(['撤销', '重做', '剪切', '复制', '粘贴', '创建副本', '删除', '拖动', '缩小', '放大', '适合窗口', '实际大小', '设计', '预览', '面板', '设置', '帮助'])
       expect(designer.querySelector('[data-region="toolbar"] [aria-label="设计器操作"]')).not.toBeNull()
       expect(designer.querySelector('xh-designer-frame')!.regions?.find(region => region.name === 'toolbar')?.label).toBe('设计器操作')
     }
@@ -1619,7 +1605,7 @@ describe('<xh-report-designer>：缩放', () => {
     const viewports = events(designer, 'viewport-change') as { viewport: { zoom: number } }[]
     const schemaChanges = events(designer, 'schema-change')
     const groups = Array.from(designer.querySelectorAll('[data-part="command-bar"] [data-xh-part="group"]'), group => Array.from(group.querySelectorAll('button'), button => button.value))
-    expect(groups).toContainEqual(['zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual'])
+    expect(groups).toContainEqual(['pan-tool', 'zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual'])
     expect(['zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual'].map(command => toolbarButton(designer, command).hasAttribute('data-icon'))).toEqual([true, true, true, true])
     toolbarButton(designer, 'zoom-in').click()
     expect(zoom(designer)).toBe(1.2)
@@ -1641,6 +1627,22 @@ describe('<xh-report-designer>：缩放', () => {
     designer.mode = 'preview'
     await designer.updateComplete
     expect(['zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual'].map(command => toolbarButton(designer, command).disabled)).toEqual([true, true, true, true])
+  })
+
+  it('拖动工具 pan-tool 与缩放同组、带手形图标：点它或按 H 切换外框的 canvasTool，按下态跟着外框的 canvas-tool-change 重画', async () => {
+    const designer = await mount()
+    const frame = designer.querySelector('xh-designer-frame')!
+    const pan = toolbarButton(designer, 'pan-tool')
+    expect([pan.hasAttribute('data-icon'), pan.getAttribute('aria-pressed'), frame.canvasTool]).toEqual([true, 'false', 'select'])
+    pan.click()
+    await designer.updateComplete
+    expect([frame.canvasTool, pan.getAttribute('aria-pressed')]).toEqual(['pan', 'true'])
+    frame.canvasTool = 'select'
+    await designer.updateComplete
+    expect(pan.getAttribute('aria-pressed')).toBe('false')
+    key(designer, 'h')
+    await designer.updateComplete
+    expect([frame.canvasTool, pan.getAttribute('aria-pressed')]).toEqual(['pan', 'true'])
   })
 
   it('放大、缩小以可见区中心为锚：中心对着的画布点缩放前后都在中心', async () => {

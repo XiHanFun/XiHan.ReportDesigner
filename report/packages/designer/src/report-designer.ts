@@ -168,8 +168,6 @@ interface Layers {
   readonly commandBar: CommandToolbar<ReportDesignerContext>
   /** 选中卡片时浮在选中框上方的选中工具条；排列为空时不放进覆盖层。 */
   readonly selectionBar: CommandToolbar<ReportDesignerContext>
-  /** 顶栏中段的插入钮：图标在上、短文字在下；没有 header 命令时不放进外框。 */
-  readonly headerBar: CommandToolbar<ReportDesignerContext>
   /** 扩展登记的面板。 */
   readonly panels: DesignerPanelHost<ReportDesignerContext>
   /** 包着画布的 <xh-context-menu> 与它的菜单内容。 */
@@ -286,7 +284,7 @@ export class XhReportDesigner extends XhReactiveElement {
   declare formatter: ReportFormatter | undefined
   /** 预览与画布取数用的报表参数取值。 */
   declare parameters: ParameterValues | undefined
-  /** 工具栏、顶栏（header）、右键菜单（menu:card、menu:blank）与选中工具条（selection:card、selection:multiple）的命令排列；写了某个位置就只显示列出的命令。 */
+  /** 工具栏、右键菜单（menu:card、menu:blank）与选中工具条（selection:card、selection:multiple）的命令排列；写了某个位置就只显示列出的命令。 */
   declare commandLayout: DesignerCommandLayout | undefined
   /** 元素自己的文案，压在全局配置之上。 */
   declare translations: Partial<ReportDesignerTranslations> | undefined
@@ -496,7 +494,7 @@ export class XhReportDesigner extends XhReactiveElement {
 
   /**
    * 照点物料的做法新建一张卡片：放到第一个空位、选中它并滚到看得见的地方，返回新卡片；只读、主体不是看板或没有这个物料项时
-   * 什么都不做，返回 undefined。顶栏的插入钮调它。
+   * 什么都不做，返回 undefined。点物料面板的条目时调它。
    */
   addPaletteItem(id: string): DashboardCard | undefined {
     if (this.readonly || !this.#dashboard() || !this.#model.palette.has(id))
@@ -1096,8 +1094,6 @@ export class XhReportDesigner extends XhReactiveElement {
       return this.#layers
     const doc = this.ownerDocument
     const commandBar = createCommandToolbar<ReportDesignerContext>(doc, { platform: this.#kbdPlatform() })
-    const headerBar = createCommandToolbar<ReportDesignerContext>(doc, { display: 'stacked', platform: this.#kbdPlatform() })
-    headerBar.element.slot = 'header-center'
     const selectionBar = createCommandToolbar<ReportDesignerContext>(doc, { platform: this.#kbdPlatform() })
     selectionBar.element.slot = 'toolbar'
     const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'command-bar' }, [commandBar.element])
@@ -1181,6 +1177,8 @@ export class XhReportDesigner extends XhReactiveElement {
     const parameterActions = createPanelActions<ReportDesignerContext>(doc, 'parameters')
     const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, data.datasets, data.parameters, palette, workspace, wells.element, properties.element, issues.element, issueSummary, datasetActions.element, parameterActions.element]) as XhDesignerFrameElement
     frame.addEventListener('layout-change', this.#onLayoutChange)
+    // 换了画布工具（拖动工具命令、写 canvasTool 或 Esc 退出）时重画，工具栏上拖动钮的按下态跟着变
+    frame.addEventListener('canvas-tool-change', () => this.requestUpdate())
     const selectionStatus = createStatusItem(doc, { value: '' })
     selectionStatus.element.slot = 'status-start'
     const zoomStatus = createStatusItem(doc, { value: '', action: () => this.zoomToActual() })
@@ -1228,7 +1226,7 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#regionsKey = ''
     this.#viewer = undefined
     this.#settingsDialogKey = ''
-    this.#layers = { frame, toolbar, commandBar, selectionBar, headerBar, panels, menu, menuContent, menuTrigger, canvas, scroller, sizer, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, datasetActions, parameterActions, fieldImport, jsonEditor, tour, settings, selectionStatus, zoomStatus }
+    this.#layers = { frame, toolbar, commandBar, selectionBar, panels, menu, menuContent, menuTrigger, canvas, scroller, sizer, surface, content, overlay, empty, dropPreview, preview, palette, data, wells, properties, issues, datasetActions, parameterActions, fieldImport, jsonEditor, tour, settings, selectionStatus, zoomStatus }
     panels.assign(this.#model.extensions, this.#context())
     this.#fillMenu('blank')
     return this.#layers
@@ -1372,14 +1370,14 @@ export class XhReportDesigner extends XhReactiveElement {
   }
 
   /**
-   * 这个区此刻登记不登记：预览态只登记顶栏、工具栏与画布；没有报表参数又不能新增时不登记那块卡片，
+   * 这个区此刻登记不登记：预览态只登记工具栏与画布；没有报表参数又不能新增时不登记那块卡片，
    * 设置里关了状态栏或工具栏时不登记它们（命令照样能经快捷键与右键菜单执行）。
    */
   #registers(name: string): boolean {
     if (name === 'toolbar' && !toolbarVisibleOf(this.settings))
       return false
     if (this.#mode() === 'preview')
-      return name === 'header' || name === 'toolbar' || name === 'canvas'
+      return name === 'toolbar' || name === 'canvas'
     if (name === 'parameters')
       return this.#hasParameters()
     if (name === 'status')
@@ -1934,16 +1932,6 @@ export class XhReportDesigner extends XhReactiveElement {
       if (sourceKey !== this.#toolbarSourceKey) {
         this.#toolbarSourceKey = sourceKey
         layers.settings.toolbar = source
-      }
-      // 顶栏：有 header 命令才放进外框，没有时拿出来，顶栏随之收起
-      const header = arrangeCommands('header', commands, [], this.commandLayout)
-      if (header.length > 0) {
-        layers.headerBar.update(header, commands, context, t.insertToolbar)
-        if (!layers.headerBar.element.isConnected)
-          layers.frame.append(layers.headerBar.element)
-      }
-      else {
-        layers.headerBar.element.remove()
       }
       this.#renderSelectionBar(layers, context)
       // 面板头的导入钮：datasetEditing 不够或只读时不出现
