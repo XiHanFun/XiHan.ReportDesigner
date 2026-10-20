@@ -16,6 +16,7 @@ import { formatJsonPath } from '@xihan-ui/core/json'
 import { DesignerExtensionError } from '@xihan-ui/designer-kit'
 import { inferDataFields } from '@xihan-ui/designer-kit/field-inference'
 import { DESIGNER_COMMANDS_EN_US, DESIGNER_HISTORY_EN_US, DESIGNER_SETTING_KEYS, startDrag } from '@xihan-ui/designer-shell'
+import { EyeIcon, PanelLeftIcon } from '@xihan-ui/icons'
 import { setXhConfig } from '@xihan-ui/web-components'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createReportDesignerModel, defineReportDesigner, REPORT_CARD_TYPE_ICONS, REPORT_DESIGNER_HELP_URL, REPORT_DESIGNER_PANELS, REPORT_MENU_LAYOUT } from '../src'
@@ -128,7 +129,10 @@ function key(designer: XhReportDesigner, keyName: string, init: KeyboardEventIni
 }
 
 /** 菜单栏的 <xh-menubar>：按数据铺的菜单与勾选。 */
-type MenubarHost = HTMLElement & { collection?: { value: string, label?: string, items?: { value: string }[] }[], checkboxValue?: string[] }
+type MenubarHost = HTMLElement & {
+  collection?: { value: string, label?: string, items?: { value: string, icon?: unknown, children?: { value: string, kind?: string }[], checkboxValue?: string[] }[] }[]
+  checkboxValue?: string[]
+}
 
 /** 菜单栏上一张菜单里的命令 id。 */
 function menubarItems(designer: XhReportDesigner, menu: string): string[] {
@@ -835,17 +839,22 @@ describe('<xh-report-designer>：编辑', () => {
     expect([...createReportDesignerModel([]).commands.keys()].filter(id => id.startsWith('insert:'))).toEqual([])
   })
 
-  it('菜单栏：外框最上一条，文件、编辑、视图、数据、帮助五张菜单；数据菜单是导入数据集、字段与参数，没有导入器时不列导入模板，文件菜单也没有打开文件', async () => {
+  it('菜单栏：外框最上一条，文件、编辑、视图、数据、帮助五张菜单；视图收尾是面板与外观，三条显示开关在外观子菜单里；数据菜单是导入数据集、字段与参数，没有导入器时不列导入模板，文件菜单也没有打开文件', async () => {
     const designer = await mount()
     const menubar = designer.querySelector<MenubarHost>('xh-menubar')!
     expect(menubar.closest('[data-region]')!.getAttribute('data-region')).toBe('menubar')
     expect(menubar.collection!.map(node => [node.value, node.label])).toEqual([['file', 'File'], ['edit', 'Edit'], ['view', 'View'], ['data', 'Data'], ['help', 'Help']])
     expect(menubarItems(designer, 'file')).toEqual(['save', 'settings'])
     expect(menubarItems(designer, 'edit')).toEqual(['undo', 'redo', 'cut', 'copy', 'paste', 'delete', 'duplicate', 'select-all', 'edit-json'])
-    expect(menubarItems(designer, 'view')).toEqual(['design', 'preview', 'zoom-in', 'zoom-out', 'zoom-to-fit', 'zoom-to-actual', 'pan-tool', 'panels', 'show-toolbar', 'show-status-bar', 'show-menubar'])
+    expect(menubarItems(designer, 'view')).toEqual(['design', 'preview', 'zoom-in', 'zoom-out', 'zoom-to-fit', 'zoom-to-actual', 'pan-tool', 'panels', 'appearance'])
     expect(menubarItems(designer, 'data')).toEqual(['import-dataset', 'import-fields', 'import-parameters'])
     expect(menubarItems(designer, 'help')).toEqual(['start-tour', 'help', 'shortcuts', 'about'])
-    expect(menubar.checkboxValue).toEqual(['view/design', 'view/show-toolbar', 'view/show-status-bar', 'view/show-menubar'])
+    expect(menubar.checkboxValue).toEqual(['view/design'])
+    const view = menubar.collection!.find(node => node.value === 'view')!.items!
+    const appearance = view.find(item => item.value === 'view/appearance')!
+    const toggles = ['show-toolbar', 'show-status-bar', 'show-menubar'].map(id => `view/appearance/command:${id}`)
+    expect([appearance.children!.map(child => [child.value, child.kind]), appearance.checkboxValue]).toEqual([toggles.map(value => [value, 'checkbox']), toggles])
+    expect([view.find(item => item.value === 'view/panels')!.icon, appearance.icon]).toEqual([PanelLeftIcon, EyeIcon])
   })
 
   it('菜单栏的条目执行命令：保存派发 save，画布上按 Ctrl+S 走同一条命令；显示开关改设置并派发 settings-change，关掉菜单栏时外框不登记它', async () => {
@@ -859,10 +868,10 @@ describe('<xh-report-designer>：编辑', () => {
     const ctrlS = new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true })
     designer.querySelector('[data-part="scroller"]')!.dispatchEvent(ctrlS)
     expect([saves, ctrlS.defaultPrevented, createReportDesignerModel([]).commands.get('save')?.shortcut]).toEqual([[{}, {}], true, ['Mod', 'S']])
-    select('view', 'show-status-bar')
+    select('view', 'appearance/command:show-status-bar')
     await designer.updateComplete
     expect([changes.map(change => [change.key, change.value]), frame.regions!.map(region => region.name)]).toEqual([[[DESIGNER_SETTING_KEYS.statusBar, false]], expect.not.arrayContaining(['status'])])
-    select('view', 'show-menubar')
+    select('view', 'appearance/command:show-menubar')
     await designer.updateComplete
     await frame.updateComplete
     expect([changes.at(-1)!.key, frame.regions!.map(region => region.name).includes('menubar'), menubar.closest('[data-part="parked"]') !== null]).toEqual([DESIGNER_SETTING_KEYS.toolbarMenubar, false, true])
