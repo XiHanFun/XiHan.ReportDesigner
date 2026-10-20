@@ -18,7 +18,7 @@ import { cardTemplate, REPORT_CARD_TYPES } from '@xihan-report/core'
 import { createReportRuntimeModel } from '@xihan-report/runtime'
 import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
 import { collectMenubarMenus, collectPaletteSources, collectSettingsSections, collectTourSteps, createHistoryPanel, createOutlinePanel, designerHistoryCommands, designerMenubarLayout, designerMenubarMenus, designerPanelCommands, designerShellCommands } from '@xihan-ui/designer-shell'
-import { CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, FileCodeIcon, FilePlusIcon, FolderOpenIcon, HandIcon, HistoryIcon, InfoIcon, LightbulbIcon, ListTreeIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, SaveIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TrashIcon, UndoIcon, UploadIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, FileCodeIcon, FilePlusIcon, FolderOpenIcon, HandIcon, HistoryIcon, InfoIcon, ListTreeIcon, MapIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, SaveIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TrashIcon, UndoIcon, UploadIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { REPORT_CARD_TYPE_ICONS } from './card-icons'
 import { REPORT_OUTLINE_ADAPTER } from './outline'
 
@@ -216,7 +216,7 @@ const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
       change: ({ designer }, key, value) => internalsOf(designer).changeSetting(key, value),
       policy: ({ designer }) => designer.settingsPolicy,
     },
-    icons: { save: SaveIcon, panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: UploadIcon, editJson: FileCodeIcon, startTour: LightbulbIcon, panTool: HandIcon, about: InfoIcon, appearance: EyeIcon },
+    icons: { save: SaveIcon, panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: UploadIcon, editJson: FileCodeIcon, startTour: MapIcon, panTool: HandIcon, about: InfoIcon, appearance: EyeIcon },
   }),
   { id: 'import-dataset', label: ({ translations }) => translations.importDataset, icon: FilePlusIcon, enabled: ({ designer }) => designer.canImportData('dataset'), run: ({ designer }) => void designer.openDataImport('dataset') },
   { id: 'import-parameters', label: ({ translations }) => translations.importParameters, icon: UploadIcon, enabled: ({ designer }) => designer.canImportData('parameters'), run: ({ designer }) => void designer.openDataImport('parameters') },

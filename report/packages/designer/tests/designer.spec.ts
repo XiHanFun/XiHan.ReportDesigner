@@ -16,7 +16,7 @@ import { formatJsonPath } from '@xihan-ui/core/json'
 import { DesignerExtensionError } from '@xihan-ui/designer-kit'
 import { inferDataFields } from '@xihan-ui/designer-kit/field-inference'
 import { DESIGNER_COMMANDS_EN_US, DESIGNER_HISTORY_EN_US, DESIGNER_SETTING_KEYS, startDrag } from '@xihan-ui/designer-shell'
-import { EyeIcon, PanelLeftIcon } from '@xihan-ui/icons'
+import { EyeIcon, MapIcon, PanelLeftIcon } from '@xihan-ui/icons'
 import { setXhConfig } from '@xihan-ui/web-components'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createReportDesignerModel, defineReportDesigner, REPORT_CARD_TYPE_ICONS, REPORT_DESIGNER_HELP_URL, REPORT_DESIGNER_PANELS, REPORT_MENU_LAYOUT } from '../src'
@@ -849,7 +849,7 @@ describe('<xh-report-designer>：编辑', () => {
     expect([...createReportDesignerModel([]).commands.keys()].filter(id => id.startsWith('insert:'))).toEqual([])
   })
 
-  it('菜单栏：外框最上一条，文件、编辑、视图、数据、帮助五张菜单；开发者模式开着时编辑菜单末尾是编辑 JSON；视图收尾是面板与外观，工具栏、状态栏两条显示开关在外观子菜单里；数据菜单是导入数据集、字段与参数，没有导入器时不列导入模板，文件菜单也没有打开文件', async () => {
+  it('菜单栏：外框最上一条，文件、编辑、视图、数据、帮助五张菜单；开发者模式开着时编辑菜单末尾是编辑 JSON；视图收尾是面板与外观，工具栏、状态栏两条显示开关在外观子菜单里；帮助里的开始引导用地图图标；数据菜单是导入数据集、字段与参数，没有导入器时不列导入模板，文件菜单也没有打开文件', async () => {
     const designer = await mount({ settings: DEVELOPER })
     const menubar = designer.querySelector<MenubarHost>('xh-menubar')!
     expect(menubar.closest('[data-region]')!.getAttribute('data-region')).toBe('menubar')
@@ -865,6 +865,7 @@ describe('<xh-report-designer>：编辑', () => {
     const toggles = ['show-toolbar', 'show-status-bar'].map(id => `view/appearance/command:${id}`)
     expect([appearance.children!.map(child => [child.value, child.kind]), appearance.checkboxValue]).toEqual([toggles.map(value => [value, 'checkbox']), toggles])
     expect([view.find(item => item.value === 'view/panels')!.icon, appearance.icon]).toEqual([PanelLeftIcon, EyeIcon])
+    expect(menubar.collection!.find(node => node.value === 'help')!.items!.find(item => item.value === 'help/start-tour')!.icon).toBe(MapIcon)
   })
 
   it('菜单栏的条目执行命令：保存派发 save，画布上按 Ctrl+S 走同一条命令；显示开关改设置并派发 settings-change，菜单栏常开、没有它的开关', async () => {
