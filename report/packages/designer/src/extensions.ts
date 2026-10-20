@@ -17,7 +17,7 @@ import type { XhReportDesigner } from './report-designer'
 import { cardTemplate, REPORT_CARD_TYPES } from '@xihan-report/core'
 import { createReportRuntimeModel } from '@xihan-report/runtime'
 import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
-import { collectMenubarMenus, collectPaletteSources, collectSettingsSections, collectTourSteps, createHistoryPanel, createOutlinePanel, designerHistoryCommands, designerMenubarLayout, designerMenubarMenus, designerPanelCommands, designerShellCommands } from '@xihan-ui/designer-shell'
+import { collectMenubarMenus, collectPaletteSources, collectSettingsSections, collectTourSteps, createHistoryPanel, createOutlinePanel, designerHistoryCommands, designerMenubarLayout, designerMenubarMenus, designerPanelCommands, designerShellCommands, menubarVisibleOf } from '@xihan-ui/designer-shell'
 import { CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, FileCodeIcon, FilePlusIcon, FolderOpenIcon, HandIcon, HistoryIcon, InfoIcon, LightbulbIcon, ListTreeIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, SaveIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TrashIcon, UndoIcon, UploadIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { REPORT_CARD_TYPE_ICONS } from './card-icons'
 import { REPORT_OUTLINE_ADAPTER } from './outline'
@@ -151,6 +151,9 @@ function internalsOf(designer: XhReportDesigner): ReportDesignerInternals {
 /** 命令「导入模板」的 id：登记了导入器才进命令表，工具栏缺省排列的最前面多这一组，数据菜单的末尾也有它。 */
 export const REPORT_IMPORT_TEMPLATE_COMMAND = 'import-template'
 
+/** 菜单栏上报表自己的菜单「数据」的 id。 */
+export const REPORT_DATA_MENU = 'data'
+
 /** 内置命令 help 打开的帮助页：报表文档站的设计器一页。 */
 export const REPORT_DESIGNER_HELP_URL = 'https://report.docs.xihanfun.com/guide/designer'
 
@@ -248,20 +251,35 @@ function hasCards({ designer }: ReportDesignerContext): boolean {
   return body?.type === 'dashboard' && body.cards.length > 0
 }
 
+/** 扩展里登记了导入器：「数据」菜单的末尾有导入模板。 */
+function hasImporters({ designer }: ReportDesignerContext): boolean {
+  return (designer.extensions ?? []).some(extension => (extension.importers?.length ?? 0) > 0)
+}
+
+/** 引导的一步：登记了导入器时说明换用 templateDescription，菜单栏显示着时换用 menubarDescription，都没有时用 description。 */
 function tourStep(key: ReportTourStepKey, target: DesignerTourTarget, order: number, when?: (context: ReportDesignerContext) => boolean): DesignerTourStep<ReportDesignerContext> {
   return {
     id: `report.${key}`,
     target,
     order,
     title: ({ translations }) => translations.tourSteps[key].title,
-    description: ({ translations }) => translations.tourSteps[key].description,
+    description: (context) => {
+      const text = context.translations.tourSteps[key]
+      const template = hasImporters(context) ? text.templateDescription : undefined
+      const menubar = menubarVisibleOf(context.settings) ? text.menubarDescription : undefined
+      return template ?? menubar ?? text.description
+    },
     ...(when ? { when } : {}),
   }
 }
 
-/** 新手引导里报表自己的几步，排在通用步骤之后：数据面板、字段栏、卡片、联动与预览；看板上没有卡片时跳过卡片与联动两步。 */
+/**
+ * 新手引导里报表自己的几步，排在通用步骤之后：数据面板、「数据」菜单（讲导入；菜单栏关着时由零件跳过）、字段栏、卡片、联动与预览；
+ * 看板上没有卡片时跳过卡片与联动两步。菜单栏显示着时，预览一步的说明多一句「视图」菜单里也能切换。
+ */
 const REPORT_TOUR_STEPS: readonly DesignerTourStep<ReportDesignerContext>[] = [
   tourStep('datasets', { panel: 'datasets' }, 100),
+  tourStep('data', { menubar: REPORT_DATA_MENU }, 105),
   tourStep('wells', { panel: 'wells' }, 110),
   tourStep('cards', { selector: '[data-part="card"]' }, 120, hasCards),
   tourStep('links', { panel: 'wells' }, 130, hasCards),
@@ -273,9 +291,6 @@ const OUTLINE_PANEL = createOutlinePanel<ReportDesignerContext>(REPORT_OUTLINE_A
   region: { icon: ListTreeIcon },
   readonly: ({ designer }) => designer.readonly === true,
 })
-
-/** 菜单栏上报表自己的菜单「数据」的 id。 */
-export const REPORT_DATA_MENU = 'data'
 
 /**
  * 设计器的内置扩展：内置命令、菜单栏的数据菜单、物料、页面结构与历史记录面板、新手引导的报表步骤。卡片种类、渲染与导出等内置部分在

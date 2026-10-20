@@ -186,10 +186,11 @@ const designer: ReportDesignerLocale = {
   menuData: '資料',
   tourSteps: {
     datasets: { title: '資料', description: '資料集與它們的欄位，以及報表參數。把欄位拖曳到卡片上，卡片就顯示它。' },
+    data: { title: '匯入', description: '「資料」選單裡能從 JSON 範例或 JSON Schema 匯入資料集、欄位與報表參數。', templateDescription: '「資料」選單裡能從 JSON 範例或 JSON Schema 匯入資料集、欄位與報表參數；最下面的「匯入範本」從檔案換上整份報表範本。' },
     wells: { title: '欄位', description: '選取的卡片顯示什麼：維度、量值、數列或欄。把欄位拖曳進來，拖曳調整順序，點叉移除。' },
     cards: { title: '卡片', description: '拖曳卡片移動位置，拖曳邊角調整大小，都對齊格線。選取卡片後，上方的工具列複製或刪除它，下方的徽標寫著它佔幾格。' },
     links: { title: '連動', description: '選取卡片後，在欄位下面把它和別的卡片連動起來：點這張卡片裡的一個值，連動的卡片就依它篩選。' },
-    preview: { title: '預覽', description: '依資料與參數執行報表，看使用者看到的樣子。' },
+    preview: { title: '預覽', description: '依資料與參數執行報表，看使用者看到的樣子。', menubarDescription: '依資料與參數執行報表，看使用者看到的樣子。「檢視」選單裡也能在設計與預覽之間切換。' },
   },
   helpNotes: [
     '把資料面板裡的欄位拖曳到卡片上或欄位卡片裡，決定卡片顯示什麼：數值欄位成為量值，其餘成為維度。',

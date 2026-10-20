@@ -186,10 +186,11 @@ const designer: ReportDesignerLocale = {
   menuData: 'Données',
   tourSteps: {
     datasets: { title: 'Données', description: 'Les jeux de données avec leurs champs, et les paramètres du rapport. Faites glisser un champ sur une carte pour l’y afficher.' },
+    data: { title: 'Importer', description: 'Le menu Données importe des jeux de données, des champs et des paramètres de rapport à partir d’un exemple JSON ou d’un JSON Schema.', templateDescription: 'Le menu Données importe des jeux de données, des champs et des paramètres de rapport à partir d’un exemple JSON ou d’un JSON Schema. « Importer un modèle », tout en bas, remplace le rapport entier par un modèle tiré d’un fichier.' },
     wells: { title: 'Champs', description: 'Ce que montre la carte sélectionnée, dimensions, mesures, séries ou colonnes. Faites glisser des champs ici, réordonnez-les en les faisant glisser et retirez-les avec ×.' },
     cards: { title: 'Cartes', description: 'Faites glisser une carte pour la déplacer et ses bords pour la redimensionner, elle s’aligne sur la grille. Quand une carte est sélectionnée, la barre au-dessus la copie ou la supprime et le badge en dessous indique sa taille en cellules.' },
     links: { title: 'Liens', description: 'Sous les champs d’une carte sélectionnée, liez-la à d’autres cartes. Un clic sur une valeur de cette carte filtre alors les cartes liées.' },
-    preview: { title: 'Aperçu', description: 'Exécutez le rapport avec des données et des paramètres, tel que ses utilisateurs le verront.' },
+    preview: { title: 'Aperçu', description: 'Exécutez le rapport avec des données et des paramètres, tel que ses utilisateurs le verront.', menubarDescription: 'Exécutez le rapport avec des données et des paramètres, tel que ses utilisateurs le verront. Le menu Affichage permet aussi de passer de la conception à l’aperçu.' },
   },
   helpNotes: [
     'Faites glisser des champs du panneau des données sur une carte ou dans ses champs pour choisir ce que la carte affiche. Les champs numériques deviennent des mesures, les autres des dimensions.',

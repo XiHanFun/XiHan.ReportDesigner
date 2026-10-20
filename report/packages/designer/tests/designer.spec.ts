@@ -1363,7 +1363,7 @@ describe('<xh-report-designer>：编辑', () => {
     expect(document.activeElement!.closest('[data-part="measure-field"][data-axis="width"]')).not.toBeNull()
   })
 
-  it('新手引导：缺省在第一次铺好画布、设计器显示出来（画布有宽度）后自动开始，只开一次，通用步骤之后接报表的几步；收起时设置里记下 help.tourDone，记过的不再自动开始；autoTour 为 false 时不自动开始，startTour() 照样能开始', async () => {
+  it('新手引导：缺省在第一次铺好画布、设计器显示出来（画布有宽度）后自动开始，只开一次，欢迎之后是菜单栏一步，通用步骤之后接报表的几步，设置一步落在「文件」菜单；收起时设置里记下 help.tourDone，记过的不再自动开始；autoTour 为 false 时不自动开始，startTour() 照样能开始', async () => {
     const settle = async (element: XhReportDesigner): Promise<void> => {
       await element.updateComplete
       await element.updateComplete
@@ -1398,9 +1398,12 @@ describe('<xh-report-designer>：编辑', () => {
     const designer = await create(() => {})
     const tour = designer.querySelector('xh-designer-tour')!
     expect(tour.running).toBe(true)
-    expect(tour.steps!.map(step => step.id)).toEqual(['report.datasets', 'report.wells', 'report.cards', 'report.links', 'report.preview'])
+    expect(tour.steps!.map(step => step.id)).toEqual(['report.datasets', 'report.data', 'report.wells', 'report.cards', 'report.links', 'report.preview'])
     expect(tour.steps![0]).toMatchObject({ title: DEFAULT_REPORT_DESIGNER_TRANSLATIONS.tourSteps.datasets.title, target: { panel: 'datasets' } })
-    expect(tour.plannedSteps().map(step => step.id)).toEqual(expect.arrayContaining(['shell.welcome', 'report.datasets', 'report.cards', 'report.preview']))
+    const planned = tour.plannedSteps()
+    expect(planned.map(step => step.id).slice(0, 3)).toEqual(['shell.welcome', 'shell.menubar', 'shell.toolbar'])
+    expect(planned.map(step => step.id)).toEqual(expect.arrayContaining(['report.datasets', 'report.data', 'report.cards', 'report.preview']))
+    expect(planned.at(-1)).toMatchObject({ id: 'shell.settings', target: { menubar: 'file' } })
     const changes = events(designer, 'settings-change')
     tour.stop()
     expect(changes).toEqual([{ key: 'help.tourDone', value: true, settings: { 'help.tourDone': true } }])
@@ -1411,6 +1414,28 @@ describe('<xh-report-designer>：编辑', () => {
     expect(quiet.querySelector('xh-designer-tour')!.running).toBe(false)
     expect(quiet.startTour()).toBe(true)
     expect(quiet.querySelector('xh-designer-tour')!.running).toBe(true)
+  })
+
+  it('报表的引导步骤：数据面板之后是「数据」菜单一步，讲导入数据集、字段与参数，登记了导入器时带上导入模板；菜单栏开着时预览一步多一句「视图」菜单；关掉菜单栏时没有菜单栏与数据菜单两步、预览不提菜单，设置一步落在工具栏的设置钮上', async () => {
+    const t = DEFAULT_REPORT_DESIGNER_TRANSLATIONS.tourSteps
+    const designer = await mount()
+    const frame = designer.querySelector('xh-designer-frame')!
+    await frame.updateComplete
+    const tour = designer.querySelector('xh-designer-tour')!
+    const step = (id: string): { target?: unknown, order?: number, title: string, description: string } => tour.steps!.find(item => item.id === id)!
+    expect([step('report.data').target, step('report.data').order, step('report.data').title, step('report.data').description]).toEqual([{ menubar: 'data' }, 105, t.data.title, t.data.description])
+    expect([t.data.description, t.data.templateDescription, t.preview.menubarDescription]).toEqual([expect.stringContaining('Data menu'), expect.stringContaining('Import template'), expect.stringContaining('View menu')])
+    expect(step('report.preview').description).toBe(t.preview.menubarDescription)
+    designer.extensions = [{ id: '@acme/templates', importers: [{ id: '@acme/templates.json', accepts: () => true, import: () => undefined }] }]
+    await designer.updateComplete
+    expect(step('report.data').description).toBe(t.data.templateDescription)
+    designer.settings = { [DESIGNER_SETTING_KEYS.toolbarMenubar]: false }
+    await designer.updateComplete
+    await frame.updateComplete
+    const planned = tour.plannedSteps()
+    expect(planned.map(item => item.id).filter(id => id === 'shell.menubar' || id === 'report.data')).toEqual([])
+    expect(planned.at(-1)).toMatchObject({ id: 'shell.settings', target: { command: 'settings' } })
+    expect(step('report.preview').description).toBe(t.preview.description)
   })
 
   it('同一页只开一个新手引导：别的设计器的引导开着时，startTour()（start-tour 命令与帮助页的「开始引导」都走它）先收起那一个再开始', async () => {

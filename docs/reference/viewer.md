@@ -178,7 +178,7 @@ type ReportFormatter = (value: unknown, format: FormatSpec | undefined, context:
 | `ReportDesignerIssueDetails` | 接口 | 问题文案的入参：校验问题的码与参数。 |
 | `ReportDesignerTranslations` | 接口 | 设计器的内建文案。 |
 | `ReportHistoryStepText` | 接口 | 撤销栈里一步的说明素材：对象种类已按语言取好。 |
-| `ReportTourStepKey` | 类型 | 新手引导里报表自己的几步：数据面板、字段栏、卡片、联动与预览。 |
+| `ReportTourStepKey` | 类型 | 新手引导里报表自己的几步：数据面板、「数据」菜单、字段栏、卡片、联动与预览。 |
 | `ReportTourStepText` | 接口 | 引导一步的标题与说明。 |
 
 ### extensions
