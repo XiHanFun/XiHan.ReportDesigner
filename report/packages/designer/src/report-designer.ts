@@ -15,7 +15,7 @@ import type { ReportDataProvider, ReportDesignerTranslations, ReportFormatter, R
 import type { JsonValue } from '@xihan-ui/core/json'
 import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
 import type { DesignerImportSource, ExecuteOptions, ExtensionHost, GridRect, HistoryChangeKind, HistoryLabel, HistorySnapshot, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
-import type { CommandMenubar, CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFieldImportEventMap, DesignerFrameEventMap, DesignerFrameRegion, DesignerHistoryTranslations, DesignerIssueItem, DesignerJsonEditorEventMap, DesignerLanguage, DesignerLayout, DesignerLayoutPolicy, DesignerMeasureConvert, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPaletteItem, DesignerPaletteView, DesignerPanelActions, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
+import type { CommandMenubar, CommandToolbar, DesignerAutosave, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFieldImportEventMap, DesignerFrameEventMap, DesignerFrameRegion, DesignerHistoryTranslations, DesignerIssueItem, DesignerJsonEditorEventMap, DesignerLanguage, DesignerLayout, DesignerLayoutPolicy, DesignerMeasureConvert, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPaletteItem, DesignerPaletteView, DesignerPanelActions, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { XhConfig } from '@xihan-ui/web-components'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { DialogService } from '@xihan-ui/web-components/services'
@@ -35,8 +35,10 @@ import {
   applyToolbarCustomization,
   arrangeCommands,
   arrangeMenubar,
+  autoSaveOf,
   createCommandMenubar,
   createCommandToolbar,
+  createDesignerAutosave,
   createDesignerDebugLogger,
   createDesignerSettingsHost,
   createPanelActions,
@@ -296,6 +298,7 @@ export class XhReportDesigner extends XhReactiveElement {
     settings: { attribute: false },
     settingsPolicy: { attribute: false },
     settingsStorageKey: { attribute: 'settings-storage-key', converter: { fromAttribute: (value: string | null) => value ?? undefined } },
+    draftKey: { attribute: 'draft-key', converter: { fromAttribute: (value: string | null) => value ?? undefined } },
     historyLimit: { attribute: 'history-limit', converter: NUMBER_CONVERTER },
   }
 
@@ -349,6 +352,12 @@ export class XhReportDesigner extends XhReactiveElement {
    * 标了 secret 的条目不存；读写失败派发 settings-storage-error。不给就不读写。同名 attribute settings-storage-key。
    */
   declare settingsStorageKey: string | undefined
+  /**
+   * 自动保存草稿的键：区分同一页、同一种设计器里的不同报表（宿主写报表 id）；不给时按页面地址区分。
+   * 设置里开着自动保存时，未保存的修改停手约一秒存成这台浏览器里的草稿；下次装进同一个键的报表、和草稿不一样时问恢复还是丢弃。
+   * 同名 attribute draft-key。
+   */
+  declare draftKey: string | undefined
   /** 撤销步数上限，缺省 100；在下一次装载（赋 schema）时生效。同名 attribute history-limit。 */
   declare historyLimit: number | undefined
 
@@ -383,6 +392,26 @@ export class XhReportDesigner extends XhReactiveElement {
   #autoFit = false
   #lastMode: ReportDesignerMode = 'design'
   #dialogs: DialogService | undefined
+  /** 自动保存本机草稿：恢复走整份替换、记一步撤销，确认框用设计器的确认框。 */
+  readonly #autosave: DesignerAutosave = createDesignerAutosave({
+    root: this,
+    kind: REPORT_DESIGNER_TAG,
+    key: () => this.draftKey,
+    enabled: () => autoSaveOf(this.settings),
+    snapshot: () => this.#requireEditor().document as unknown as JsonValue,
+    restore: (document) => {
+      const editor = this.#editor
+      if (!editor || this.readonly || typeof document !== 'object' || document === null || Array.isArray(document))
+        return
+      editor.clearSelection()
+      editor.execute([{ type: 'replaceDocument', document: document as unknown as ReportDocument }], { label: () => this.#commandTranslations().draftRestore })
+    },
+    confirm: options => this.#dialogService().confirm(options),
+    translations: () => this.#commandTranslations(),
+  })
+
+  /** 宿主在元素连上文档之前装进的报表：连上以后再看有没有草稿。 */
+  #draftCheckPending = false
   #viewer: XhReportViewer | undefined
   #drop: CardDrop | undefined
   #fieldDrop: FieldDrop | undefined
@@ -820,6 +849,8 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#host.assign(this.#extensions ?? NO_EXTENSIONS)
     if (this.#layers && !this.#releaseSlots)
       this.#releaseSlots = forwardFrameSlots(this, this.#layers.frame, FORWARDED_SLOTS)
+    if (this.#draftCheckPending)
+      void this.updateComplete.then(() => this.#checkDraft())
   }
 
   override disconnectedCallback(): void {
@@ -834,6 +865,7 @@ export class XhReportDesigner extends XhReactiveElement {
     this.#resize?.disconnect()
     this.#resize = undefined
     this.#content?.dispose()
+    this.#autosave.dispose()
     this.#dialogs?.dispose()
     this.#dialogs = undefined
     this.#settingsHost?.dispose()
@@ -992,6 +1024,7 @@ export class XhReportDesigner extends XhReactiveElement {
     if (this.#editor && limit === this.#editorLimit) {
       this.#editor.load(schema)
       this.#fillMenu('blank')
+      this.#checkDraft()
       return
     }
     this.#unsubscribe?.()
@@ -1009,6 +1042,20 @@ export class XhReportDesigner extends XhReactiveElement {
     })
     this.#refreshIssues()
     this.#fillMenu('blank')
+    this.#checkDraft()
+  }
+
+  /** 宿主装进了一份报表：同一个草稿键下有和它不一样的草稿就问恢复还是丢弃；还没连上文档时等连上再问，只读时不问。 */
+  #checkDraft(): void {
+    const editor = this.#editor
+    if (!editor || this.readonly)
+      return
+    if (!this.isConnected) {
+      this.#draftCheckPending = true
+      return
+    }
+    this.#draftCheckPending = false
+    void this.#autosave.loaded(editor.document as unknown as JsonValue)
   }
 
   /**
@@ -1048,6 +1095,9 @@ export class XhReportDesigner extends XhReactiveElement {
         break
     }
     this.#syncDirty()
+    // 装载时不动草稿（由 #checkDraft 看），别的变化按保存状态排写或删草稿
+    if (cause !== 'reset')
+      this.#autosave.changed(history.dirty)
     this.#refreshIssues()
     // 清空、保存不改文档、不重画，历史记录面板在这里刷新
     this.#layers?.panels.update(this.#context())
