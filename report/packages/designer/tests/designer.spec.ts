@@ -99,10 +99,15 @@ function events(element: HTMLElement, name: string): unknown[] {
   return seen
 }
 
-async function mount(options: { provider?: (request: DatasetRequest) => void } = {}): Promise<XhReportDesigner> {
+/** 开发者模式开着的设置：编辑 JSON 这类调试入口只在这时出现。 */
+const DEVELOPER: Readonly<Record<string, boolean>> = { [DESIGNER_SETTING_KEYS.developer]: true }
+
+async function mount(options: { provider?: (request: DatasetRequest) => void, settings?: Readonly<Record<string, boolean>> } = {}): Promise<XhReportDesigner> {
   const designer = document.createElement('xh-report-designer')
   // 用例里不自动开始新手引导，引导的用例自己打开
   designer.autoTour = false
+  if (options.settings)
+    designer.settings = { ...options.settings }
   if (options.provider) {
     const record = options.provider
     designer.dataProvider = async (request) => {
@@ -842,8 +847,8 @@ describe('<xh-report-designer>：编辑', () => {
     expect([...createReportDesignerModel([]).commands.keys()].filter(id => id.startsWith('insert:'))).toEqual([])
   })
 
-  it('菜单栏：外框最上一条，文件、编辑、视图、数据、帮助五张菜单；视图收尾是面板与外观，工具栏、状态栏两条显示开关在外观子菜单里；数据菜单是导入数据集、字段与参数，没有导入器时不列导入模板，文件菜单也没有打开文件', async () => {
-    const designer = await mount()
+  it('菜单栏：外框最上一条，文件、编辑、视图、数据、帮助五张菜单；开发者模式开着时编辑菜单末尾是编辑 JSON；视图收尾是面板与外观，工具栏、状态栏两条显示开关在外观子菜单里；数据菜单是导入数据集、字段与参数，没有导入器时不列导入模板，文件菜单也没有打开文件', async () => {
+    const designer = await mount({ settings: DEVELOPER })
     const menubar = designer.querySelector<MenubarHost>('xh-menubar')!
     expect(menubar.closest('[data-region]')!.getAttribute('data-region')).toBe('menubar')
     expect(menubar.collection!.map(node => [node.value, node.label])).toEqual([['file', 'File'], ['edit', 'Edit'], ['view', 'View'], ['data', 'Data'], ['help', 'Help']])
@@ -1487,8 +1492,8 @@ describe('<xh-report-designer>：编辑', () => {
     }
   })
 
-  it('内建菜单建好时填空白处的条目；右键事件不取消时按落点重填：卡片上与空白处各一套，不可用的写 aria-disabled，选中条目执行命令', async () => {
-    const designer = await mount()
+  it('内建菜单建好时填空白处的条目；右键事件不取消时按落点重填：卡片上与空白处各一套，不可用的写 aria-disabled，选中条目执行命令（开发者模式开着，空白处末尾是编辑 JSON）', async () => {
+    const designer = await mount({ settings: DEVELOPER })
     const content = designer.querySelector('xh-context-menu [data-xh-part="positioner"] > [data-xh-part="content"]')!
     const entries = (): [string | null, boolean][] => [...content.querySelectorAll('[data-xh-part="item"]')].map(item => [item.getAttribute('value'), item.getAttribute('aria-disabled') === 'true'])
     expect(entries()).toEqual([['paste', true], ['select-all', false], ['zoom-to-fit', false], ['edit-json', false]])
@@ -1629,13 +1634,28 @@ describe('<xh-report-designer>：编辑 JSON', () => {
     jsonEditor(designer).dispatchEvent(new CustomEvent('json-apply', { detail: { value }, bubbles: true }))
   }
 
-  it('按 Ctrl / ⌘ + Shift + J 打开对话框，写出当前报表；空白处右键菜单的末尾也是这一条', async () => {
-    const designer = await mount()
+  it('开发者模式开着时按 Ctrl / ⌘ + Shift + J 打开对话框，写出当前报表；空白处右键菜单的末尾也是这一条', async () => {
+    const designer = await mount({ settings: DEVELOPER })
     key(designer, 'J', { ctrlKey: true, shiftKey: true })
     await designer.updateComplete
     const dialog = jsonEditor(designer)
     expect([dialog.open, dialog.value, dialog.readonly]).toEqual([true, designer.schema, false])
     expect(REPORT_MENU_LAYOUT.blank.at(-1)).toEqual(['edit-json'])
+  })
+
+  it('开发者模式关着（缺省）时没有编辑 JSON：菜单栏、空白处右键菜单与快捷键表都不列，Ctrl / ⌘ + Shift + J 不打开；openJsonEditor() 照样能打开', async () => {
+    const designer = await mount()
+    expect(menubarItems(designer, 'edit')).not.toContain('edit-json')
+    const content = designer.querySelector('xh-context-menu [data-xh-part="positioner"] > [data-xh-part="content"]')!
+    expect([...content.querySelectorAll('[data-xh-part="item"]')].map(item => item.getAttribute('value'))).toEqual(['paste', 'select-all', 'zoom-to-fit'])
+    const shortcuts = designer.querySelector<HTMLElement & { shortcuts?: { groups: readonly { rows: readonly { label: string }[] }[] } }>('xh-designer-settings')!.shortcuts!
+    expect(shortcuts.groups.flatMap(group => group.rows.map(row => row.label))).not.toContain(DESIGNER_COMMANDS_EN_US.editJson)
+    const press = new KeyboardEvent('keydown', { key: 'J', ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true })
+    designer.querySelector('[data-part="scroller"]')!.dispatchEvent(press)
+    await designer.updateComplete
+    expect([press.defaultPrevented, jsonEditor(designer).open]).toEqual([false, false])
+    expect(designer.openJsonEditor()).toBe(true)
+    expect(jsonEditor(designer).open).toBe(true)
   })
 
   it('按当前扩展与表达式引擎校验：问题的说明与所在对象的名字同问题列表；缺了对象或形状不对的 JSON 也只报问题、不抛错', async () => {
