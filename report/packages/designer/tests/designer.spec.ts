@@ -102,12 +102,14 @@ function events(element: HTMLElement, name: string): unknown[] {
 /** 开发者模式开着的设置：编辑 JSON 这类调试入口只在这时出现。 */
 const DEVELOPER: Readonly<Record<string, boolean>> = { [DESIGNER_SETTING_KEYS.developer]: true }
 
-async function mount(options: { provider?: (request: DatasetRequest) => void, settings?: Readonly<Record<string, boolean>> } = {}): Promise<XhReportDesigner> {
+async function mount(options: { provider?: (request: DatasetRequest) => void, settings?: Readonly<Record<string, boolean>>, draftKey?: string } = {}): Promise<XhReportDesigner> {
   const designer = document.createElement('xh-report-designer')
   // 用例里不自动开始新手引导，引导的用例自己打开
   designer.autoTour = false
   if (options.settings)
     designer.settings = { ...options.settings }
+  if (options.draftKey !== undefined)
+    designer.draftKey = options.draftKey
   if (options.provider) {
     const record = options.provider
     designer.dataProvider = async (request) => {
@@ -2069,5 +2071,76 @@ describe('<xh-report-designer>：调试日志', () => {
     designer.requestUpdate()
     await designer.updateComplete
     expect(groups).not.toHaveBeenCalled()
+  })
+})
+
+describe('<xh-report-designer>：自动保存', () => {
+  const KEY = 'xh-designer-draft:xh-report-designer:board-1'
+  const drafted: ReportDocument = { ...board, title: '草稿里的看板' }
+
+  afterEach(() => {
+    vi.useRealTimers()
+    localStorage.clear()
+  })
+
+  async function until<T>(read: () => T | null | undefined): Promise<T> {
+    for (let round = 0; round < 100; round++) {
+      const value = read()
+      if (value)
+        return value
+      await new Promise(resolve => setTimeout(resolve, 10))
+    }
+    throw new Error('等了 1 秒仍没到期望的状态')
+  }
+
+  /** 开着的确认框里写着 text 的钮；关上的确认框还留在页面上，不算。 */
+  function button(text: string): HTMLButtonElement | undefined {
+    return [...document.querySelectorAll<HTMLButtonElement>('button')].find(item => item.textContent?.trim() === text && !item.closest('[data-state="closed"]'))
+  }
+
+  function rename(designer: XhReportDesigner, title: string): void {
+    designer.execute([{ type: 'updateCard', id: 'a', changes: [{ path: ['title'], value: title }] }])
+  }
+
+  it('开着时改了停手约一秒存成草稿，键是设计器种类加 draftKey；markSaved 后草稿删掉；关着时不存', async () => {
+    const designer = await mount({ settings: { [DESIGNER_SETTING_KEYS.autoSave]: true }, draftKey: 'board-1' })
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    rename(designer, '改过')
+    vi.advanceTimersByTime(999)
+    expect(localStorage.getItem(KEY)).toBeNull()
+    vi.advanceTimersByTime(1)
+    expect((JSON.parse(localStorage.getItem(KEY)!) as { document: ReportDocument }).document).toEqual(designer.schema)
+    designer.markSaved()
+    expect(localStorage.getItem(KEY)).toBeNull()
+    designer.settings = {}
+    await designer.updateComplete
+    rename(designer, '又改了')
+    vi.advanceTimersByTime(1000)
+    expect(localStorage.getItem(KEY)).toBeNull()
+  })
+
+  it('宿主装进同一个键、和草稿不一样的报表时问「发现未保存的草稿」：恢复后报表换成草稿、记一步撤销，撤销回到装进的那份', async () => {
+    localStorage.setItem(KEY, JSON.stringify({ savedAt: Date.now(), document: drafted }))
+    const designer = await mount({ draftKey: 'board-1' })
+    const restore = await until(() => button(DESIGNER_COMMANDS_EN_US.draftRestore))
+    expect(document.body.textContent).toContain(DESIGNER_COMMANDS_EN_US.draftFoundDescription)
+    restore.click()
+    await until(() => designer.schema?.title === drafted.title)
+    expect([designer.schema, designer.canUndo]).toEqual([drafted, true])
+    expect(designer.undo()).toBe(true)
+    expect(designer.schema).toEqual(board)
+  })
+
+  it('选丢弃：草稿删掉，报表照旧；草稿和装进的一样时不问、悄悄删掉；换一份 schema 装进来时也看草稿', async () => {
+    localStorage.setItem(KEY, JSON.stringify({ savedAt: Date.now(), document: drafted }))
+    const designer = await mount({ draftKey: 'board-1' })
+    ;(await until(() => button(DESIGNER_COMMANDS_EN_US.draftDiscard))).click()
+    await until(() => localStorage.getItem(KEY) === null)
+    expect(designer.schema).toEqual(board)
+    localStorage.setItem(KEY, JSON.stringify({ savedAt: Date.now(), document: drafted }))
+    designer.schema = structuredClone(drafted)
+    await designer.updateComplete
+    await until(() => localStorage.getItem(KEY) === null)
+    expect(button(DESIGNER_COMMANDS_EN_US.draftRestore)).toBeUndefined()
   })
 })

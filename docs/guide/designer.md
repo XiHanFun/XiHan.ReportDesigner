@@ -24,6 +24,8 @@ aside: false
 
 <ReportDemo name="designer" fullscreen />
 
+设置「基础」页里开着自动保存（`general.autoSave`，缺省关）时，未保存的修改停手约一秒存成这台浏览器里的草稿，保存（`markSaved()`）后删掉。下次装进同一份报表、和草稿不一样时，弹确认框问恢复还是丢弃：恢复是整份换上草稿、记一步撤销，丢弃即删。不同报表用 `draftKey`（attribute `draft-key`，宿主写报表 id）区分，不写时按页面地址区分。草稿只存在本机，宿主不用存、也不用接新事件；要固定开或关，在 `settings` 里预先写或用 `settingsPolicy` 藏起、锁住这一条。只读时不问。
+
 没给取数回调时，画布上取数的卡片画占位，说明给了取数回调后会显示示例数据。用到计算字段或公式度量时还要给 `expressionEngine`，校验公式也用它。
 
 ## 界面
@@ -182,7 +184,7 @@ aside: false
 
 设置是用户偏好，每人每机一份，不随报表定义保存。`openSettings(section?)` 打开设置对话框，左边一个分区一页：
 
-- 「基础」（`general`）：主题（跟随页面、跟随系统、亮色、暗色）、主题色（跟随页面、八种预设、自定义颜色）、状态栏、开发者模式（`general.developer`，缺省关；关着时编辑 JSON 这类调试查看入口不出现），以及分页、渲染两条调试日志（`general.debugPagination`、`general.debugRender`，缺省关，开发者模式关着时只读、也不记）。
+- 「基础」（`general`）：主题（跟随页面、跟随系统、亮色、暗色）、主题色（跟随页面、八种预设、自定义颜色）、状态栏、自动保存（`general.autoSave`，缺省关，见上文「打开与保存」）、开发者模式（`general.developer`，缺省关；关着时编辑 JSON 这类调试查看入口不出现），以及分页、渲染两条调试日志（`general.debugPagination`、`general.debugRender`，缺省关，开发者模式关着时只读、也不记）。
 - 「语言」（`language`）：跟随页面（缺省）、跟随系统，或在十种语言里选一种，名字是各自的本名（简体中文、繁體中文、English、日本語……），键是 `language.locale`。
 - 「布局」（`layout`）：逐块卡片一行，改显示、位置、先后与收起，表下是「恢复默认布局」，与面板头的「更多」菜单一样不靠拖动也能改布局；改动照样写进 `layout.panels`。`settingsPolicy` 把 `layout.panels` 写 `hidden` 时没有这一页，写 `locked` 时只读。
 - 「工具栏」（`toolbar`）：按钮显示方式（`toolbar.display`：图标、文字、图标和文字，缺省只显示图标）、显示工具栏（`toolbar.visible`，关掉后整条工具栏不显示，命令照样能经快捷键与右键菜单执行）与按钮表（`toolbar.layout`）。按钮表一组一块，勾掉的按钮不上工具栏，拖动把手换先后、跨组挪，组头的勾选框整组勾选或勾掉，表下「恢复默认」删掉这个键。工具栏先按 `commandLayout`（没写时按缺省排列）排出分组，再套用户的定制；后装的扩展命令放到缺省排列里挨着的位置，已经没有的命令跳过。只管顶部工具栏，右键菜单与选中工具条不进定制。这几条只走设置，没有单独的属性。
