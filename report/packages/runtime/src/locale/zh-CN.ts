@@ -183,6 +183,7 @@ const designer: ReportDesignerLocale = {
   importDataset: '导入数据集',
   importParameters: '导入参数',
   importTemplate: '导入模板',
+  menuData: '数据',
   tourSteps: {
     datasets: { title: '数据', description: '数据集与它们的字段，以及报表参数。把字段拖到卡片上，卡片就显示它。' },
     wells: { title: '字段', description: '选中的卡片显示什么：维度、度量、系列或列。把字段拖进来，拖动换序，点叉移除。' },
@@ -196,7 +197,6 @@ const designer: ReportDesignerLocale = {
     '切到预览，按数据与参数运行报表。按 Ctrl+S（macOS 上 ⌘S）保存，报表存在哪里由所在系统决定。',
   ],
   shortcutResize: '把选中的卡片改大或改小一格',
-  shortcutSave: '保存',
   statusDocument: (datasets, cards) => `${datasets} 个数据集${cards === undefined ? '' : ` · ${cards} 张卡片`}`,
   statusCell: (column, row, width, height) => `第 ${column} 列第 ${row} 行 · ${width} × ${height} 格`,
   statusZoom: '缩放',

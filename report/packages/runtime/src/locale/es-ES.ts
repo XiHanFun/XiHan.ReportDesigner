@@ -183,6 +183,7 @@ const designer: ReportDesignerLocale = {
   importDataset: 'Importar conjunto de datos',
   importParameters: 'Importar parámetros',
   importTemplate: 'Importar plantilla',
+  menuData: 'Datos',
   tourSteps: {
     datasets: { title: 'Datos', description: 'Los conjuntos de datos con sus campos y los parámetros del informe. Arrastra un campo a una tarjeta para mostrarlo en ella.' },
     wells: { title: 'Campos', description: 'Lo que muestra la tarjeta seleccionada: dimensiones, medidas, series o columnas. Arrastra campos aquí, arrástralos para reordenarlos y quítalos con ×.' },
@@ -196,7 +197,6 @@ const designer: ReportDesignerLocale = {
     'Cambia a Vista previa para ejecutar el informe con datos y parámetros. Pulsa Ctrl+S (⌘S en macOS) para guardar; dónde se guarda el informe lo decide el sistema en el que lo usas.',
   ],
   shortcutResize: 'Agrandar o reducir una celda la tarjeta seleccionada',
-  shortcutSave: 'Guardar',
   statusDocument: (datasets, cards) => `${datasets} ${datasets === 1 ? 'conjunto de datos' : 'conjuntos de datos'}${cards === undefined ? '' : ` · ${cards} ${cards === 1 ? 'tarjeta' : 'tarjetas'}`}`,
   statusCell: (column, row, width, height) => `Columna ${column}, fila ${row} · ${width} × ${height}`,
   statusZoom: 'Zoom',

@@ -83,7 +83,7 @@ aside: false
 
 <<< @/examples/extensions/goal-designer.ts#palette
 
-命令写 `placement` 决定出现在工具栏（`toolbar`）、右键菜单（`menu:card`、`menu:blank`）还是选中工具条（`selection:card`、`selection:multiple`），`enabled` 决定可不可用，`shortcut` 可以绑快捷键；宿主再用 `commandLayout` 改排列：
+命令写 `placement` 决定出现在工具栏（`toolbar`）、菜单栏的哪张菜单（`menubar:file`、`menubar:edit`、`menubar:view`、`menubar:data`、`menubar:help`，排在那张菜单收尾的一组之前；「数据」菜单接在导入之后）、右键菜单（`menu:card`、`menu:blank`）还是选中工具条（`selection:card`、`selection:multiple`），`enabled` 决定可不可用，`shortcut` 可以绑快捷键；宿主再用 `commandLayout` 改排列：
 
 <<< @/examples/extensions/goal-designer.ts#command
 
@@ -94,6 +94,7 @@ aside: false
 设计器层还可以登记：
 
 - `panels`：放进设计器外框某个区的面板，或开一个新区；它同样记在面板布局里，用户能隐藏、挪动与浮出，「面板」菜单里也能开关它。
+- `menubarMenus`：菜单栏上的菜单 `{ id, label, order? }`，`order` 写在 30–80 之间，排在「视图」与「帮助」之间（报表的「数据」菜单是 30），命令写 `menubar:<菜单 id>` 落进去；没有命令的菜单不出现。菜单 id 与内置的或别的扩展的重名时，给 `extensions` 赋值就抛 `DesignerExtensionError`。
 - `tourSteps`：新手引导里的几步，`order` 从 200 起，排在报表的几步之后；id 写扩展 id 加点，不能重名。
 - `about`：设置「关于」页里的几行 `{ label, value }`，如附加包的版本与授权。
 - `fieldSources`：导入对话框里在 JSON 样例、JSON Schema 两页之后多出的来源页。页里拿到内容（样例、Schema 或现成的字段）后交给对话框，推断、预览与确认走对话框自己的，导进报表时照内置两页的规则。
@@ -102,7 +103,7 @@ aside: false
 - `editors`：属性编辑器，按编辑方式（`byControl`）、属性路径（`byPath`）或对象种类加路径（`byTarget`）换掉设计器内建的编辑器，后登记的压前面的。
 - `setup`：元素连上文档时调用，返回断开时的清理。
 
-登记了导入器，工具栏最前面就多一条「导入模板」（命令 `import-template`）；一个导入器都没有时没有这条命令。点它弹出选文件对话框，只列各导入器 `fileTypes` 写的类型（MIME 类型或扩展名，都没写时不限）。选中的文件按扩展顺序问 `accepts`，第一个接下的 `import(source, context)` 给出 `{ document }`：整份换上当前报表、清空选择，记一步撤销；给出 `undefined` 就不载入。没有导入器接下、导入器抛错或给出的不是报表对象时派发 `import-error`，报表不变；载入的模板有校验问题时照常列在问题卡片里。
+登记了导入器，工具栏最前面与「数据」菜单的末尾就多一条「导入模板」（命令 `import-template`）；一个导入器都没有时没有这条命令。点它弹出选文件对话框，只列各导入器 `fileTypes` 写的类型（MIME 类型或扩展名，都没写时不限）。选中的文件按扩展顺序问 `accepts`，第一个接下的 `import(source, context)` 给出 `{ document }`：整份换上当前报表、清空选择，记一步撤销；给出 `undefined` 就不载入。没有导入器接下、导入器抛错或给出的不是报表对象时派发 `import-error`，报表不变；载入的模板有校验问题时照常列在问题卡片里。
 
 <<< @/examples/snippets/template-importer.ts#example
 

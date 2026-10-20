@@ -183,6 +183,7 @@ const designer: ReportDesignerLocale = {
   importDataset: 'Importer un jeu de données',
   importParameters: 'Importer des paramètres',
   importTemplate: 'Importer un modèle',
+  menuData: 'Données',
   tourSteps: {
     datasets: { title: 'Données', description: 'Les jeux de données avec leurs champs, et les paramètres du rapport. Faites glisser un champ sur une carte pour l’y afficher.' },
     wells: { title: 'Champs', description: 'Ce que montre la carte sélectionnée, dimensions, mesures, séries ou colonnes. Faites glisser des champs ici, réordonnez-les en les faisant glisser et retirez-les avec ×.' },
@@ -196,7 +197,6 @@ const designer: ReportDesignerLocale = {
     'Passez à l’aperçu pour exécuter le rapport avec des données et des paramètres. Appuyez sur Ctrl+S (⌘S sous macOS) pour enregistrer. Le système dans lequel vous l’utilisez décide où le rapport est conservé.',
   ],
   shortcutResize: 'Agrandir ou réduire la carte sélectionnée d’une cellule',
-  shortcutSave: 'Enregistrer',
   statusDocument: (datasets, cards) => `${datasets} ${datasets < 2 ? 'jeu de données' : 'jeux de données'}${cards === undefined ? '' : ` · ${cards} ${cards < 2 ? 'carte' : 'cartes'}`}`,
   statusCell: (column, row, width, height) => `Colonne ${column}, ligne ${row} · ${width} × ${height}`,
   statusZoom: 'Zoom',

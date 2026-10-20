@@ -194,6 +194,7 @@ const designer: ReportDesignerLocale = {
   importDataset: 'Импорт набора данных',
   importParameters: 'Импорт параметров',
   importTemplate: 'Импорт шаблона',
+  menuData: 'Данные',
   tourSteps: {
     datasets: { title: 'Данные', description: 'Наборы данных с их полями и параметры отчёта. Перетащите поле на карточку, чтобы показать его в ней.' },
     wells: { title: 'Поля', description: 'Что показывает выбранная карточка: измерения, меры, ряды или столбцы. Перетаскивайте поля сюда, меняйте порядок перетаскиванием и убирайте их кнопкой ×.' },
@@ -207,7 +208,6 @@ const designer: ReportDesignerLocale = {
     'Переключитесь в предпросмотр, чтобы запустить отчёт с данными и параметрами. Нажмите Ctrl+S (⌘S в macOS), чтобы сохранить; где хранится отчёт, решает система, в которой вы его используете.',
   ],
   shortcutResize: 'Увеличить или уменьшить выбранную карточку на одну ячейку',
-  shortcutSave: 'Сохранить',
   statusDocument: (datasets, cards) => `${datasets} ${plural(datasets, 'набор данных', 'набора данных', 'наборов данных')}${cards === undefined ? '' : ` · ${cards} ${plural(cards, 'карточка', 'карточки', 'карточек')}`}`,
   statusCell: (column, row, width, height) => `Столбец ${column}, строка ${row} · ${width} × ${height}`,
   statusZoom: 'Масштаб',

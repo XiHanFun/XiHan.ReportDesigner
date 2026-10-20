@@ -23,7 +23,19 @@ export type {
   ReportPropertyEditor,
   ReportSelectionSubject,
 } from './extensions'
-export { createReportDesignerModel, REPORT_DESIGNER_EXTENSION, REPORT_DESIGNER_HELP_URL, REPORT_DESIGNER_PANELS, REPORT_IMPORT_TEMPLATE_COMMAND, REPORT_MENU_LAYOUT, REPORT_SELECTION_LAYOUT, REPORT_TOOLBAR_LAYOUT } from './extensions'
+export {
+  createReportDesignerModel,
+  REPORT_DATA_MENU,
+  REPORT_DESIGNER_EXTENSION,
+  REPORT_DESIGNER_HELP_URL,
+  REPORT_DESIGNER_PANELS,
+  REPORT_IMPORT_TEMPLATE_COMMAND,
+  REPORT_MENU_LAYOUT,
+  REPORT_SELECTION_LAYOUT,
+  REPORT_TOOLBAR_LAYOUT,
+  reportMenubarLayout,
+  reportToolbarLayout,
+} from './extensions'
 export type { ReportDataImportKind } from './field-import'
 export { defineReportDesigner, REPORT_DESIGNER_TAG, XhReportDesigner } from './report-designer'
 export type { ReportDatasetEditing, ReportDesignerEventMap, ReportDesignerMode, ReportSchemaChangeKind } from './report-designer'

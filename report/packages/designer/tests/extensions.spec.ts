@@ -145,6 +145,12 @@ function menuEntries(designer: XhReportDesigner): (string | null)[] {
   return [...designer.querySelectorAll('xh-context-menu [data-xh-part="positioner"] > [data-xh-part="content"] [data-xh-part="item"]')].map(item => item.getAttribute('value'))
 }
 
+/** 菜单栏上一张菜单里的命令 id；没有这张菜单时为 undefined。 */
+function menubarItems(designer: XhReportDesigner, menu: string): string[] | undefined {
+  const menubar = designer.querySelector<HTMLElement & { collection?: { value: string, items?: { value: string }[] }[] }>('xh-menubar')!
+  return menubar.collection!.find(node => node.value === menu)?.items!.map(item => item.value.slice(menu.length + 1))
+}
+
 describe('createReportDesignerModel', () => {
   it('内置命令与物料在最前，扩展的按顺序在后；同一个数组只合一次', () => {
     const extensions = [lanesExtension(newProbe())]
@@ -164,6 +170,13 @@ describe('createReportDesignerModel', () => {
       .toThrow(expect.objectContaining({ code: 'designer.extension-conflict', space: 'palette-item' }))
     expect(() => createReportDesignerModel([lanes, { id: '@acme/again', commands: [{ id: 'undo', label: 'Undo', run: () => {} }] }]))
       .toThrow(expect.objectContaining({ code: 'designer.extension-conflict', space: 'command' }))
+  })
+
+  it('菜单栏的菜单：designer-shell 内置的四张在前，报表的数据菜单与扩展登记的在后；菜单 id 与数据菜单重名抛冲突', () => {
+    const model = createReportDesignerModel([{ id: '@acme/tools', menubarMenus: [{ id: 'acme', label: 'Acme', order: 60 }] }])
+    expect(model.menubarMenus.map(menu => [menu.id, menu.order])).toEqual([['file', 0], ['edit', 10], ['view', 20], ['help', 90], ['data', 30], ['acme', 60]])
+    expect(() => createReportDesignerModel([{ id: '@acme/again', menubarMenus: [{ id: 'data', label: 'Data' }] }]))
+      .toThrow(expect.objectContaining({ code: 'designer.extension-conflict', space: 'menubar-menu', key: 'data', extensions: ['@xihan-report/designer', '@acme/again'] }))
   })
 })
 
@@ -225,6 +238,7 @@ describe('<xh-report-designer>：导入模板', () => {
     const designer = await mount(undefined)
     const picker = chooseFile(new File(['{}'], 'a.json'))
     expect(toolbar(designer)).not.toContain(REPORT_IMPORT_TEMPLATE_COMMAND)
+    expect(menubarItems(designer, 'data')).not.toContain(REPORT_IMPORT_TEMPLATE_COMMAND)
     designer.querySelector('[data-part="surface"]')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
     expect(menuEntries(designer)).not.toContain(REPORT_IMPORT_TEMPLATE_COMMAND)
     expect([designer.canImportTemplate, designer.importTemplate(), picker.opened()]).toEqual([false, false, 0])
@@ -238,7 +252,7 @@ describe('<xh-report-designer>：导入模板', () => {
     const kinds: string[] = []
     designer.addEventListener('schema-change', event => kinds.push((event as CustomEvent<{ kind: string }>).detail.kind))
     const picker = chooseFile(new File([JSON.stringify(template)], 'sales.json', { type: 'application/json' }))
-    expect(toolbar(designer)[0]).toBe(REPORT_IMPORT_TEMPLATE_COMMAND)
+    expect([toolbar(designer)[0], menubarItems(designer, 'data')!.at(-1)]).toEqual([REPORT_IMPORT_TEMPLATE_COMMAND, REPORT_IMPORT_TEMPLATE_COMMAND])
     designer.querySelector<HTMLButtonElement>(`[data-region="toolbar"] button[value="${REPORT_IMPORT_TEMPLATE_COMMAND}"]`)!.click()
     await until(() => kinds.length > 0)
     await designer.updateComplete
@@ -320,6 +334,23 @@ describe('<xh-report-designer>：扩展', () => {
     designer.commandLayout = { toolbar: [['undo', '@acme/lanes.count']] }
     await designer.updateComplete
     expect(toolbar(designer)).toEqual(['undo', '@acme/lanes.count'])
+  })
+
+  it('扩展的命令写 placement menubar:<菜单> 落进菜单栏，在数据菜单里接在导入之后；扩展登记的菜单按 order 排在数据与帮助之间；commandLayout 改写一张菜单', async () => {
+    const designer = await mount([{
+      id: '@acme/tools',
+      menubarMenus: [{ id: 'acme', label: 'Acme', order: 60 }],
+      commands: [
+        { id: '@acme/tools.sync', label: 'Sync', placement: ['menubar:data'], run: () => {} },
+        { id: '@acme/tools.go', label: 'Go', placement: ['menubar:acme'], run: () => {} },
+      ],
+    }])
+    const menubar = designer.querySelector<HTMLElement & { collection?: { value: string }[] }>('xh-menubar')!
+    expect(menubar.collection!.map(node => node.value)).toEqual(['file', 'edit', 'view', 'data', 'acme', 'help'])
+    expect([menubarItems(designer, 'data'), menubarItems(designer, 'acme')]).toEqual([['import-dataset', 'import-fields', 'import-parameters', '@acme/tools.sync'], ['@acme/tools.go']])
+    designer.commandLayout = { 'menubar:data': [['import-parameters']], 'menubar:acme': [] }
+    await designer.updateComplete
+    expect([menubarItems(designer, 'data'), menubarItems(designer, 'acme')]).toEqual([['import-parameters'], undefined])
   })
 
   it('面板登记到外框的区，状态变化时 update，去掉扩展时撤掉；setup 在连上文档时调用，换引用当作卸下再装上（面板按面板对象比对，同一个面板不重建）', async () => {

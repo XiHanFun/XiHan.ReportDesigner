@@ -327,7 +327,7 @@ type ReportDataMiddleware = (next: ReportDataProvider) => ReportDataProvider
 declare function createReportDesignerModel(extensions: readonly ReportDesignerExtension[]): ReportDesignerModel
 ```
 
-合出设计器用的模型；任何一处重名（含设置分区、引导步骤与物料来源）都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。同一个数组只合一次。
+合出设计器用的模型；任何一处重名（含设置分区、引导步骤、物料来源与菜单栏的菜单）都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。同一个数组只合一次。
 
 ### ReportDesignerExtension {#reportdesignerextension}
 
@@ -347,6 +347,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | `fieldSources?` | `readonly DesignerFieldSource[]` | 字段来源：导入字段的对话框里，排在内置的 JSON 样例与 JSON Schema 两页之后。 |
 | `id` | `string` | 全局唯一，用包名加功能名：@xihan-flow-pro/simulation。也是模板里扩展数据的键。 |
 | `importers?` | `readonly ReportDesignerImporter[]` | 导入器：命令「导入模板」选中的文件按扩展顺序问 accepts，第一个接下的导入，结果整份换上当前报表、记一步撤销。一个导入器都没有登记时没有这条命令。 |
+| `menubarMenus?` | `readonly DesignerMenubarMenu<ReportDesignerContext>[]` | 菜单栏上加的菜单：id 不能与内置的文件、编辑、视图、帮助或别的扩展的重名，见 collectMenubarMenus；命令经 placement 的 menubar:&lt;id&gt; 落进去。 |
 | `overlays?` | `readonly ReportOverlay[]` | 看板的叠加层；同一层里按扩展顺序，后登记的在上。 |
 | `palette?` | `readonly ReportPaletteItem[]` | 物料面板里的项。 |
 | `paletteGroups?` | `readonly ReportPaletteGroup[]` | 物料面板的组，排在内置的图表、指标、表格之后。 |
@@ -453,7 +454,7 @@ type ReportCardTemplate = ReportAddCardInit & { readonly id?: never }
 
 ### REPORT_TOOLBAR_LAYOUT {#report_toolbar_layout}
 
-工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。登记了导入器时最前面多一组导入模板（REPORT_IMPORT_TEMPLATE_COMMAND）。
+工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。设置与帮助在菜单栏里，末组只留面板；登记了导入器、或菜单栏关掉时的变化见 reportToolbarLayout。
 
 ```ts
 const REPORT_TOOLBAR_LAYOUT = [
@@ -461,9 +462,33 @@ const REPORT_TOOLBAR_LAYOUT = [
   ['cut', 'copy', 'paste', 'duplicate', 'delete'],
   ['pan-tool', 'zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual'],
   ['design', 'preview'],
-  ['panels', 'settings', 'help'],
+  ['panels'],
 ]
 ```
+
+### reportToolbarLayout() {#reporttoolbarlayout}
+
+```ts
+declare function reportToolbarLayout(hasImporters: boolean, menubar?: boolean): (readonly string[])[]
+```
+
+工具栏此刻的缺省排列：登记了导入器时在 REPORT_TOOLBAR_LAYOUT 前面多一组导入模板（REPORT_IMPORT_TEMPLATE_COMMAND）；菜单栏关掉（menubar 为假）时末组放回设置与帮助，它们才有入口。
+
+### REPORT_DATA_MENU {#report_data_menu}
+
+菜单栏上报表自己的菜单「数据」的 id。
+
+```ts
+const REPORT_DATA_MENU = 'data'
+```
+
+### reportMenubarLayout() {#reportmenubarlayout}
+
+```ts
+declare function reportMenubarLayout(commands: DesignerCommandTable<ReportDesignerContext>): Record<string, string[][]>
+```
+
+菜单栏的缺省排列：designer-shell 四张菜单的缺省排列，加上数据菜单；只留命令表里有的命令，没有导入器时数据菜单里不列导入模板，与工具栏一致。
 
 ### REPORT_MENU_LAYOUT {#report_menu_layout}
 
@@ -503,3 +528,4 @@ const REPORT_SELECTION_LAYOUT = {
 | `tourSteps` | `readonly DesignerTourStep<ReportDesignerContext>[]` | 新手引导里报表与各扩展的步骤，按登记顺序；id 不重名。 |
 | `importers` | `readonly ReportDesignerImporter[]` | 各扩展的导入器，按扩展顺序；没有时命令表里没有导入模板。 |
 | `paletteSources` | `readonly DesignerPaletteSource<ReportDesignerContext, ReportPaletteDrop>[]` | 各扩展的物料来源，按 order 排；分组接在内置物料组后面。 |
+| `menubarMenus` | `readonly DesignerMenubarMenu<ReportDesignerContext>[]` | 菜单栏上的菜单：designer-shell 内置的文件、编辑、视图、帮助在前，报表的数据菜单与各扩展登记的在后。 |

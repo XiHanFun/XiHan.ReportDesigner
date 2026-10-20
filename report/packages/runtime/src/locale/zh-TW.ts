@@ -183,6 +183,7 @@ const designer: ReportDesignerLocale = {
   importDataset: '匯入資料集',
   importParameters: '匯入參數',
   importTemplate: '匯入範本',
+  menuData: '資料',
   tourSteps: {
     datasets: { title: '資料', description: '資料集與它們的欄位，以及報表參數。把欄位拖曳到卡片上，卡片就顯示它。' },
     wells: { title: '欄位', description: '選取的卡片顯示什麼：維度、量值、數列或欄。把欄位拖曳進來，拖曳調整順序，點叉移除。' },
@@ -196,7 +197,6 @@ const designer: ReportDesignerLocale = {
     '切到預覽，依資料與參數執行報表。按 Ctrl+S（macOS 上 ⌘S）儲存，報表存在哪裡由所在系統決定。',
   ],
   shortcutResize: '把選取的卡片放大或縮小一格',
-  shortcutSave: '儲存',
   statusDocument: (datasets, cards) => `${datasets} 個資料集${cards === undefined ? '' : ` · ${cards} 張卡片`}`,
   statusCell: (column, row, width, height) => `第 ${column} 欄第 ${row} 列 · ${width} × ${height} 格`,
   statusZoom: '縮放',
