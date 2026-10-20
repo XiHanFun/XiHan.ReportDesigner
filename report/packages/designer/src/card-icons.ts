@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 内置卡片种类的图标：物料、顶栏的插入钮与页面结构共用一张表。
+// 内置卡片种类的图标：物料与页面结构共用一张表。
 
 import type { ReportCardType } from '@xihan-report/core'
 import type { IconRecord } from '@xihan-ui/core'

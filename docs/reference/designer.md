@@ -17,7 +17,7 @@
 | `expressionEngine` | — | `ExpressionEngine \| undefined` | 表达式引擎：计算字段与公式度量要用，校验公式也用它。 |
 | `formatter` | — | `ReportFormatter \| undefined` | 值的显示文字；缺省按格式说明调 formatValue。 |
 | `parameters` | — | `ParameterValues \| undefined` | 预览与画布取数用的报表参数取值。 |
-| `commandLayout` | — | `DesignerCommandLayout \| undefined` | 工具栏、顶栏（header）、右键菜单（menu:card、menu:blank）与选中工具条（selection:card、selection:multiple）的命令排列；写了某个位置就只显示列出的命令。 |
+| `commandLayout` | — | `DesignerCommandLayout \| undefined` | 工具栏、右键菜单（menu:card、menu:blank）与选中工具条（selection:card、selection:multiple）的命令排列；写了某个位置就只显示列出的命令。 |
 | `translations` | — | `Partial<ReportDesignerTranslations> \| undefined` | 元素自己的文案，压在全局配置之上。 |
 | `locale` | `locale` | `string \| undefined` | BCP 47 语言标记；缺省取全局配置。 |
 | `timeZone` | `time-zone` | `string \| undefined` | IANA 时区；缺省取运行环境所在的时区。 |
@@ -57,7 +57,7 @@
 | `clearHistory(): void` | 清空撤销与重做；报表与是否已保存不变。只读或拖动中时什么都不做。 |
 | `markSaved(): void` | 把当前位置记为保存点。 |
 | `addCard(init: ReportAddCardInit, options?: ExecuteOptions): DashboardCard` | 新增卡片并选中它；报表主体不是看板时抛错。 |
-| `addPaletteItem(id: string): DashboardCard \| undefined` | 照点物料的做法新建一张卡片：放到第一个空位、选中它并滚到看得见的地方，返回新卡片；只读、主体不是看板或没有这个物料项时什么都不做，返回 undefined。顶栏的插入钮调它。 |
+| `addPaletteItem(id: string): DashboardCard \| undefined` | 照点物料的做法新建一张卡片：放到第一个空位、选中它并滚到看得见的地方，返回新卡片；只读、主体不是看板或没有这个物料项时什么都不做，返回 undefined。点物料面板的条目时调它。 |
 | `select(selection: Partial<ReportSelection>): void` | 换成给出的选择：给了 data 只选数据面板里的对象，否则选 cards，再带 item 或 link 之一。 |
 | `selectAll(): void` | 选中看板上的全部卡片；主体不是看板时清空选择。 |
 | `getSelection(): ReportSelection` | 当前的选择。 |
@@ -262,7 +262,6 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `wellsHelp` | `string` | 字段栏卡片的帮助。 | 选中卡片的维度、度量、系列与列。把字段拖进来，拖动换序，点叉移除。 |
 | `propertiesHelp` | `string` | 属性卡片的帮助。 | 选中对象的属性。选中多张卡片时只列它们共有的属性。 |
 | `issuesHelp` | `string` | 问题卡片的帮助。 | 报表的校验问题。点一条选中出问题的对象。 |
-| `insertToolbar` | `string` | 顶栏那一条插入钮的名字。 | 插入卡片 |
 | `selectionToolbar` | `string` | 选中卡片时浮在选中框上方那一条工具条的名字。 | 选中的卡片 |
 | `sizeUnit` | `string` | 尺寸徽标里卡片宽高的单位：看板按格计。 | 格 |
 | `importDataset` | `string` | 命令「导入数据集」的文字，也是这时导入对话框的标题。 | 导入数据集 |
@@ -272,7 +271,6 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `helpNotes` | `readonly string[]` | 设置对话框「帮助」页的几段操作说明。 | （按键对照） |
 | `shortcutResize` | `string` | 快捷键表里 Shift 加方向键那一行：把选中的卡片改大或改小一格。 | 把选中的卡片改大或改小一格 |
 | `shortcutSave` | `string` | 快捷键表里 Ctrl / ⌘ + S 那一行。 | 保存 |
-| `insertCard` | `(label: string): string` | 顶栏插入钮的名字与提示，label 是物料名。 | （按参数生成） |
 | `statusDocument` | `(datasets: number, cards: number \| undefined): string` | 状态栏左段没选中时：数据集数，主体是看板时再写卡片数（不是看板时 cards 为 undefined）。 | （按参数生成） |
 | `statusCell` | `(column: number, row: number, width: number, height: number): string` | 状态栏左段选中一张卡片时：它左上角所在的列与行（从 1 数起）和占的格数。 | （按参数生成） |
 | `statusZoom` | `string` | 状态栏右段缩放那一项的标签。 | 缩放 |
