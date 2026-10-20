@@ -816,18 +816,21 @@ describe('<xh-report-designer>：编辑', () => {
     expect([button('delete').disabled, button('copy').disabled, button('preview').disabled]).toEqual([true, false, false])
   })
 
-  it('工具栏末组只留面板；设置与帮助在菜单栏里，关掉菜单栏时回到末组：设置打开设置对话框，帮助在新窗口打开文档站的设计器一页', async () => {
+  it('工具栏末组只留面板；设置与帮助只在常开的菜单栏里，设置里写了 toolbar.menubar 也不起作用：设置打开设置对话框，帮助在新窗口打开文档站的设计器一页', async () => {
     const designer = await mount()
+    const frame = designer.querySelector('xh-designer-frame')!
     const groups = (): string[][] => Array.from(designer.querySelectorAll('[data-part="command-bar"] [data-xh-part="group"]'), group => Array.from(group.querySelectorAll('button'), button => button.value))
     expect(groups().at(-1)).toEqual(['panels'])
-    designer.settings = { [DESIGNER_SETTING_KEYS.toolbarMenubar]: false }
+    designer.settings = { 'toolbar.menubar': false }
     await designer.updateComplete
-    expect(groups().at(-1)).toEqual(['panels', 'settings', 'help'])
-    designer.querySelector<HTMLButtonElement>('[data-region="toolbar"] button[value="settings"]')!.click()
+    expect([groups().at(-1), frame.regions!.map(region => region.name).includes('menubar')]).toEqual([['panels'], true])
+    const menubar = designer.querySelector<MenubarHost>('xh-menubar')!
+    const select = (menu: string, id: string): void => void menubar.dispatchEvent(new CustomEvent('item-select', { detail: { menu, value: `${menu}/${id}` } }))
+    select('file', 'settings')
     await designer.updateComplete
     expect(designer.querySelector<HTMLElement & { open?: boolean }>('xh-designer-settings')!.open).toBe(true)
     const open = vi.spyOn(window, 'open').mockReturnValue(null)
-    designer.querySelector<HTMLButtonElement>('[data-region="toolbar"] button[value="help"]')!.click()
+    select('help', 'help')
     expect(open).toHaveBeenCalledWith(REPORT_DESIGNER_HELP_URL, '_blank', 'noopener,noreferrer')
   })
 
@@ -839,7 +842,7 @@ describe('<xh-report-designer>：编辑', () => {
     expect([...createReportDesignerModel([]).commands.keys()].filter(id => id.startsWith('insert:'))).toEqual([])
   })
 
-  it('菜单栏：外框最上一条，文件、编辑、视图、数据、帮助五张菜单；视图收尾是面板与外观，三条显示开关在外观子菜单里；数据菜单是导入数据集、字段与参数，没有导入器时不列导入模板，文件菜单也没有打开文件', async () => {
+  it('菜单栏：外框最上一条，文件、编辑、视图、数据、帮助五张菜单；视图收尾是面板与外观，工具栏、状态栏两条显示开关在外观子菜单里；数据菜单是导入数据集、字段与参数，没有导入器时不列导入模板，文件菜单也没有打开文件', async () => {
     const designer = await mount()
     const menubar = designer.querySelector<MenubarHost>('xh-menubar')!
     expect(menubar.closest('[data-region]')!.getAttribute('data-region')).toBe('menubar')
@@ -852,12 +855,12 @@ describe('<xh-report-designer>：编辑', () => {
     expect(menubar.checkboxValue).toEqual(['view/design'])
     const view = menubar.collection!.find(node => node.value === 'view')!.items!
     const appearance = view.find(item => item.value === 'view/appearance')!
-    const toggles = ['show-toolbar', 'show-status-bar', 'show-menubar'].map(id => `view/appearance/command:${id}`)
+    const toggles = ['show-toolbar', 'show-status-bar'].map(id => `view/appearance/command:${id}`)
     expect([appearance.children!.map(child => [child.value, child.kind]), appearance.checkboxValue]).toEqual([toggles.map(value => [value, 'checkbox']), toggles])
     expect([view.find(item => item.value === 'view/panels')!.icon, appearance.icon]).toEqual([PanelLeftIcon, EyeIcon])
   })
 
-  it('菜单栏的条目执行命令：保存派发 save，画布上按 Ctrl+S 走同一条命令；显示开关改设置并派发 settings-change，关掉菜单栏时外框不登记它', async () => {
+  it('菜单栏的条目执行命令：保存派发 save，画布上按 Ctrl+S 走同一条命令；显示开关改设置并派发 settings-change，菜单栏常开、没有它的开关', async () => {
     const designer = await mount()
     const menubar = designer.querySelector<MenubarHost>('xh-menubar')!
     const frame = designer.querySelector('xh-designer-frame')!
@@ -871,10 +874,7 @@ describe('<xh-report-designer>：编辑', () => {
     select('view', 'appearance/command:show-status-bar')
     await designer.updateComplete
     expect([changes.map(change => [change.key, change.value]), frame.regions!.map(region => region.name)]).toEqual([[[DESIGNER_SETTING_KEYS.statusBar, false]], expect.not.arrayContaining(['status'])])
-    select('view', 'appearance/command:show-menubar')
-    await designer.updateComplete
-    await frame.updateComplete
-    expect([changes.at(-1)!.key, frame.regions!.map(region => region.name).includes('menubar'), menubar.closest('[data-part="parked"]') !== null]).toEqual([DESIGNER_SETTING_KEYS.toolbarMenubar, false, true])
+    expect([createReportDesignerModel([]).commands.has('show-menubar'), frame.regions!.map(region => region.name).includes('menubar')]).toEqual([false, true])
   })
 
   it('宿主写在设计器上的 slot="menubar-end" 放到菜单栏右边一段：连上之前写的、之后加的都一样', async () => {
@@ -1416,7 +1416,7 @@ describe('<xh-report-designer>：编辑', () => {
     expect(quiet.querySelector('xh-designer-tour')!.running).toBe(true)
   })
 
-  it('报表的引导步骤：数据面板之后是「数据」菜单一步，讲导入数据集、字段与参数，登记了导入器时带上导入模板；菜单栏开着时预览一步多一句「视图」菜单；关掉菜单栏时没有菜单栏与数据菜单两步、预览不提菜单，设置一步落在工具栏的设置钮上', async () => {
+  it('报表的引导步骤：数据面板之后是「数据」菜单一步，讲导入数据集、字段与参数，登记了导入器时带上导入模板；预览一步的说明带上「视图」菜单；设置一步只落在「文件」菜单', async () => {
     const t = DEFAULT_REPORT_DESIGNER_TRANSLATIONS.tourSteps
     const designer = await mount()
     const frame = designer.querySelector('xh-designer-frame')!
@@ -1424,18 +1424,17 @@ describe('<xh-report-designer>：编辑', () => {
     const tour = designer.querySelector('xh-designer-tour')!
     const step = (id: string): { target?: unknown, order?: number, title: string, description: string } => tour.steps!.find(item => item.id === id)!
     expect([step('report.data').target, step('report.data').order, step('report.data').title, step('report.data').description]).toEqual([{ menubar: 'data' }, 105, t.data.title, t.data.description])
-    expect([t.data.description, t.data.templateDescription, t.preview.menubarDescription]).toEqual([expect.stringContaining('Data menu'), expect.stringContaining('Import template'), expect.stringContaining('View menu')])
-    expect(step('report.preview').description).toBe(t.preview.menubarDescription)
+    expect([t.data.description, t.data.templateDescription, t.preview.description]).toEqual([expect.stringContaining('Data menu'), expect.stringContaining('Import template'), expect.stringContaining('View menu')])
+    expect([step('report.preview').description, 'menubarDescription' in t.preview]).toEqual([t.preview.description, false])
     designer.extensions = [{ id: '@acme/templates', importers: [{ id: '@acme/templates.json', accepts: () => true, import: () => undefined }] }]
     await designer.updateComplete
     expect(step('report.data').description).toBe(t.data.templateDescription)
-    designer.settings = { [DESIGNER_SETTING_KEYS.toolbarMenubar]: false }
+    designer.settings = { 'toolbar.menubar': false }
     await designer.updateComplete
     await frame.updateComplete
     const planned = tour.plannedSteps()
-    expect(planned.map(item => item.id).filter(id => id === 'shell.menubar' || id === 'report.data')).toEqual([])
-    expect(planned.at(-1)).toMatchObject({ id: 'shell.settings', target: { command: 'settings' } })
-    expect(step('report.preview').description).toBe(t.preview.description)
+    expect(planned.map(item => item.id).filter(id => id === 'shell.menubar' || id === 'report.data')).toEqual(['shell.menubar', 'report.data'])
+    expect(planned.filter(item => item.id === 'shell.settings').map(item => item.target)).toEqual([{ menubar: 'file' }])
   })
 
   it('同一页只开一个新手引导：别的设计器的引导开着时，startTour()（start-tour 命令与帮助页的「开始引导」都走它）先收起那一个再开始', async () => {

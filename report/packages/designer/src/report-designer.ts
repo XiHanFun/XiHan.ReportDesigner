@@ -51,7 +51,6 @@ import {
   DESIGNER_TOUR_DONE_KEY,
   designerLayoutPolicy,
   forwardFrameSlots,
-  menubarVisibleOf,
   registerDropTarget,
   renderCommandMenu,
   resolvePaletteSources,
@@ -1409,13 +1408,11 @@ export class XhReportDesigner extends XhReactiveElement {
   }
 
   /**
-   * 这个区此刻登记不登记：预览态只登记菜单栏、工具栏与画布；没有报表参数又不能新增时不登记那块卡片，
-   * 设置里关了菜单栏、工具栏或状态栏时不登记它们（命令照样能经快捷键与右键菜单执行）。
+   * 这个区此刻登记不登记：菜单栏常开；预览态只登记菜单栏、工具栏与画布；没有报表参数又不能新增时不登记那块卡片，
+   * 设置里关了工具栏或状态栏时不登记它们（命令照样能经快捷键、菜单栏与右键菜单执行）。
    */
   #registers(name: string): boolean {
     if (name === 'toolbar' && !toolbarVisibleOf(this.settings))
-      return false
-    if (name === 'menubar' && !menubarVisibleOf(this.settings))
       return false
     if (this.#mode() === 'preview')
       return name === 'menubar' || name === 'toolbar' || name === 'canvas'
@@ -2021,7 +2018,7 @@ export class XhReportDesigner extends XhReactiveElement {
       layers.issues.update(editor.document, this.#issues, shown)
       const { commands } = this.#model
       // 工具栏先按 commandLayout 或缺省排列排出分组，再套用户在设置「工具栏」页的定制；同一份排列交给设置对话框列按钮表
-      const defaults = reportToolbarLayout(this.#model.importers.length > 0, menubarVisibleOf(this.settings))
+      const defaults = reportToolbarLayout(this.#model.importers.length > 0)
       const arranged = arrangeCommands('toolbar', commands, defaults, this.commandLayout)
       layers.commandBar.setDisplay(toolbarDisplayOf(this.#resolvedSettings))
       layers.commandBar.update(applyToolbarCustomization(arranged, toolbarCustomizationOf(this.settings)), commands, context, context.commands.toolbar)

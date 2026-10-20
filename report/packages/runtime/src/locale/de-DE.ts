@@ -190,7 +190,7 @@ const designer: ReportDesignerLocale = {
     wells: { title: 'Felder', description: 'Was die ausgewählte Karte zeigt: Dimensionen, Kennzahlen, Reihen oder Spalten. Zieh Felder hinein, ordne sie per Ziehen um und entferne sie mit ×.' },
     cards: { title: 'Karten', description: 'Zieh eine Karte, um sie zu verschieben, und zieh ihre Ränder, um die Größe zu ändern. Sie rastet am Raster ein. Bei einer ausgewählten Karte kopiert oder löscht die Leiste darüber sie, und das Abzeichen darunter zeigt ihre Größe in Zellen.' },
     links: { title: 'Verknüpfungen', description: 'Unter den Feldern einer ausgewählten Karte verknüpfst du sie mit anderen Karten. Ein Klick auf einen Wert in dieser Karte filtert dann die verknüpften Karten.' },
-    preview: { title: 'Vorschau', description: 'Führe den Bericht mit Daten und Parametern aus und sieh ihn so, wie seine Nutzer ihn sehen.', menubarDescription: 'Führe den Bericht mit Daten und Parametern aus und sieh ihn so, wie seine Nutzer ihn sehen. Auch im Menü Ansicht wechselst du zwischen Entwurf und Vorschau.' },
+    preview: { title: 'Vorschau', description: 'Führe den Bericht mit Daten und Parametern aus und sieh ihn so, wie seine Nutzer ihn sehen. Auch im Menü Ansicht wechselst du zwischen Entwurf und Vorschau.' },
   },
   helpNotes: [
     'Zieh Felder aus dem Datenbereich auf eine Karte oder in ihre Felder, um festzulegen, was die Karte zeigt. Zahlenfelder werden zu Kennzahlen, alle anderen zu Dimensionen.',
