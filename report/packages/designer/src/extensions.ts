@@ -169,7 +169,7 @@ export const REPORT_DESIGNER_PANELS = {
 /**
  * 内置命令：导入模板（登记了导入器才进命令表），撤销、重做与清空历史，剪贴板、创建副本与删除、全选、缩放、设计与预览，designer-shell
  * 内置的保存、面板、显示或隐藏所有面板、还原面板显隐、恢复默认布局、拖动工具、设置、快捷键、关于、帮助、导入字段、编辑 JSON、开始引导
- * 与工具栏、状态栏、菜单栏的显示开关，导入数据集与导入参数，以及每块内置面板一条开关命令 panel:<面板 id>。
+ * 与收着工具栏、状态栏、菜单栏三条显示开关的外观，导入数据集与导入参数，以及每块内置面板一条开关命令 panel:<面板 id>。
  */
 const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
   { id: REPORT_IMPORT_TEMPLATE_COMMAND, label: ({ translations }) => translations.importTemplate, icon: FolderOpenIcon, enabled: editable(() => true), run: ({ designer }) => void designer.importTemplate() },
@@ -213,7 +213,7 @@ const BUILTIN_COMMANDS: readonly ReportDesignerCommand[] = [
       change: ({ designer }, key, value) => internalsOf(designer).changeSetting(key, value),
       policy: ({ designer }) => designer.settingsPolicy,
     },
-    icons: { save: SaveIcon, panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: UploadIcon, editJson: FileCodeIcon, startTour: LightbulbIcon, panTool: HandIcon, about: InfoIcon },
+    icons: { save: SaveIcon, panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: UploadIcon, editJson: FileCodeIcon, startTour: LightbulbIcon, panTool: HandIcon, about: InfoIcon, appearance: EyeIcon },
   }),
   { id: 'import-dataset', label: ({ translations }) => translations.importDataset, icon: FilePlusIcon, enabled: ({ designer }) => designer.canImportData('dataset'), run: ({ designer }) => void designer.openDataImport('dataset') },
   { id: 'import-parameters', label: ({ translations }) => translations.importParameters, icon: UploadIcon, enabled: ({ designer }) => designer.canImportData('parameters'), run: ({ designer }) => void designer.openDataImport('parameters') },
