@@ -2050,3 +2050,24 @@ describe('<xh-report-designer>：物料来源', () => {
     expect(designer.extensions).toEqual([first])
   })
 })
+
+describe('<xh-report-designer>：调试日志', () => {
+  it('开发者模式与渲染日志都开着时，每次重画记一组「[xh-report-designer] render · update: 改动的属性」带耗时，画布上卡片的取数、计算与出图各记一组；报表没有分页，分页日志开着也不记；关掉开发者模式就不记', async () => {
+    const groups = vi.spyOn(console, 'groupCollapsed').mockImplementation(() => {})
+    vi.spyOn(console, 'groupEnd').mockImplementation(() => {})
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const titles = (): string[] => groups.mock.calls.map(call => String(call[0]))
+    const designer = await mount({ provider: () => {}, settings: { ...DEVELOPER, [DESIGNER_SETTING_KEYS.debugRender]: true, [DESIGNER_SETTING_KEYS.debugPagination]: true } })
+    await new Promise(resolve => setTimeout(resolve, 400))
+    expect(titles().some(title => title.startsWith('[xh-report-designer] render · update: '))).toBe(true)
+    for (const step of ['fetch: sales', 'compute: card ', 'paint: card '])
+      expect([step, titles().some(title => title.startsWith(`[xh-report-designer] render · ${step}`))]).toEqual([step, true])
+    expect(titles().filter(title => !/ \d+\.\d ms$/.test(title) || title.includes(' pagination · '))).toEqual([])
+    groups.mockClear()
+    designer.settings = { [DESIGNER_SETTING_KEYS.debugRender]: true }
+    await designer.updateComplete
+    designer.requestUpdate()
+    await designer.updateComplete
+    expect(groups).not.toHaveBeenCalled()
+  })
+})
