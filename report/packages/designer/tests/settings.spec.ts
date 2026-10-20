@@ -155,11 +155,14 @@ describe('设置', () => {
     expect(designer.querySelector('xh-designer-frame')!.showsPanel('wells')).toBe(false)
   })
 
-  it('主题与主题色落在设计器元素上：亮暗写 data-theme，预设主题色写 data-brand，跟随页面时去掉', async () => {
+  it('主题与主题色落在设计器元素上：亮暗写 data-theme，预设主题色写 data-brand，跟随页面时去掉；主题色内置在基础页，宿主不传预设', async () => {
     const designer = await mount((element) => {
-      element.brands = [{ value: 'green', color: '#16a34a' }]
       element.settings = { [DESIGNER_SETTING_KEYS.theme]: 'dark' }
     })
+    expect(['brands', 'registerBrand'].some(name => name in designer)).toBe(false)
+    designer.openSettings('general')
+    await settle(designer)
+    expect(row(DESIGNER_SETTING_KEYS.brand)).not.toBeNull()
     expect(designer.getAttribute('data-theme')).toBe('dark')
     designer.settings = { [DESIGNER_SETTING_KEYS.brand]: 'green' }
     await designer.updateComplete

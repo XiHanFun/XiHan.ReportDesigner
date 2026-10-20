@@ -182,7 +182,7 @@ aside: false
 
 设置是用户偏好，每人每机一份，不随报表定义保存。`openSettings(section?)` 打开设置对话框，左边一个分区一页：
 
-- 「基础」（`general`）：主题（跟随页面、跟随系统、亮色、暗色）、主题色与状态栏。
+- 「基础」（`general`）：主题（跟随页面、跟随系统、亮色、暗色）、主题色（跟随页面、八种预设、自定义颜色）与状态栏。
 - 「布局」（`layout`）：逐块卡片一行，改显示、位置、先后与收起，表下是「恢复默认布局」，与面板头的「更多」菜单一样不靠拖动也能改布局；改动照样写进 `layout.panels`。`settingsPolicy` 把 `layout.panels` 写 `hidden` 时没有这一页，写 `locked` 时只读。
 - 「工具栏」（`toolbar`）：按钮显示方式（`toolbar.display`：图标、文字、图标和文字，缺省只显示图标）、显示工具栏（`toolbar.visible`，关掉后整条工具栏不显示，命令照样能经快捷键与右键菜单执行）与按钮表（`toolbar.layout`）。按钮表一组一块，勾掉的按钮不上工具栏，拖动把手换先后、跨组挪，组头的勾选框整组勾选或勾掉，表下「恢复默认」删掉这个键。工具栏先按 `commandLayout`（没写时按缺省排列）排出分组，再套用户的定制；后装的扩展命令放到缺省排列里挨着的位置，已经没有的命令跳过。只管顶部工具栏，右键菜单与选中工具条不进定制。这几条只走设置，没有单独的属性。
 - 扩展登记的分区，排在这几页后面。分区 id 与 `general`、`layout`、`toolbar` 或别的扩展重名时，给 `extensions` 赋值就抛 `DesignerExtensionError`。
@@ -198,7 +198,7 @@ aside: false
 
 <<< @/examples/snippets/settings.ts#host
 
-- **主题只作用于设计器**：主题与主题色写在 `<xh-report-designer>` 自己的 `data-theme`、`data-brand` 上，页面其余部分不变；设置对话框、菜单这些浮层跟着设计器变。主题色的预设由宿主给 `brands`（品牌 id 与色板格子的颜色，可以用 `@xihan-ui/tokens` 的 `BRAND_PRESETS` 与 `BRAND_PRESET_COLORS`）；给了 `registerBrand`（形状同 `@xihan-ui/tokens` 的 `registerBrand`）才许自定义颜色。两样都不给时没有主题色这一项。
+- **主题只作用于设计器**：主题与主题色写在 `<xh-report-designer>` 自己的 `data-theme`、`data-brand` 上，页面其余部分不变；设置对话框、菜单这些浮层跟着设计器变。主题色是内置的：跟随页面（缺省，不写 `data-brand`），或 UI 的八种预设，或自定义颜色，宿主不用传预设。
 - **扩展读设置**：命令、面板与扩展从上下文的 `settings` 读值，各分区没写的条目已经取了缺省值。
 
 独立使用、没有宿主替你存时，给 `settingsStorageKey`：连上文档时若没赋 `settings` 就从根所在窗口的 localStorage 读，用户改了设置就写回去；标了 `secret` 的文本条目（如密钥）不存。读写失败派发 `settings-storage-error`，设置留在内存里。不给就不读写存储。

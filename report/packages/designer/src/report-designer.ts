@@ -15,7 +15,6 @@ import type { ReportDataProvider, ReportDesignerTranslations, ReportFormatter, R
 import type { JsonValue } from '@xihan-ui/core/json'
 import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
 import type { DesignerImportSource, ExecuteOptions, ExtensionHost, GridRect, HistoryChangeKind, HistoryLabel, HistorySnapshot, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
-import type { PropertySwatchOption } from '@xihan-ui/designer-kit/properties'
 import type { CommandMenubar, CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFieldImportEventMap, DesignerFrameEventMap, DesignerFrameRegion, DesignerHistoryTranslations, DesignerIssueItem, DesignerJsonEditorEventMap, DesignerLayout, DesignerLayoutPolicy, DesignerMeasureConvert, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPaletteItem, DesignerPaletteView, DesignerPanelActions, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { DialogService } from '@xihan-ui/web-components/services'
@@ -283,8 +282,6 @@ export class XhReportDesigner extends XhReactiveElement {
     settings: { attribute: false },
     settingsPolicy: { attribute: false },
     settingsStorageKey: { attribute: 'settings-storage-key', converter: { fromAttribute: (value: string | null) => value ?? undefined } },
-    brands: { attribute: false },
-    registerBrand: { attribute: false },
     historyLimit: { attribute: 'history-limit', converter: NUMBER_CONVERTER },
   }
 
@@ -338,10 +335,6 @@ export class XhReportDesigner extends XhReactiveElement {
    * 标了 secret 的条目不存；读写失败派发 settings-storage-error。不给就不读写。同名 attribute settings-storage-key。
    */
   declare settingsStorageKey: string | undefined
-  /** 设置里主题色的预设：value 是品牌 id（写成设计器根上的 data-brand），color 是色板格子的颜色。不给且没给 registerBrand 时没有主题色这一项。 */
-  declare brands: readonly PropertySwatchOption[] | undefined
-  /** 注册自定义主题色，形状与 @xihan-ui/tokens 的 registerBrand 相同；给了才许在设置里自定义主题色。 */
-  declare registerBrand: ((id: string, color: string) => () => void) | undefined
   /** 撤销步数上限，缺省 100；在下一次装载（赋 schema）时生效。同名 attribute history-limit。 */
   declare historyLimit: number | undefined
 
@@ -1281,22 +1274,20 @@ export class XhReportDesigner extends XhReactiveElement {
   }
 
   /**
-   * 设置：建好设置宿主（主题色预设、注册函数或存储键变了就重建），给了存储键又没赋 settings 时从存储读；settings 变了
-   * 把主题与主题色落到设计器上；算出此刻生效的设置，交给设置对话框。
+   * 设置：建好设置宿主（存储键变了就重建），给了存储键又没赋 settings 时从存储读；settings 变了把主题与主题色落到设计器上；
+   * 算出此刻生效的设置，交给设置对话框。
    */
   #syncSettings(layers: Layers, changed: PropertyValues): void {
-    const options = [this.brands, this.registerBrand, this.settingsStorageKey]
+    const options = [this.settingsStorageKey]
     let fresh = false
     if (!this.#settingsHost || options.some((value, index) => value !== this.#settingsHostOptions[index])) {
       this.#settingsHost?.dispose()
       this.#settingsHostOptions = options
       const storageKey = this.settingsStorageKey
       this.#settingsHost = storageKey === undefined
-        ? createDesignerSettingsHost({ root: this, brands: this.brands, registerBrand: this.registerBrand })
+        ? createDesignerSettingsHost({ root: this })
         : createDesignerSettingsHost({
             root: this,
-            brands: this.brands,
-            registerBrand: this.registerBrand,
             storageKey,
             onStorageError: detail => emitEvent(this, 'settings-storage-error', detail),
           })
@@ -1309,12 +1300,10 @@ export class XhReportDesigner extends XhReactiveElement {
     const sections = this.#model.settings
     this.#resolvedSettings = resolveSettings(sections, this.settings)
     const dialog = layers.settings
-    const general = { brands: this.brands, customBrand: this.registerBrand !== undefined }
     const policy: DesignerSettingsPolicy = { ...this.settingsPolicy }
-    const dialogKey = JSON.stringify([general.brands, general.customBrand, policy])
+    const dialogKey = JSON.stringify(policy)
     if (dialogKey !== this.#settingsDialogKey) {
       this.#settingsDialogKey = dialogKey
-      dialog.general = general
       dialog.policy = policy
     }
     if (dialog.sections !== sections)
