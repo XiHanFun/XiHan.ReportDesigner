@@ -454,7 +454,7 @@ type ReportCardTemplate = ReportAddCardInit & { readonly id?: never }
 
 ### REPORT_TOOLBAR_LAYOUT {#report_toolbar_layout}
 
-工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。设置与帮助在菜单栏里，末组只留面板；登记了导入器、或菜单栏关掉时的变化见 reportToolbarLayout。
+工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。设置与帮助在菜单栏里，末组只留面板；登记了导入器时的变化见 reportToolbarLayout。
 
 ```ts
 const REPORT_TOOLBAR_LAYOUT = [
@@ -469,10 +469,10 @@ const REPORT_TOOLBAR_LAYOUT = [
 ### reportToolbarLayout() {#reporttoolbarlayout}
 
 ```ts
-declare function reportToolbarLayout(hasImporters: boolean, menubar?: boolean): (readonly string[])[]
+declare function reportToolbarLayout(hasImporters: boolean): (readonly string[])[]
 ```
 
-工具栏此刻的缺省排列：登记了导入器时在 REPORT_TOOLBAR_LAYOUT 前面多一组导入模板（REPORT_IMPORT_TEMPLATE_COMMAND）；菜单栏关掉（menubar 为假）时末组放回设置与帮助，它们才有入口。
+工具栏此刻的缺省排列：登记了导入器时在 REPORT_TOOLBAR_LAYOUT 前面多一组导入模板（REPORT_IMPORT_TEMPLATE_COMMAND）。
 
 ### REPORT_DATA_MENU {#report_data_menu}
 

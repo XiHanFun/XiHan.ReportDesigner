@@ -17,7 +17,7 @@ import type { XhReportDesigner } from './report-designer'
 import { cardTemplate, REPORT_CARD_TYPES } from '@xihan-report/core'
 import { createReportRuntimeModel } from '@xihan-report/runtime'
 import { extensionCommands, mergeExtensions } from '@xihan-ui/designer-kit'
-import { collectMenubarMenus, collectPaletteSources, collectSettingsSections, collectTourSteps, createHistoryPanel, createOutlinePanel, designerHistoryCommands, designerMenubarLayout, designerMenubarMenus, designerPanelCommands, designerShellCommands, menubarVisibleOf } from '@xihan-ui/designer-shell'
+import { collectMenubarMenus, collectPaletteSources, collectSettingsSections, collectTourSteps, createHistoryPanel, createOutlinePanel, designerHistoryCommands, designerMenubarLayout, designerMenubarMenus, designerPanelCommands, designerShellCommands } from '@xihan-ui/designer-shell'
 import { CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, EraserIcon, EyeIcon, FileCodeIcon, FilePlusIcon, FolderOpenIcon, HandIcon, HistoryIcon, InfoIcon, LightbulbIcon, ListTreeIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, RedoIcon, SaveIcon, ScissorsIcon, SettingsIcon, SquareDashedIcon, TrashIcon, UndoIcon, UploadIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { REPORT_CARD_TYPE_ICONS } from './card-icons'
 import { REPORT_OUTLINE_ADAPTER } from './outline'
@@ -256,7 +256,7 @@ function hasImporters({ designer }: ReportDesignerContext): boolean {
   return (designer.extensions ?? []).some(extension => (extension.importers?.length ?? 0) > 0)
 }
 
-/** 引导的一步：登记了导入器时说明换用 templateDescription，菜单栏显示着时换用 menubarDescription，都没有时用 description。 */
+/** 引导的一步：登记了导入器时说明换用 templateDescription，没有时用 description。 */
 function tourStep(key: ReportTourStepKey, target: DesignerTourTarget, order: number, when?: (context: ReportDesignerContext) => boolean): DesignerTourStep<ReportDesignerContext> {
   return {
     id: `report.${key}`,
@@ -265,17 +265,15 @@ function tourStep(key: ReportTourStepKey, target: DesignerTourTarget, order: num
     title: ({ translations }) => translations.tourSteps[key].title,
     description: (context) => {
       const text = context.translations.tourSteps[key]
-      const template = hasImporters(context) ? text.templateDescription : undefined
-      const menubar = menubarVisibleOf(context.settings) ? text.menubarDescription : undefined
-      return template ?? menubar ?? text.description
+      return (hasImporters(context) ? text.templateDescription : undefined) ?? text.description
     },
     ...(when ? { when } : {}),
   }
 }
 
 /**
- * 新手引导里报表自己的几步，排在通用步骤之后：数据面板、「数据」菜单（讲导入；菜单栏关着时由零件跳过）、字段栏、卡片、联动与预览；
- * 看板上没有卡片时跳过卡片与联动两步。菜单栏显示着时，预览一步的说明多一句「视图」菜单里也能切换。
+ * 新手引导里报表自己的几步，排在通用步骤之后：数据面板、「数据」菜单（讲导入）、字段栏、卡片、联动与预览；
+ * 看板上没有卡片时跳过卡片与联动两步。预览一步的说明带一句「视图」菜单里也能切换。
  */
 const REPORT_TOUR_STEPS: readonly DesignerTourStep<ReportDesignerContext>[] = [
   tourStep('datasets', { panel: 'datasets' }, 100),
@@ -308,7 +306,7 @@ export const REPORT_DESIGNER_EXTENSION: ReportDesignerExtension = {
 
 /**
  * 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。
- * 设置与帮助在菜单栏里，末组只留面板；登记了导入器、或菜单栏关掉时的变化见 reportToolbarLayout。
+ * 设置与帮助在菜单栏里，末组只留面板；登记了导入器时的变化见 reportToolbarLayout。
  */
 export const REPORT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['undo', 'redo'],
@@ -318,14 +316,9 @@ export const REPORT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['panels'],
 ]
 
-/**
- * 工具栏此刻的缺省排列：登记了导入器时在 REPORT_TOOLBAR_LAYOUT 前面多一组导入模板（REPORT_IMPORT_TEMPLATE_COMMAND）；
- * 菜单栏关掉（menubar 为假）时末组放回设置与帮助，它们才有入口。
- */
-export function reportToolbarLayout(hasImporters: boolean, menubar: boolean = true): (readonly string[])[] {
-  const last = REPORT_TOOLBAR_LAYOUT.at(-1)!
-  const groups = [...REPORT_TOOLBAR_LAYOUT.slice(0, -1), menubar ? last : [...last, 'settings', 'help']]
-  return hasImporters ? [[REPORT_IMPORT_TEMPLATE_COMMAND], ...groups] : groups
+/** 工具栏此刻的缺省排列：登记了导入器时在 REPORT_TOOLBAR_LAYOUT 前面多一组导入模板（REPORT_IMPORT_TEMPLATE_COMMAND）。 */
+export function reportToolbarLayout(hasImporters: boolean): (readonly string[])[] {
+  return hasImporters ? [[REPORT_IMPORT_TEMPLATE_COMMAND], ...REPORT_TOOLBAR_LAYOUT] : [...REPORT_TOOLBAR_LAYOUT]
 }
 
 /** 数据菜单的缺省排列：导入数据集、导入字段、导入参数 / 导入模板。 */

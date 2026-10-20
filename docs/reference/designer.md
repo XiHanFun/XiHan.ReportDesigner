@@ -347,7 +347,7 @@ type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNe
 | `ReportPaletteItem` | 接口 | 物料面板里的一项：拖到看板上或激活时按模板新建卡片。 |
 | `ReportPropertyEditor` | 类型 | 属性编辑器。 |
 | `ReportSelectionSubject` | 类型 | 选中工具条落在哪类选中上：看板上的一张卡片，或几张卡片。 |
-| `reportToolbarLayout` | 函数 | 工具栏此刻的缺省排列：登记了导入器时在 REPORT_TOOLBAR_LAYOUT 前面多一组导入模板（REPORT_IMPORT_TEMPLATE_COMMAND）；菜单栏关掉（menubar 为假）时末组放回设置与帮助，它们才有入口。 |
+| `reportToolbarLayout` | 函数 | 工具栏此刻的缺省排列：登记了导入器时在 REPORT_TOOLBAR_LAYOUT 前面多一组导入模板（REPORT_IMPORT_TEMPLATE_COMMAND）。 |
 
 ### field-import
 
