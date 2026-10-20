@@ -15,7 +15,8 @@ import type { ReportDataProvider, ReportDesignerTranslations, ReportFormatter, R
 import type { JsonValue } from '@xihan-ui/core/json'
 import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
 import type { DesignerImportSource, ExecuteOptions, ExtensionHost, GridRect, HistoryChangeKind, HistoryLabel, HistorySnapshot, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
-import type { CommandMenubar, CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFieldImportEventMap, DesignerFrameEventMap, DesignerFrameRegion, DesignerHistoryTranslations, DesignerIssueItem, DesignerJsonEditorEventMap, DesignerLayout, DesignerLayoutPolicy, DesignerMeasureConvert, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPaletteItem, DesignerPaletteView, DesignerPanelActions, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
+import type { CommandMenubar, CommandToolbar, DesignerCommandLayout, DesignerCommandsTranslations, DesignerFieldImportEventMap, DesignerFrameEventMap, DesignerFrameRegion, DesignerHistoryTranslations, DesignerIssueItem, DesignerJsonEditorEventMap, DesignerLanguage, DesignerLayout, DesignerLayoutPolicy, DesignerMeasureConvert, DesignerPaletteDragPayload, DesignerPaletteEventMap, DesignerPaletteGroup, DesignerPaletteItem, DesignerPaletteView, DesignerPanelActions, DesignerPanelHost, DesignerSettings, DesignerSettingsEventMap, DesignerSettingsHost, DesignerSettingsPolicy, DesignerStatusItem, DesignerTransformEventMap, DesignerTransformItem, DropOver, PanRequestDetail } from '@xihan-ui/designer-shell'
+import type { XhConfig } from '@xihan-ui/web-components'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { DialogService } from '@xihan-ui/web-components/services'
 import type { DataRemoval } from './data-editing'
@@ -72,7 +73,9 @@ import {
   XhDesignerTourElement,
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
+import { loadDesignerLocale } from '@xihan-ui/designer-shell/language'
 import { CircleAlertIcon, DatabaseIcon, FilterIcon, LayoutGridIcon, ListIcon, MenuIcon, SlidersHorizontalIcon } from '@xihan-ui/icons'
+import { mergeXhConfig } from '@xihan-ui/web-components'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { defineXhElement, XhButtonElement, XhContextMenuElement, XhSortableElement, XhTagElement, XhToolbarElement, XhTreeElement } from '@xihan-ui/web-components/define'
 import { createDialogService } from '@xihan-ui/web-components/services'
@@ -253,6 +256,16 @@ const DEFAULT_HISTORY_LIMIT = 100
 const NUMBER_CONVERTER = { fromAttribute: (value: string | null) => (value == null || value === '' ? undefined : Number(value)) }
 
 const NO_EXTENSIONS: readonly ReportDesignerExtension[] = []
+
+/** 跟随页面时设计器这棵子树的配置。 */
+const FOLLOW_PAGE: XhConfig = Object.freeze({})
+
+/** 设置里选了语言时这台设计器用的配置：UI 与 designer-shell 的同语言包，再并上报表自己的同语言包（按需加载）。 */
+async function loadReportLocale(language: DesignerLanguage): Promise<XhConfig> {
+  const [shared, report] = await Promise.all([loadDesignerLocale(language), import('@xihan-report/runtime/locale')])
+  const pack = report[`report${language[0]!.toUpperCase()}${language.slice(1).replace('-', '')}` as keyof typeof report] as XhConfig
+  return mergeXhConfig(shared, pack)
+}
 
 function sameCell(a: GridRect | undefined, b: GridRect): boolean {
   return a !== undefined && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h
@@ -690,6 +703,14 @@ export class XhReportDesigner extends XhReactiveElement {
     const { value } = (event as DesignerJsonEditorEventMap['json-apply']).detail
     editor.clearSelection()
     editor.execute([{ type: 'replaceDocument', document: value as unknown as ReportDocument }], { label: () => this.#commandTranslations().editJson })
+  }
+
+  /**
+   * 设计器这棵子树的配置：设置里选了语言时是这一语言的 UI、designer-shell 与报表语言包，跟随页面时是空对象。
+   * 设计器自己、里面的元素（含预览的查看器与图表）与它弹出的浮层都按它取 locale 与文案，页面别处不受影响。
+   */
+  get xhConfig(): XhConfig {
+    return this.#settingsHost?.localeConfig ?? FOLLOW_PAGE
   }
 
   /** 此刻能不能导入模板：登记了导入器、有报表、在设计态且不是只读。 */
@@ -1274,8 +1295,8 @@ export class XhReportDesigner extends XhReactiveElement {
   }
 
   /**
-   * 设置：建好设置宿主（存储键变了就重建），给了存储键又没赋 settings 时从存储读；settings 变了把主题与主题色落到设计器上；
-   * 算出此刻生效的设置，交给设置对话框。
+   * 设置：建好设置宿主（存储键变了就重建），给了存储键又没赋 settings 时从存储读；settings 变了把主题、主题色与语言
+   * 落到设计器上（语言包取到后重画）；算出此刻生效的设置，交给设置对话框。
    */
   #syncSettings(layers: Layers, changed: PropertyValues): void {
     const options = [this.settingsStorageKey]
@@ -1284,10 +1305,12 @@ export class XhReportDesigner extends XhReactiveElement {
       this.#settingsHost?.dispose()
       this.#settingsHostOptions = options
       const storageKey = this.settingsStorageKey
+      const locale = { locale: loadReportLocale, onLocaleChange: () => this.requestUpdate() }
       this.#settingsHost = storageKey === undefined
-        ? createDesignerSettingsHost({ root: this })
+        ? createDesignerSettingsHost({ root: this, ...locale })
         : createDesignerSettingsHost({
             root: this,
+            ...locale,
             storageKey,
             onStorageError: detail => emitEvent(this, 'settings-storage-error', detail),
           })

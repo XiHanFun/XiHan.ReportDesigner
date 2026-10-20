@@ -42,6 +42,7 @@
 | `canPaste` | 只读 | `boolean` | 编辑模型里留着可粘贴的内容。 |
 | `canDelete` | 只读 | `boolean` | deleteSelection() 此刻能删掉东西：选中了卡片、列表项或联动，或 datasetEditing 允许删的数据面板对象。 |
 | `historyState` | 只读 | `HistorySnapshot` | 撤销历史的快照：各步的说明按此刻的语言取好；还没有报表时只有起点。 |
+| `xhConfig` | 只读 | `XhConfig` | 设计器这棵子树的配置：设置里选了语言时是这一语言的 UI、designer-shell 与报表语言包，跟随页面时是空对象。设计器自己、里面的元素（含预览的查看器与图表）与它弹出的浮层都按它取 locale 与文案，页面别处不受影响。 |
 | `canImportTemplate` | 只读 | `boolean` | 此刻能不能导入模板：登记了导入器、有报表、在设计态且不是只读。 |
 
 ### 方法
