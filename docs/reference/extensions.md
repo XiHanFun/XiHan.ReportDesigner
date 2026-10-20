@@ -388,6 +388,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | `panel?(context: ReportDesignerContext): DesignerCommandPanel<ReportDesignerContext>` | 弹层命令：每次打开时建出放进弹层的面板。 |
 | `run?(context: ReportDesignerContext): void` | 执行命令；按钮、菜单项与快捷键都只在命令此刻可用时调用它。弹层命令与菜单命令可以不给：工具栏上点它们是打开弹层或菜单，不调 run；给了 run，快捷键按下时调它（通常调工具栏的 open 打开同一份）。 |
 | `select?(value: string, context: ReportDesignerContext): void` | 菜单命令的条目被选中时调用，value 是条目的 value；写成命令 id 的项选中时执行那条命令，不调它。 |
+| `visible?(context: ReportDesignerContext): boolean` | 不给即总是存在；返回 false 时这条命令此刻不存在：工具栏、菜单栏、右键菜单与菜单命令里都不列它，快捷键不触发，执行也不跑（如只在开发者模式下才有的调试入口）。 |
 
 ### ReportDesignerContext {#reportdesignercontext}
 
