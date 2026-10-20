@@ -7,10 +7,12 @@
 // 明细表、分组报表与交叉表用 computeView / renderView，作主体的扩展视图按种类计算并交给它的渲染。内容按定义缓存，
 // 改过的卡片才在去抖后重新取数计算；位置大小变了只改卡片的位置变量。没给取数回调时取数的内容画占位，没登记的种类画种类名。
 // 看板上照查看器画扩展的叠加层。卡片内容与表格视图在画布上不接收焦点与指针，点在上面落到卡片外壳。
+// 渲染调试日志开着时记取数、计算与出图的耗时。
 
 import type { ComputeOptions, DashboardCard, DashboardView, DatasetData, DatasetRequest, DatasetSchema, ExtensionViewResult, ParameterValues, ReportBody, ReportDocument, ViewResult } from '@xihan-report/core'
 import type { ReportDataProvider, ReportRuntimeModel } from '@xihan-report/runtime'
 import type { CardState, RenderContext, SceneCardState } from '@xihan-report/runtime/design'
+import type { DesignerDebugLogger } from '@xihan-ui/designer-shell'
 import { bodyQuery, cardQuery, cardTypeOf, cardView, computeCard, computeExtensionView, computeView, createDatasetRequest, findDataset, isDataView } from '@xihan-report/core'
 import { dashboardScene, renderCard, renderDashboardFrame, renderOverlays, renderView, tableLabel } from '@xihan-report/runtime/design'
 import { clampToGrid } from '@xihan-ui/designer-kit'
@@ -59,13 +61,19 @@ function placeholderNode(doc: Document, text: string): HTMLElement {
   return createAuthoredElement(doc, 'div', { 'data-part': 'placeholder' }, [createAuthoredElement(doc, 'span', { 'data-part': 'placeholder-text' }, [text])])
 }
 
+/** 调试日志里一份内容的叫法：看板上的卡片写 card 加 id，报表主体写 body 加视图种类。 */
+function sourceLabel({ card, view }: Source): string {
+  return card ? `card ${card.id}` : `body ${view.type}`
+}
+
 /**
  * 画布内容：host 是专门放内容的容器（不与覆盖层共用），update 按文档重画。看板的骨架只在卡片增删、换序或标题说明变化时重建；
  * 位置大小变化只改位置变量。内容的键取卡片（或视图）去掉位置、标题与说明后的定义、数据集定义、参数取值与取数请求，
- * 键变了才重新取数计算；同一个请求的数据在一轮内共用。
+ * 键变了才重新取数计算；同一个请求的数据在一轮内共用。debug 的渲染日志开着时，每次取数、计算与出图各记一组耗时。
  */
 export class CanvasContent {
   readonly #host: HTMLElement
+  readonly #debug: DesignerDebugLogger
   #frame: Map<string, { readonly card: HTMLElement, readonly body: HTMLElement }> | undefined
   #frameKey: string | undefined
   #view: HTMLElement | undefined
@@ -81,8 +89,9 @@ export class CanvasContent {
   #resize: ResizeObserver | undefined
   #observed: HTMLElement | undefined
 
-  constructor(host: HTMLElement) {
+  constructor(host: HTMLElement, debug: DesignerDebugLogger) {
     this.#host = host
+    this.#debug = debug
   }
 
   /** 看板上卡片的外壳；不是看板或卡片不存在时为 undefined。 */
@@ -327,7 +336,9 @@ export class CanvasContent {
       used.add(requestKey)
       let pending = this.#data.get(requestKey)
       if (!pending) {
+        const end = this.#debug.start('render', `fetch: ${request.dataset}`)
         pending = inputs.provider(request, { signal: abort.signal })
+        pending.then(data => end(() => ({ request, kind: data.kind, rows: data.rows.length })), (error: unknown) => end(() => ({ request, error })))
         this.#data.set(requestKey, pending)
       }
       if (!entry.state) {
@@ -339,9 +350,9 @@ export class CanvasContent {
         if (run !== this.#runs)
           return
         const { card, view } = source
-        entry.state = card
+        entry.state = this.#debug.measure('render', `compute: ${sourceLabel(source)}`, (): ContentState => card
           ? { status: 'ready', result: computeCard(card, dataset, data, inputs.options) }
-          : { status: 'view', view: isDataView(view) ? computeView(view, dataset, data, inputs.options) : computeExtensionView(view, dataset, data, inputs.options) }
+          : { status: 'view', view: isDataView(view) ? computeView(view, dataset, data, inputs.options) : computeExtensionView(view, dataset, data, inputs.options) }, () => ({ rows: data.rows.length }))
       }
       catch (error) {
         if (run !== this.#runs || isAbort(error))
@@ -383,7 +394,7 @@ export class CanvasContent {
       frame.body.replaceChildren(placeholderNode(this.#host.ownerDocument, inputs.placeholder(cardTypeOf(card))))
       return
     }
-    renderCard(frame.body, state, inputs.context, inputs.runtime.cardRenderers)
+    this.#debug.measure('render', `paint: card ${card.id}`, () => renderCard(frame.body, state, inputs.context, inputs.runtime.cardRenderers), () => ({ status: state.status }))
   }
 
   #paintView(view: BodyView): void {
@@ -408,10 +419,11 @@ export class CanvasContent {
       return
     }
     const result = state.view
-    if ('type' in result) {
-      renderView(container, result, inputs.context, tableLabel(inputs.document.title, result))
-      return
-    }
-    inputs.runtime.viewRenderers.get(result.view.type)?.(container, result, inputs.context)
+    this.#debug.measure('render', `paint: body ${view.type}`, () => {
+      if ('type' in result)
+        renderView(container, result, inputs.context, tableLabel(inputs.document.title, result))
+      else
+        inputs.runtime.viewRenderers.get(result.view.type)?.(container, result, inputs.context)
+    })
   }
 }

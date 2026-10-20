@@ -37,6 +37,7 @@ import {
   arrangeMenubar,
   createCommandMenubar,
   createCommandToolbar,
+  createDesignerDebugLogger,
   createDesignerSettingsHost,
   createPanelActions,
   createPanelHost,
@@ -352,6 +353,11 @@ export class XhReportDesigner extends XhReactiveElement {
   declare historyLimit: number | undefined
 
   readonly #config = new XhConfigController(this)
+  /**
+   * 调试日志：开发者模式与渲染日志都开着时记每次重画与画布上卡片的取数、计算与出图。读宿主给的 settings（这几条缺省都关），
+   * 第一次重画、还没算出生效的设置时也能记。
+   */
+  readonly #debug = createDesignerDebugLogger({ name: REPORT_DESIGNER_TAG, settings: () => this.settings })
   #editor: ReportEditor | undefined
   /** 编辑模型建出时用的撤销步数上限；historyLimit 换了，下一次装载时按新的重建。 */
   #editorLimit = DEFAULT_HISTORY_LIMIT
@@ -836,6 +842,16 @@ export class XhReportDesigner extends XhReactiveElement {
   }
 
   protected override update(changed: PropertyValues): void {
+    if (!this.#debug.enabled('render')) {
+      this.#update(changed)
+      return
+    }
+    const reasons = [...changed.keys()].map(String).join(', ')
+    this.#debug.measure('render', `update: ${reasons === '' ? 'requestUpdate' : reasons}`, () => this.#update(changed))
+  }
+
+  /** 一次重画：设置、外框、画布、面板与引导。 */
+  #update(changed: PropertyValues): void {
     super.update(changed)
     const layers = this.#ensureLayers()
     const t = this.#translations()
@@ -1271,7 +1287,7 @@ export class XhReportDesigner extends XhReactiveElement {
       this.#resize.observe(scroller)
     }
     this.#content?.dispose()
-    this.#content = new CanvasContent(content)
+    this.#content = new CanvasContent(content, this.#debug)
     this.#viewport = undefined
     this.#drop = undefined
     this.#paletteKey = ''
