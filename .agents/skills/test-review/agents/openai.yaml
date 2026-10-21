@@ -1,0 +1,7 @@
+interface:
+  display_name: "XiHan.ReportDesigner 测试审查"
+  short_description: "审查报表仓测试的价值、重复与脆弱点"
+  default_prompt: "使用 $xihan-report-test-review 审查这些测试，逐条给出保留、改写、合并或删除的结论。"
+
+policy:
+  allow_implicit_invocation: true

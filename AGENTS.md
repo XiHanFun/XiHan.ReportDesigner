@@ -18,12 +18,32 @@ XiHan.ReportDesigner 是框架无关的报表设计器，以原生 Web Component
 | Web Components | Light DOM | 对外交付形态 |
 | ESLint + oxlint | @antfu/eslint-config | Lint |
 
+## 开始前必须做
+
+1. 按任务读取对应技能（`.agents/skills/<目录>/SKILL.md`），同时涉及几项就加载几项，不读取无关资料：
+
+   | 目录 | 用途 |
+   | --- | --- |
+   | `designer-development` | 报表定义、查看器与设计器元素、扩展点（含导入器）、语言包与界面 |
+   | `compute` | 数据集、参数、取数请求、计算与透视、导出 |
+   | `docs-site` | 文档站的页面、示例、参考页、导航与 LLMs 资产 |
+   | `commit-msg` | 按暂存区生成提交信息 |
+   | `create-pr` | 准备或创建 Pull Request |
+   | `changelog-collect` | 收集版本间的变化，核对变更集与更新日志页 |
+   | `issue-reply` | 调查、起草与回复 Issue |
+   | `test-review` | 审查测试的价值、重复与脆弱点 |
+   | `version-release` | 定版本、续 rc、打标签发 npm、发后核对与部署文档站 |
+
+2. 检查当前分支、`git status` 与最近提交；保留用户已有改动。
+
 ## 目录结构
 
 ```text
 /
 ├─ AGENTS.md
 ├─ CLAUDE.md -> AGENTS.md         # Claude Code 仓库指令入口
+├─ .agents/skills/                # 仓库技能：开发、计算、文档站与提交发版流程
+├─ .claude/skills -> ../.agents/skills  # Claude Code 技能入口
 ├─ .github/ .gitee/ .gitcode/     # 三平台 Issue / PR 模板，GitHub 另有 CI 与发版工作流
 ├─ docs/                          # 产品文档站（VitePress，独立的 pnpm 项目）
 └─ report/                           # pnpm monorepo 根

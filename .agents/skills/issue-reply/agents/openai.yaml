@@ -1,0 +1,7 @@
+interface:
+  display_name: "XiHan.ReportDesigner Issue 回复"
+  short_description: "调查并起草报表仓 GitHub Issue 回复"
+  default_prompt: "使用 $xihan-report-issue-reply 调查这个 Issue 并起草回复。"
+
+policy:
+  allow_implicit_invocation: true

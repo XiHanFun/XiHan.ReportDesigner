@@ -1,0 +1,7 @@
+interface:
+  display_name: "XiHan.ReportDesigner 更新日志"
+  short_description: "收集报表仓版本间使用者能感知的变更并核对变更集"
+  default_prompt: "使用 $xihan-report-changelog-collect 整理上一个标签到当前 HEAD 的更新日志。"
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,7 @@
+interface:
+  display_name: "XiHan.ReportDesigner 创建 PR"
+  short_description: "按仓库模板准备或创建报表仓 Pull Request"
+  default_prompt: "使用 $xihan-report-create-pr 为当前分支准备 PR 标题和正文。"
+
+policy:
+  allow_implicit_invocation: true
