@@ -6,10 +6,10 @@
 
 ## 机读资产
 
-- [llms-full.txt](https://report.docs.xihanfun.com/llms-full.txt): 全部 20 页正文
+- [llms-full.txt](https://report.docs.xihanfun.com/llms-full.txt): 全部 22 页正文
 - [llms-guide.txt](https://report.docs.xihanfun.com/llms-guide.txt): 9 页指南
 - [llms-reference.txt](https://report.docs.xihanfun.com/llms-reference.txt): 7 页参考
-- 每页 Markdown：把站点地址后缀成 `.md`，如 https://report.docs.xihanfun.com/guide/dashboard.md
+- 每页 Markdown：把站点地址后缀成 `.md`，如 https://report.docs.xihanfun.com/ai/agents.md
 
 ## 开始
 
@@ -17,6 +17,11 @@
 - [曦寒报表设计器](https://report.docs.xihanfun.com/): 框架无关的报表设计、查看与看板
 - [介绍](https://report.docs.xihanfun.com/introduction): 曦寒报表设计器（XiHan.ReportDesigner）是一款框架无关的报表设计器：以原生 Web Components 交付，可视化设计报表，在浏览器里按数据集与参数取数，算出明细表、分组报表、交叉表与看板并显示出来；看板上的卡片可以互相联动，表格的格子可以下钻，计算结果可以导出成 Excel 工作簿。
 - [快速开始](https://report.docs.xihanfun.com/quickstart): 这一页在任意前端项目里装上查看器，把一张销售明细表交给 `<xh-report-viewer>`，由取数回调交回数据并显示出来。
+
+## AI 辅助开发
+
+- [For Agents](https://report.docs.xihanfun.com/ai/agents): 给 Claude Code、Cursor、Codex、GitHub Copilot 这类 AI 编程工具的入口：在项目里用报表设计器与查看器时，怎样让 AI 写对接法；参与报表仓库开发时，AI 该读什么。
+- [LLMs.txt](https://report.docs.xihanfun.com/ai/llms): 文档站在构建时产出一组给大语言模型读的机读资产，内容与站点正文同源。
 
 ## 指南
 
