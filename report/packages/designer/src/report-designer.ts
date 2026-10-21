@@ -170,8 +170,11 @@ const FRAME_REGIONS: readonly DesignerFrameRegion[] = DESIGNER_FRAME_REGIONS.fla
   return [region]
 })
 
-/** 宿主写在设计器上、转交给外框的 slot：菜单栏右边一段。 */
-const FORWARDED_SLOTS = ['menubar-end']
+/**
+ * 宿主写在设计器上、转交给外框的 slot：menubar-center 是菜单栏正中（如模板标题，放不下截断、再窄藏起），menubar-end 是菜单栏右边
+ * 一段，status-end 是状态栏右端、缩放比例的左边（如保存状态，状态栏关掉时跟着不显示）。
+ */
+const FORWARDED_SLOTS = ['menubar-center', 'menubar-end', 'status-end']
 
 interface Layers {
   readonly frame: XhDesignerFrameElement
@@ -378,7 +381,7 @@ export class XhReportDesigner extends XhReactiveElement {
   /** 事务里执行过的操作，提交时一起报出。 */
   #pending: ReportOperation[] = []
   #resize: ResizeObserver | undefined
-  /** 停止把宿主写的 menubar-end 转交给外框。 */
+  /** 停止把宿主写的 menubar-center、menubar-end 与 status-end 转交给外框。 */
   #releaseSlots: (() => void) | undefined
   #gesture: CardGesture | undefined
   #pan: CanvasPan | undefined
@@ -1309,7 +1312,7 @@ export class XhReportDesigner extends XhReactiveElement {
     const tour = createGeneratedElement(doc, 'xh-designer-tour', { 'data-part': 'tour' }) as XhDesignerTourElement
     tour.frame = frame
     tour.addEventListener('tour-end', this.#onTourEnd)
-    // 宿主写在设计器上的 slot="menubar-end"（如模板标题与保存状态）先转交给外框，放在菜单栏右边，再换上设计器自己的内容
+    // 宿主写在设计器上的 slot="menubar-center"、"menubar-end" 与 "status-end"（模板标题、保存状态等）先转交给外框，再换上设计器自己的内容
     this.#releaseSlots?.()
     this.#releaseSlots = forwardFrameSlots(this, frame, FORWARDED_SLOTS)
     this.replaceChildren(frame, settings, fieldImport, jsonEditor, tour)

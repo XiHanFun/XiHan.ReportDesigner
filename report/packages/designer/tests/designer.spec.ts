@@ -885,25 +885,32 @@ describe('<xh-report-designer>：编辑', () => {
     expect([createReportDesignerModel([]).commands.has('show-menubar'), frame.regions!.map(region => region.name).includes('menubar')]).toEqual([false, true])
   })
 
-  it('宿主写在设计器上的 slot="menubar-end" 放到菜单栏右边一段：连上之前写的、之后加的都一样', async () => {
+  it('宿主写在设计器上的 slot="menubar-center" 放到菜单栏正中、menubar-end 放到右边、status-end 放到状态栏右端缩放比例的前面：连上之前写的、之后加的都一样；状态栏关掉时跟着不显示', async () => {
+    const host = (slot: string, text: string): HTMLSpanElement => Object.assign(document.createElement('span'), { slot, textContent: text })
     const designer = document.createElement('xh-report-designer')
     designer.autoTour = false
-    const title = document.createElement('span')
-    title.slot = 'menubar-end'
-    title.textContent = '销售看板'
-    designer.append(title)
+    const title = host('menubar-center', '销售看板 · SALES-01')
+    const draft = host('menubar-end', '草稿')
+    const saved = host('status-end', '已保存')
+    designer.append(title, draft, saved)
     designer.schema = board
     document.body.append(designer)
     await designer.updateComplete
     const frame = designer.querySelector('xh-designer-frame')!
     await frame.updateComplete
-    expect([title.parentElement!.getAttribute('data-zone'), title.closest('[data-region]')?.getAttribute('data-region')]).toEqual(['end', 'menubar'])
-    const state = document.createElement('span')
-    state.slot = 'menubar-end'
-    designer.append(state)
+    const place = (node: Element): (string | null | undefined)[] => [node.parentElement?.getAttribute('data-zone'), node.closest('[data-region]')?.getAttribute('data-region')]
+    expect([place(title), place(draft), place(saved)]).toEqual([['center', 'menubar'], ['end', 'menubar'], ['end', 'status']])
+    const connected = host('status-end', '已连接')
+    designer.append(connected)
     await Promise.resolve()
     await frame.updateComplete
-    expect(state.closest('[data-region]')?.getAttribute('data-region')).toBe('menubar')
+    const texts = [...saved.parentElement!.children].map(node => node.textContent ?? '')
+    expect(texts.slice(0, 2)).toEqual(['已保存', '已连接'])
+    expect(texts.at(-1)).toMatch(/%$/)
+    designer.settings = { [DESIGNER_SETTING_KEYS.statusBar]: false }
+    await designer.updateComplete
+    await frame.updateComplete
+    expect([saved.closest('[data-region]'), connected.closest('[data-region]')]).toEqual([null, null])
   })
 
   it('画布有焦点时按 F10 把焦点交给菜单栏，再按 F10 回到画布', async () => {
