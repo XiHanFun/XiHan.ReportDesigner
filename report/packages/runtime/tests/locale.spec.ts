@@ -34,6 +34,19 @@ describe('reportZhCN', () => {
     expect(translations['xh-designer-issues']?.title).toBe('问题')
   })
 
+  it('简繁中文的历史步骤名里，数目与前后的汉字之间都留空格；单个对象写种类与名字', () => {
+    const zhCN = designerOf(locales.reportZhCN.translations as unknown as Record<string, Bucket>)
+    const zhTW = designerOf(locales.reportZhTW.translations as unknown as Record<string, Bucket>)
+    expect([
+      zhCN.historyStep({ action: 'layout', kind: '卡片', count: 7 }),
+      zhCN.historyStep({ action: 'remove', kind: '卡片', count: 2, cascade: 3 }),
+      zhCN.historyStep({ action: 'update', kind: '卡片', count: 2, property: '标题' }),
+      zhCN.historyStep({ action: 'layout', kind: '卡片', name: '订单数', count: 1 }),
+      zhTW.historyStep({ action: 'layout', kind: '卡片', count: 7 }),
+      zhTW.historyStep({ action: 'add', kind: '卡片', count: 2 }),
+    ]).toEqual(['调整 7 个卡片的布局', '删除 2 个卡片及 3 处引用', '修改 2 个卡片的标题', '调整卡片「订单数」的布局', '調整 7 個卡片的版面配置', '新增 2 個卡片'])
+  })
+
   it('英文缺省的问题文案按码给出，认不出的码原样带上', () => {
     expect(DEFAULT_REPORT_DESIGNER_TRANSLATIONS.issue({ code: 'unknown-measure', params: { key: 'amount' } })).toBe('Unknown measure "amount"')
     expect(DEFAULT_REPORT_DESIGNER_TRANSLATIONS.issue({ code: 'something-new' })).toBe('Problem: something-new')
