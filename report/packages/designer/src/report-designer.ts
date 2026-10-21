@@ -890,6 +890,12 @@ export class XhReportDesigner extends XhReactiveElement {
     super.update(changed)
     const layers = this.#ensureLayers()
     const t = this.#translations()
+    // 移动或改大小的途中文档每跨一格变一次：只重画画布、选中框与状态栏，面板等手势结束时再刷新
+    if (this.#gesture && changed.size === 1 && changed.has('schema') && this.schema === this.#editor?.document) {
+      this.#renderCanvas()
+      this.#renderStatus(layers, t)
+      return
+    }
     this.#syncSettings(layers, changed)
     this.setAttribute('aria-label', t.label)
     layers.scroller.setAttribute('aria-label', t.canvas)
@@ -1936,6 +1942,7 @@ export class XhReportDesigner extends XhReactiveElement {
     if (phase === 'end') {
       this.#gesture = undefined
       gesture.layout.end()
+      this.#syncData()
     }
   }
 

@@ -342,6 +342,32 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.schema).toEqual(board)
   })
 
+  it('移动或改大小的途中跨格时只重画画布、选中框与状态栏，页面结构等面板不刷新；松手或取消后整份更新', async () => {
+    const designer = await mount()
+    placeGrid(designer)
+    const t = DEFAULT_REPORT_DESIGNER_TRANSLATIONS
+    const outline = designer.querySelector('xh-designer-outline')!
+    const left = (): string | null => designer.querySelector('[data-region="status"] [data-zone="start"]')!.textContent
+    designer.select({ cards: ['a'] })
+    await designer.updateComplete
+    const nodes = outline.nodes
+    transform(designer, 'start', 'move', 'a', { x: 400, y: 0, width: 400, height: 80 })
+    transform(designer, 'move', 'move', 'a', { x: 10, y: 170, width: 400, height: 80 })
+    await designer.updateComplete
+    expect([card(designer, 'a').style.getPropertyValue('--xh-report-y'), left(), outline.nodes]).toEqual(['5', `${t.cardTypes.metric}${t.statusCell(1, 5, 4, 2)}`, nodes])
+    transform(designer, 'end', 'move', 'a', { x: 10, y: 170, width: 400, height: 80 })
+    await designer.updateComplete
+    expect(outline.nodes!.map(node => node.label)).toEqual(['各区域', 'b', 'a'])
+    const moved = outline.nodes
+    transform(designer, 'start', 'move', 'a', { x: 0, y: 160, width: 400, height: 80 })
+    transform(designer, 'move', 'move', 'a', { x: 400, y: 0, width: 400, height: 80 })
+    await designer.updateComplete
+    expect(outline.nodes).toBe(moved)
+    transform(designer, 'cancel', 'move', 'a', { x: 0, y: 160, width: 400, height: 80 })
+    await designer.updateComplete
+    expect([outline.nodes!.map(node => node.label), left()]).toEqual([['各区域', 'b', 'a'], `${t.cardTypes.metric}${t.statusCell(1, 5, 4, 2)}`])
+  })
+
   it('改大小连同位置一起改，越出网格的部分剪掉；取消时回滚、不报 schema-change', async () => {
     const designer = await mount()
     placeGrid(designer)
