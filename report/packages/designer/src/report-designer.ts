@@ -1808,12 +1808,12 @@ export class XhReportDesigner extends XhReactiveElement {
 
   /**
    * 按下卡片：Shift / Ctrl 切换它的选中；否则只选中它并交给覆盖层跑移动手势。按下空白：不带修饰键先清空选择，再开始框选。
-   * 按在滚动条上不处理。
+   * 按在滚动条上或出自选中工具条的不处理。
    */
   readonly #onPointerDown = (event: PointerEvent): void => {
     const editor = this.#editor
     const layers = this.#layers
-    if (event.button !== 0 || !editor || !layers || this.#gesture)
+    if (event.button !== 0 || !editor || !layers || this.#gesture || this.#inSelectionBar(event))
       return
     const scroller = layers.scroller
     if (event.target === scroller && (event.offsetX >= scroller.clientWidth || event.offsetY >= scroller.clientHeight))
@@ -1840,6 +1840,11 @@ export class XhReportDesigner extends XhReactiveElement {
     if (cards.length !== 1 || cards[0] !== id)
       editor.select({ cards: [id] })
     layers.overlay.startMove(event)
+  }
+
+  /** 事件出自选中工具条（它在画布的变换覆盖层里）。 */
+  #inSelectionBar(event: Event): boolean {
+    return event.target instanceof Node && this.#layers?.selectionBar.element.contains(event.target) === true
   }
 
   /** 外框的画布工具此刻是拖动。 */
