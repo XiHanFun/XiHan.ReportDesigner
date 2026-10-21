@@ -9,7 +9,7 @@ import type { XhReportViewer } from '@xihan-report/runtime'
 import type { JsonValue } from '@xihan-ui/core/json'
 import type { DesignerPaletteDragPayload, XhDesignerJsonEditorElement } from '@xihan-ui/designer-shell'
 import type { XhSortableElement, XhTreeElement } from '@xihan-ui/web-components/define'
-import type { ReportDesignerExtension, XhReportDesigner } from '../src'
+import type { ReportDesignerExtension, ReportSelection, XhReportDesigner } from '../src'
 import { DEFAULT_REPORT_DESIGNER_TRANSLATIONS } from '@xihan-report/runtime'
 import { reportZhCN } from '@xihan-report/runtime/locale'
 import { formatJsonPath } from '@xihan-ui/core/json'
@@ -1183,6 +1183,28 @@ describe('<xh-report-designer>：编辑', () => {
     designer.mode = 'preview'
     await designer.updateComplete
     expect(bar()).toBeNull()
+  })
+
+  it('在选中工具条的钮上按下、松开：执行这条命令，选中不丢，工具条不收起、也不开始框选', async () => {
+    const designer = await mount()
+    placeGrid(designer)
+    const ran: ReportSelection[] = []
+    designer.extensions = [{ id: 'acme', commands: [{ id: 'acme.pin', label: 'Pin', placement: ['selection:card'], run: () => void ran.push(designer.getSelection()) }] }]
+    designer.select({ cards: ['a'] })
+    await designer.updateComplete
+    const overlay = designer.querySelector('xh-designer-transform')!
+    const button = overlay.querySelector<HTMLButtonElement>(`[aria-label="${DEFAULT_REPORT_DESIGNER_TRANSLATIONS.selectionToolbar}"] button[value="acme.pin"]`)!
+    const pointer = (target: EventTarget, type: string): void => {
+      target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, button: 0, pointerId: 1, isPrimary: true, pointerType: 'mouse', clientX: 460, clientY: 20 }))
+    }
+    const marquees = events(overlay, 'marquee')
+    pointer(button, 'pointerdown')
+    await designer.updateComplete
+    expect([designer.getSelection(), button.isConnected]).toEqual([{ cards: ['a'] }, true])
+    pointer(button, 'pointerup')
+    button.click()
+    await designer.updateComplete
+    expect([ran, designer.getSelection(), button.isConnected, marquees]).toEqual([[{ cards: ['a'] }], { cards: ['a'] }, true, []])
   })
 
   it('页面结构面板停在左栏物料下面：看板按先行后列列出卡片，有标题写标题、副文本写种类名，没标题写「种类名 · id」，图标取卡片种类；卡片下面是它的列表与项', async () => {
