@@ -448,21 +448,23 @@ const designer: ReportDesignerLocale = {
   removeConfirm: '删除',
   historyStep: (step) => {
     const target = step.count > 1 ? `${step.count} 个${step.kind}` : step.name === undefined ? step.kind : `${step.kind}「${step.name}」`
+    // 数目开头时与前面的动词隔一个空格
+    const act = (verb: string): string => step.count > 1 ? `${verb} ${target}` : `${verb}${target}`
     switch (step.action) {
       case 'add':
-        return `新增${target}`
+        return act('新增')
       case 'remove':
-        return step.cascade ? `删除${target}及 ${step.cascade} 处引用` : `删除${target}`
+        return step.cascade ? `${act('删除')}及 ${step.cascade} 处引用` : act('删除')
       case 'move':
-        return `移动${target}`
+        return act('移动')
       case 'rename':
         return `把${step.kind}「${step.name}」改名为「${step.to}」`
       case 'layout':
-        return `调整${target}的布局`
+        return `${act('调整')}的布局`
       case 'replace':
-        return `更换${target}`
+        return act('更换')
       case 'update':
-        return step.property === undefined ? `修改${target}` : `修改${target}的${step.property}`
+        return step.property === undefined ? act('修改') : `${act('修改')}的${step.property}`
     }
   },
   unknownIssue: code => `问题：${code}`,
