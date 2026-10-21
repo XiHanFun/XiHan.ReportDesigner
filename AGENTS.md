@@ -49,20 +49,13 @@ XiHan.ReportDesigner 是框架无关的报表设计器，以原生 Web Component
 | 单测 | `pnpm test` |
 | Lint | `pnpm lint` |
 | 产物契约（publint + attw，先 build） | `pnpm gate:publish` |
-| 冒烟（在临时空项目里装包、类型检查与打包） | `pnpm smoke --pack`（UI 未发版时加 `--ui ../../XiHan.UI/ui`） |
+| 冒烟（在临时空项目里装包、类型检查与打包） | `pnpm smoke --pack`（要拿同级 XiHan.UI 的源码代替 npm 上的 UI 时加 `--ui ../../XiHan.UI/ui`） |
 | 写变更集 | `pnpm changeset` |
 
 `pnpm build` 按依赖拓扑依次构建 core、runtime、designer。runtime 与 designer 经包的 `exports` 读取上游 dist，改了上游先重建再验证下游。
 
 开发预览页在 `report/playground`，用 Vite 起在 5193 端口（strictPort）：「明细表」「分组报表」「交叉表」「看板」四个页签各放一份示例报表，数据是按固定种子生成的一年销售订单；看板里环形图、条形图、日历热力图与「商品与渠道」表格卡片都能点选联动；工具栏可刷新、导出 xlsx，开关切换中文语言包，以及让取数回调返回明细行或模拟后端按请求聚合；下方滚动显示查看器派发的事件，点表格的一格可以看到下钻用的 action。「设计器」页签用 `<xh-report-designer>` 打开同一组示例报表（缺省看板，页签内可切换），事件记录同时显示设计器派发的 schema-change、selection-change 等事件，Ctrl+S 记为已保存。
-它直接引用各包的源码，改了源码即时生效，不必先 `pnpm build`；`@xihan-ui/*` 经 overrides 读同级 XiHan.UI 的产物，启动前先在 `XiHan.UI/ui` 构建依赖的包：
-
-```bash
-# XiHan.UI/ui
-pnpm --filter "@xihan-ui/web-components..." --filter "@xihan-ui/viz..." --filter "@xihan-ui/designer-shell..." --filter "@xihan-ui/expression..." --filter "@xihan-ui/xlsx..." --filter "@xihan-ui/styles..." build
-# XiHan.ReportDesigner/report
-pnpm dev
-```
+它直接引用各包的源码，改了源码即时生效，不必先 `pnpm build`；`@xihan-ui/*` 是 npm 上的正式包，装好依赖即可启动：`pnpm dev`。
 
 这是开发预览，不是产品：页面只用 UI 的令牌、皮肤与元素，不另写一套样式，也不进任何发布物。
 
@@ -80,13 +73,13 @@ pnpm dev
 | 示例报表校验并试算 | `pnpm check:examples` |
 | Lint | `pnpm lint` |
 
-- 报表三个包经 `link:` 读 `report/packages/*` 的产物，先在 `report/` 构建；`@xihan-ui/*` 与 `report/` 工作区一样经 overrides 读同级 XiHan.UI 的产物，UI 5.0.0 正式发布后删掉那一段。
+- 报表三个包经 `link:` 读 `report/packages/*` 的产物，先在 `report/` 构建；`@xihan-ui/*` 是 npm 上的正式包。link 进来的包会从 `report/` 工作区再解析出一份 UI，页面上两份 UI 时全局配置（语言包）与元素注册表各管各的，所以 `.vitepress/config.ts` 用 `vite.resolve.dedupe` 把它们去重成文档站这一份；报表包对 UI 新加了 peer 时，同步加进 `docs/package.json` 与那份名单。
 - `docs/reference/` 由 `scripts/gen-reference.mjs` 从源码生成（TypeScript 源码注释、属性描述、`reportZhCN` 的中文名与问题说明），不手改。改了报表定义类型、属性、问题码、公开 API 或这些注释，在 `docs/` 跑 `pnpm gen` 并随改动一起提交；参考页的说明不对，就改源码注释。
 - 正文里的 TypeScript 与 Vue 示例都放在 `examples/`，用 `<<< @/examples/…#片段` 引入，不在 Markdown 里另写一份：`reports/` 下导出 `schema` 与 `rows` 的报表由 `check:examples` 校验并在 Node 里试算，`demos/` 下的 `.ts` 导出 `mount(host)`、`.vue` 是一个组件，页面上写 `<ReportDemo name="…" />` 真实运行，`snippets/` 只做类型检查。
 - 正文里含 `{{` 的行内代码写成 `<code v-pre>…</code>`，否则会被 Vue 当成插值吃掉，构建也不报错。
 - 站点自己的导航、侧栏与示例组件放在 `docs/.vitepress/`，不复制或改写主题已提供的样式。
 - 文档只写已经做完的能力；不写卡片种类数、图表数与依赖的具体版本号，不写预发布阶段的铺垫。
-- 站点地址是 https://report.docs.xihanfun.com：`docs/public/CNAME`、`docs/public/.nojekyll` 与 `.github/workflows/deploy-docs.yml`（main 上 `docs/` 或 `report/` 有变更时先装好并构建 `report/`，再构建文档站，部署到 gh-pages）属于站点契约，不因清理构建配置而删除；主题配置的 `llms.site` 与 `docs/package.json` 的 `homepage` 写同一个地址。`report/` 的 overrides 生效期间这条流水线跑不通，与不推送远端的约定一致。
+- 站点地址是 https://report.docs.xihanfun.com：`docs/public/CNAME`、`docs/public/.nojekyll` 与 `.github/workflows/deploy-docs.yml`（main 上 `docs/` 或 `report/` 有变更时先装好并构建 `report/`，再构建文档站，部署到 gh-pages）属于站点契约，不因清理构建配置而删除；主题配置的 `llms.site` 与 `docs/package.json` 的 `homepage` 写同一个地址。
 
 ## 分层与依赖
 
@@ -95,6 +88,7 @@ pnpm dev
 - runtime 是业务页面使用的元素，体积敏感；设计器专用的代码不进 runtime。
 - 所有包源码不得 import 任何前端框架（ESLint 已拦截）。
 - 运行时依赖只允许 `@xihan-report/*` 与 `@xihan-ui/*`；引入任何其他依赖之前先征得维护者同意。
+- 三个公开包对 `@xihan-ui/*` 写 `peerDependencies`（`^5.0.0`，由宿主装唯一的一份），开发时另写一份 `devDependencies`（`catalog:`）；版本范围只在 `report/pnpm-workspace.yaml` 的 catalog 里改。UI 新加的能力要等 UI 发版才用得上。
 
 ## 硬性约定
 

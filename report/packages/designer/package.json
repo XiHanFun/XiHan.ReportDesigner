@@ -53,16 +53,23 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run --passWithNoTests"
   },
+  "peerDependencies": {
+    "@xihan-ui/core": "^5.0.0",
+    "@xihan-ui/designer-kit": "^5.0.0",
+    "@xihan-ui/designer-shell": "^5.0.0",
+    "@xihan-ui/icons": "^5.0.0",
+    "@xihan-ui/web-components": "^5.0.0"
+  },
   "dependencies": {
     "@xihan-report/core": "workspace:^",
-    "@xihan-report/runtime": "workspace:^",
+    "@xihan-report/runtime": "workspace:^"
+  },
+  "devDependencies": {
     "@xihan-ui/core": "catalog:",
     "@xihan-ui/designer-kit": "catalog:",
     "@xihan-ui/designer-shell": "catalog:",
     "@xihan-ui/icons": "catalog:",
-    "@xihan-ui/web-components": "catalog:"
-  },
-  "devDependencies": {
+    "@xihan-ui/web-components": "catalog:",
     "jsdom": "catalog:"
   }
 }

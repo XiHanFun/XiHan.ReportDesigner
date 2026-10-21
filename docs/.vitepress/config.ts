@@ -151,6 +151,13 @@ export default defineXiHanConfig({
     ],
     transform: machineReadable,
   },
+  // 报表三个包经 link: 指向 report/，里面的 @xihan-ui/* 会从 report/ 工作区解析；去重成文档站装的这一份，
+  // 页面上只有一份 UI，全局配置（中文语言包）与元素注册表才是同一份
+  vite: {
+    resolve: {
+      dedupe: ['@xihan-ui/core', '@xihan-ui/designer-kit', '@xihan-ui/designer-shell', '@xihan-ui/expression', '@xihan-ui/icons', '@xihan-ui/viz', '@xihan-ui/web-components', '@xihan-ui/xlsx'],
+    },
+  },
   // Vue 示例里的 xh- 标签都是自定义元素，不当作 Vue 组件解析
   vue: {
     template: {
