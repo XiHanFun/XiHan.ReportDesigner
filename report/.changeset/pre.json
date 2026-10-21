@@ -1,0 +1,13 @@
+{
+  "mode": "pre",
+  "tag": "rc",
+  "initialVersions": {
+    "@xihan-report/core": "0.0.0",
+    "@xihan-report/designer": "0.0.0",
+    "@xihan-report/runtime": "0.0.0",
+    "@xihan-report/playground": "0.0.0"
+  },
+  "changesets": [
+    "first-release"
+  ]
+}

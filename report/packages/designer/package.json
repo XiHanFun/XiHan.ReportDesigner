@@ -1,7 +1,7 @@
 {
   "name": "@xihan-report/designer",
   "type": "module",
-  "version": "0.0.0",
+  "version": "1.0.0-rc.1",
   "description": "XiHan Report Designer — a visual report designer delivered as Web Components.",
   "author": {
     "name": "XiHanFun",

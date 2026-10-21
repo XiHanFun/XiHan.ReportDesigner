@@ -4,6 +4,7 @@
  */
 
 import type { DefaultTheme } from 'vitepress'
+import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -14,6 +15,9 @@ const description = '框架无关的报表设计器与查看器，以 Web Compon
 const keywords = '曦寒,曦寒懿,报表设计器,报表查看器,数据看板,交叉表,透视表,Web Components,XiHanFun,XiHan.ReportDesigner'
 
 const sourceRoot = fileURLToPath(new URL('../', import.meta.url))
+
+// 三个公开包锁步同版，导航上的版本号取 core 的
+const { version } = JSON.parse(readFileSync(new URL('../../report/packages/core/package.json', import.meta.url), 'utf8')) as { version: string }
 
 const guideSidebar: DefaultTheme.SidebarItem[] = [
   {
@@ -96,6 +100,10 @@ const nav: DefaultTheme.NavItem[] = [
       { text: '参与', link: 'https://docs.xihanfun.com/cosmos/contributing' },
       { text: '赞助', link: 'https://docs.xihanfun.com/cosmos/sponsor' },
     ],
+  },
+  {
+    text: `v${version}`,
+    items: [{ text: '更新日志', link: '/changelog' }],
   },
 ]
 
