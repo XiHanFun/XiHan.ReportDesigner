@@ -1,0 +1,306 @@
+来源：https://report.docs.xihanfun.com/guide/designer
+
+# 设计器
+
+`<xh-report-designer>` 可视化编辑报表定义：从物料拖出卡片，把字段拖进卡片，在属性面板里改配置，问题列表随时指出哪里不对。报表存在哪里、谁能改，都由宿主决定。全部属性、方法与事件见[参考 · 设计器](../reference/designer)。
+
+## 注册与样式
+
+设计器要的样式多一份设计器零件（designer-shell）的，也要查看器的，因为画布与预览用的就是查看器的绘制：
+
+```ts
+import type { ReportDesignerEventMap } from '@xihan-report/designer'
+import { defineReportDesigner } from '@xihan-report/designer'
+import { createExpressionEngine } from '@xihan-ui/expression'
+import { rows, schema } from '../reports/dashboard.ts'
+import '@xihan-ui/styles/index.css'
+import '@xihan-ui/designer-shell/style.css'
+import '@xihan-report/runtime/style.css'
+import '@xihan-report/designer/style.css'
+
+defineReportDesigner()
+```
+
+## 打开与保存
+
+把报表定义写进 `schema` 就装载它，清空撤销历史与选择；之后读 `schema` 得到当前的报表。取数回调与查看器是同一个，画布与预览用它显示示例数据：
+
+```ts
+const designer = document.createElement('xh-report-designer')
+designer.expressionEngine = createExpressionEngine()
+designer.dataProvider = async () => ({ kind: 'rows', rows })
+designer.schema = schema
+```
+
+每改一步派发 `schema-change`，detail 带新的报表、这一步的操作与来由（执行、撤销、重做或装载）。设计器不自己存：在画布上按 Ctrl+S（macOS 上 ⌘S），或点「文件」菜单的「保存」（命令 `save`）时派发 `save`，宿主把报表存好后调 `markSaved()`，`dirty` 与 `dirty-change` 据此判断有没有未保存的改动：
+
+```ts
+designer.addEventListener('dirty-change', (event) => {
+  const { dirty } = (event as ReportDesignerEventMap['dirty-change']).detail
+  status.textContent = dirty ? '有未保存的改动' : '已保存'
+})
+
+designer.addEventListener('save', () => {
+  const saved = JSON.stringify(designer.schema)
+  // 宿主在这里把 saved 存进数据库或文件，存好之后：
+  designer.markSaved()
+  status.textContent = `已保存（${saved.length} 个字符）`
+})
+```
+
+
+设置「基础」页里开着自动保存（`general.autoSave`，缺省关）时，未保存的修改停手约一秒存成这台浏览器里的草稿，保存（`markSaved()`）后删掉。下次装进同一份报表、和草稿不一样时，弹确认框问恢复还是丢弃：恢复是整份换上草稿、记一步撤销，丢弃即删。不同报表用 `draftKey`（attribute `draft-key`，宿主写报表 id）区分，不写时按页面地址区分。草稿只存在本机，宿主不用存、也不用接新事件；要固定开或关，在 `settings` 里预先写或用 `settingsPolicy` 藏起、锁住这一条。只读时不问。
+
+没给取数回调时，画布上取数的卡片画占位，说明给了取数回调后会显示示例数据。用到计算字段或公式度量时还要给 `expressionEngine`，校验公式也用它。
+
+## 界面
+
+外框从上到下是菜单栏、工具栏、中间三栏（左边数据集、报表参数、物料与页面结构，中间画布，右边字段栏与属性）、画布下方的问题列表与最底下的状态栏。各块面板停在哪一栏、显不显示、收没收起、浮没浮出，记在一份面板布局里，见下文「面板布局」；预览态只留菜单栏、工具栏与画布。
+
+| 部分 | 位置 | 面板 id | 作用 |
+| --- | --- | --- | --- |
+| 菜单栏 | 最上面 | — | 文件、编辑、视图、数据、帮助五张菜单；正中放宿主的模板标题（`slot="menubar-center"`），右边一段放宿主别的常显内容（`slot="menubar-end"`），见下文「命令与菜单」 |
+| 工具栏 | 菜单栏下面 | — | 撤销重做；剪切、复制、粘贴、创建副本、删除；拖动工具与缩放；设计与预览；扩展登记的命令；末组是面板 |
+| 数据集 | 左栏最上面 | `datasets` | 数据集与字段，下面是新增数据集与新增字段 |
+| 报表参数 | 左栏，数据集下面 | `parameters` | 报表参数，下面是新增参数；没有参数又不能新增时收起 |
+| 物料 | 左栏，报表参数下面 | `palette` | 图表、指标、表格，每种带种类图标；拖到看板上或点一下新建卡片。扩展的物料来源（`paletteSources`）接在后面，见[扩展](./extensions) |
+| 页面结构 | 左栏最下面 | `outline` | 按树列出卡片、卡片的列表与列表项，见下文「页面结构」 |
+| 画布 | 中间 | — | 看板的卡片可以框选、拖动与改大小，落在网格上；可以缩放，见下文「缩放」 |
+| 选中工具条 | 选中框上方 | — | 选中卡片时浮出：创建副本、复制与删除，见下文「命令与菜单」 |
+| 尺寸徽标 | 选中框下方 | — | 选中卡片时常驻，写宽 × 高（格）；选中一张时可以直接改，见下文 |
+| 问题 | 画布下方 | `issues` | 校验问题，点一条选中出问题的对象；错误与警告的条数在面板头上，点一下只看或不看这一级 |
+| 字段栏 | 右栏上面 | `wells` | 选中卡片（或主体视图）的维度、度量、系列、列与分组，可以拖进字段、拖动换序 |
+| 属性 | 右栏中间 | `properties` | 选中对象的属性；选中多张卡片时编辑共同的属性 |
+| 历史记录 | 右栏下面，缺省隐藏 | `history` | 打开报表以来的每一步，见下文「撤销历史」 |
+| 状态栏 | 最下面 | — | 左边写选中的对象：选中一张卡片是种类与所在的格，选中几张是个数，选中字段、参数等对象是它的种类与名字，没有选中时是数据集数与卡片数；右边写缩放倍数，点一下回到实际大小，宿主的保存状态（`slot="status-end"`）排在它左边。窄时左边一段先收窄。设置里可以关掉 |
+
+数据集、报表参数、物料、页面结构、问题、字段栏、属性与历史记录是外框里的卡片：面板头写图标与标题，属性卡片的标题下面写正在编辑的对象，「?」里是这块面板的用法。
+
+### 面板布局
+
+- 面板头上的「×」隐藏这块面板，收起钮（或双击面板头）收成只剩标题条，「更多」菜单里换到别的栏、调先后、浮出成小窗或停靠回去。按住面板头拖：拖到外框边上换栏，拖到两块面板之间调先后，拖到画布上浮出成小窗；小窗不出外框。
+- 工具栏与「视图」菜单里的「面板」列出这八块卡片，勾选的显示；末尾是「显示 / 隐藏所有面板」（Ctrl / ⌘ + \）、「还原面板显隐」（Ctrl / ⌘ + Shift + \，位置与大小不动）与「恢复默认布局」。每块卡片另有一条开关命令 `panel:<面板 id>`，不在工具栏上，用 `commandLayout` 排上去即可。
+- 布局一改，设计器就把整份布局写进设置的 `layout.panels`（`DESIGNER_SETTING_KEYS.layout`），派发 `settings-change`，宿主存起来、下次随 `settings` 赋回即可；给了 `settingsStorageKey` 时设计器自己存。拖分隔条只在松手时写一次。
+- 宿主用 `defaultLayout` 给缺省布局：用户没存过布局时用它，「恢复默认布局」也回到它。用 `settingsPolicy` 管控：`layout.panels` 锁定整份布局，`layout.panels.<面板 id>` 写 `hidden` 就没有这块面板、写 `locked` 就固定这块面板。面板 id 见包入口导出的 `REPORT_DESIGNER_PANELS`。
+- 报表参数卡片没有参数又不能新增时不登记，菜单栏、工具栏与状态栏在设置里关掉时不登记；没登记的区不显示，存在设置里的布局不受影响，再登记时照布局放回。
+
+```ts
+export function wireLayout(designer: XhReportDesigner): void {
+  // 缺省收起问题列表；宿主用不到物料面板，也不许用户把它开出来
+  designer.defaultLayout = { version: 1, hidden: [REPORT_DESIGNER_PANELS.issues] }
+  designer.settingsPolicy = { [`${DESIGNER_SETTING_KEYS.layout}.${REPORT_DESIGNER_PANELS.palette}`]: 'hidden' }
+}
+```
+
+窗口窄时左右两栏收起，从「面板」菜单打开时以抽屉盖在画布上；浮出的面板在窄屏时按停靠位置收进抽屉。
+
+工具栏缺省只显示图标；设置的「工具栏」页可以换成文字或图标加文字，藏起、调换或跨组挪动按钮，也能整条隐藏，见下文「设置」。按钮的名字与快捷键报给读屏，悬停或键盘聚焦到按钮时提示命令的文字与快捷键；会删掉内容的命令按危险色显示。工具栏放不下时，末尾的按钮收进「更多」。
+
+- 尺寸徽标按格计：选中一张卡片时宽、高各一个数字框，加减钮与上下方向键一次改一格，Shift 加方向键一次十格，输入格数后按 Enter 或离开数字框才生效，宽不超出看板的右边，至少一格；压到的卡片让开。连着点加减钮或按方向键合为一步撤销，输入的单独一步。选中几张或只读时只显示尺寸。
+- 把字段拖到卡片上，数值字段进度量，其余进维度（明细表与分组报表进列，交叉表进行）；加减维度、度量后，图表与指标卡片按查询里现有的项补全必填的引用。
+- 报表参数的固定候选项在属性面板里是一张选项表，逐行编辑值、文字与禁用，可以新增、删除与换序，重复的取值标在那一格上。值格跟着参数的类型：`string` 是文本框，`number` 是数字框，`date`、`datetime` 是日期框；`boolean` 固定 `true`、`false` 两行，值格只读，只编辑文字与禁用。
+- 删除被别处用着的字段、参数或数据集时，先弹确认框列出会一并删掉的地方，确认后合为一步撤销。
+- `datasetEditing` 决定数据集能改到什么程度：`none` 只读；`fields`（缺省）能改字段的标题、类型与计算字段公式，增删报表参数；`full` 另能增删数据集与字段。
+- `readonly` 只能选择、浏览与预览，不能修改。attribute 按三态读：没写或写 `"false"` 可修改，空串、`"true"` 与别的写法只读，移除后回到可修改。这是一处行为变化：此前 `readonly="false"` 也算只读，现在是可修改。
+- `mode` 写 `preview` 切到预览，用查看器按 `parameters` 显示报表；切换时派发 `mode-change`。
+
+### 页面结构
+
+- 看板按阅读顺序（先行后列）列出卡片：有标题的写标题、名字下面写种类，没有标题的写「种类名 · id」，行首是卡片种类的图标（包入口导出的 `REPORT_CARD_TYPE_ICONS`）。卡片下面是它的列表（维度、度量、系列、列、分组、行），列表下面是项。主体不是看板时，顶层是那一个视图。数据集与参数在数据面板里，联动在字段栏里，这里不列。
+- 点一行选中它并让卡片露出来，画布上选中了什么，这里跟着选中那几行；悬停或用键盘走到一行时，画布上标出它所在的卡片。卡片可以多选：Ctrl/⌘ 加点加选或取消一行，Shift 选一段；列表项一次只选一个，新点上一项就换成选它。新选上的卡片滚进画布的可见区，只取消几行时画布不动。Delete 删除选中的卡片或列表项，与画布上删除一样进撤销。
+- 列表项能拖动或用 Alt + 方向键换序，交叉表的行与列之间能互换；卡片的位置由网格定，不能在树里挪。顶上有搜索框。只读时只能看。
+
+### 导入数据集、字段与参数
+
+- 入口：数据集卡片的面板头上有「导入数据集」与「导入字段」，报表参数卡片的面板头上有「导入参数」。导入数据集与字段要 `datasetEditing` 为 `full`，导入参数要 `fields` 起，不够或只读时没有这几颗钮；导入字段还要先在数据面板里选中一个数据集或它的字段，导进那个数据集。
+- 对话框里粘贴一份 JSON 样例或 JSON Schema，也可以从 .json 文件读进来；解析失败时写出第几行第几列。下面的预览列出推断出的字段，可以去掉不要的、改显示名与类型，确认后才导入。
+- 数据集与字段是扁平的，只取一行的值字段：样例的根是数组时取它的项；根是对象、里面有带子字段的列表时（如 `{ "data": [...], "total": 2 }`），取第一个这样的列表的项；否则对象本身就是一行。嵌套的对象与列表跳过。
+- 参数取顶层：值字段各是一个参数，标量数组是多值参数，对象跳过；JSON Schema 里的 `required`、`enum`、`default` 换成必填、固定候选项与缺省值。
+- 同名的字段与参数保留现有的，导入只新增，不改不删。一次导入记一步撤销；导入数据集后选中新数据集。
+- 用代码：`canImportData(kind)` 判断此刻能不能导入，`openDataImport(kind)` 打开对话框，`kind` 为 `dataset`、`fields` 或 `parameters`。三条命令的 id 是 `import-dataset`、`import-fields` 与 `import-parameters`，也在菜单栏的「数据」菜单里，可以用 `commandLayout` 排到别处。
+- 对话框只有 JSON 样例与 JSON Schema 两页；扩展可以经 `fieldSources` 再登记来源页，见[扩展](./extensions)。
+
+## 快捷键
+
+画布在 Tab 顺序里只占一个位置：卡片里的图例、图形与表格行在设计时只用来看，不接收焦点，点在上面就是点那张卡片。焦点在画布上时：
+
+| 按键 | 作用 |
+| --- | --- |
+| Ctrl/⌘ + Z | 撤销 |
+| Ctrl/⌘ + Shift + Z、Ctrl + Y | 重做 |
+| Ctrl/⌘ + C、X、V | 复制、剪切、粘贴，经系统剪贴板，能在两个设计器之间粘贴 |
+| Ctrl/⌘ + D | 给选中的卡片创建副本 |
+| Ctrl/⌘ + Shift + J | 打开「编辑 JSON」对话框（开发者模式开着时） |
+| Delete、Backspace | 删除选中的对象 |
+| Ctrl/⌘ + A | 全选看板上的卡片 |
+| 方向键 | 把选中的卡片挪一格；加 Shift 改大小。同一张卡片连着按、相隔不超过 1 秒的合为一步撤销 |
+| PageUp、PageDown、Home、End | 滚动画布；没有选中卡片（或选中了几张）时方向键也是滚动 |
+| Esc | 取消选择 |
+| F10 | 把焦点交给菜单栏，再按 F10 或在菜单栏上按 Esc 回到画布 |
+| Alt + F10 | 把焦点交给选中工具条（排列为空时交给尺寸徽标），在里面按 Esc 回到画布 |
+| +（或 =）、- | 放大、缩小一档 |
+| 0 | 适合窗口 |
+| H | 打开或关上拖动工具 |
+| Ctrl/⌘ + 滚轮 | 以指针为中心缩放 |
+| Ctrl/⌘ + S | 保存（命令 `save`），派发 `save` |
+| Ctrl/⌘ + , | 打开设置对话框 |
+
+## 撤销历史
+
+- 每一步撤销都带一句说明，按这一步改了什么生成，如「删除卡片「销售额」」「把字段「region」改名为「area」」「修改度量「amount」的聚合」；连带删掉引用时写上删了几处。说明按此刻的语言取，换了语言跟着换。工具栏上撤销、重做的名字与提示写着这一步，如「撤销：删除卡片「销售额」」。
+- 「历史记录」卡片从上到下列出打开时的起点与之后的各步，当前所在的那一步选中；撤销掉、还能重做的标「已撤销」，保存时所在的那一步标「已保存」。点一步就一次跳过去，读屏播报跳到了哪一步、走了几步。卡片缺省隐藏，从「面板」菜单打开，打开后在右栏属性下面；面板头上是「清空历史」，确认后只清空撤销与重做，报表不变。
+- 撤销步数缺省最多 100 步，`historyLimit`（attribute `history-limit`）改上限，下一次装载报表时生效；超出上限时最早的几步丢掉，起点改写「更早的步骤已丢弃」。
+- 用代码：`historyState` 读快照（各步的说明、状态、是不是保存时所在，以及当前位置），`goToHistory(position)` 跳到一步或起点，`clearHistory()` 清空；撤销历史每变一次派发 `history-change`，detail 与 `historyState` 相同。只读时不能跳，也不能清空。
+- 清空历史也是一条命令 `clear-history`，不在工具栏上，可以用 `commandLayout` 排上去。
+
+## 编辑 JSON
+
+设置「基础」页里开着开发者模式时，「编辑」菜单与空白处的右键菜单末尾是「编辑 JSON」（命令 `edit-json`，Ctrl/⌘ + Shift + J），打开一个对话框，写着整份报表定义的 JSON（缩进两格）。开发者模式关着（缺省）时这条命令不出现，快捷键也不响应。
+
+- 边改边检查：写得不是合法 JSON 时说明第几行第几列出错，能跳过去；JSON 读得了就按当前的扩展与表达式引擎校验，问题列在下面，说明与所在对象的名字同「问题」卡片，点一条光标跳到那一处。
+- 没有错误、内容又改过时「应用」才能按：整份换上改好的报表，清空选择，记一步撤销，说明是「编辑 JSON」，派发一次 `schema-change`。
+- 对话框里还能格式化与复制。只读或预览态时只能看与复制，没有「应用」。
+- 用代码：`openJsonEditor()` 打开对话框，不看开发者模式，还没有报表时返回 `false`。宿主要让用户用编辑 JSON，在 `settings` 里预先写 `general.developer` 为 `true`，或用 `settingsPolicy` 锁住它。整份替换是 core 的编辑操作 `replaceDocument`，宿主也可以自己执行。
+
+## 新手引导
+
+第一次打开设计器、铺好画布后，自动开始一段新手引导（设计器放在隐藏的页签或容器里时，等它显示出来再开始），一步步高亮对应的面板、菜单或按钮：先是欢迎与菜单栏（各张菜单里有什么，F10 进出菜单栏），再是各款共用的几步（工具栏、物料、画布、属性、问题、状态栏），接着是报表自己的几步——数据面板、「数据」菜单（导入数据集、字段与参数，登记了导入器时还说最下面的导入模板）、字段、卡片、联动与预览（并说「视图」菜单里也能在设计与预览之间切换），最后一步是设置：高亮「文件」菜单，设置在那里，引导能从「帮助」菜单重新开始。遮罩只盖住设计器的外框，页面别处照常能用。看板上没有卡片时跳过卡片与联动两步，目标面板隐藏着的那一步也跳过。
+
+窄屏时菜单栏收成一颗「菜单」钮，「数据」菜单与设置两步都落在这颗钮上；工具栏上收进「更多」的钮，那一步落在「更多」钮上。
+
+- 走完、跳过或关上一次以后，设计器在设置里记下 `help.tourDone`（`DESIGNER_TOUR_DONE_KEY`），派发 `settings-change`；宿主存起设置、下次赋回，就不再自动开始。
+- 宿主不要自动开始时写 `autoTour = false`（attribute `auto-tour="false"`）。「帮助」菜单与设置「帮助」页里的「开始引导」、命令 `start-tour` 与 `startTour()` 随时从头开始；预览态或没有报表时 `startTour()` 返回 `false`。
+- 同一页只开一个引导：页面上别的设计器的引导开着时不自动开始；「开始引导」、`start-tour` 与 `startTour()` 先收起那一个再开始。
+- 扩展可以经 `tourSteps` 加自己的步骤，排在报表的几步之后，见[扩展](./extensions)。
+
+## 缩放
+
+工具栏的缩放一组是拖动工具、缩小、放大、适合窗口与实际大小，空白处的右键菜单里也有适合窗口，状态栏右边写着缩放倍数，点一下回到实际大小。缩放范围是 10%–400%，每档 1.2 倍，放大、缩小以画布中间为准，Ctrl/⌘ 加滚轮以指针为准。
+
+看板总是铺满画布的宽，缩放改的是卡片与文字的大小：缩小时一屏看到更多行。适合窗口缩到整块看板的高度落进画布，不放大到实际尺寸以上；之后画布或看板的尺寸变了就重新适配，直到改了缩放或在画布上按下指针。拖动卡片、改大小、框选与从物料面板拖进卡片在任何缩放下都落在同样的格子上。
+
+设计器打开时按实际尺寸（100%）显示，从看板左上角开始，不自动适合窗口；要整块看板落进画布时点「适合窗口」。拖动工具（快捷键 H）开着时，在画布上哪儿按住拖动都是平移：不选中、不挪卡片，只点一下也不改选择，双击不当作双击卡片；画布显示手形，拖动中握拳。拖动途中按 Esc 只取消这一次、滚回原处，不在拖动时按 Esc 退出拖动工具。缩放只是看的方式，不进报表定义，也不记到下次打开。`getViewport()` 读当前视口（屏幕坐标 = 画布坐标 × `zoom` + (`x`, `y`)，画布坐标是实际尺寸下的像素），`setViewport()` 设置它；`zoomIn()`、`zoomOut()`、`zoomToFit()`、`zoomToActual()` 与四条命令相同；视口变了（缩放或滚动画布）派发 `viewport-change`。
+
+## 命令与菜单
+
+菜单栏、工具栏与右键菜单里的项都是命令，扩展可以登记新的命令（见[扩展](./extensions)）。`commandLayout` 改写它们的排列：写了某个位置，那里就只显示列出的命令，内置的与扩展的命令 id 可以混排。
+
+最上一条是菜单栏，下面是工具栏。菜单栏放通用的功能，文件、编辑、视图、帮助四张与四款设计器一致，报表另有一张「数据」：
+
+- 「文件」：保存（Ctrl / ⌘ + S）、设置（Ctrl / ⌘ + ,，同 `openSettings()`）。
+- 「编辑」：撤销、重做，剪切、复制、粘贴、删除、创建副本，全选，编辑 JSON（开发者模式开着时）。
+- 「视图」：设计、预览，放大、缩小、适合窗口、实际大小，拖动，「面板」与「外观」两个子菜单；外观里是工具栏、状态栏两个显示开关（改的是设置）。
+- 「数据」：导入数据集、导入字段、导入参数；登记了导入器时末尾另一组是「导入模板」。这张菜单的 id 是包入口导出的 `REPORT_DATA_MENU`（`data`）。
+- 「帮助」：开始引导、帮助（在新窗口打开本站的设计器一页，地址是包入口导出的 `REPORT_DESIGNER_HELP_URL`）、快捷键（打开设置的快捷键页），关于（打开设置的关于页）。
+
+画布有焦点时按 F10 把焦点交给菜单栏，左右键在菜单之间走，下键、Enter 或 Space 展开；再按 F10，或在菜单栏上按 Esc，回到画布。窄屏时菜单栏收成行首一颗「菜单」钮，各张菜单是它的子菜单。菜单栏常开，没有关掉它的开关；设置与帮助只在菜单栏里。
+
+宿主自己的操作（新建、预览、返回列表）写成一个扩展的命令，`placement` 写 `menubar:file` 就进「文件」菜单，写了 `toolbar` 也上工具栏；模板标题写成设计器的子元素 `slot="menubar-center"`，显示在整条菜单栏的正中，放不下时截断加省略号，再窄就藏起；保存状态写成 `slot="status-end"`，显示在状态栏右端、缩放比例的左边，状态栏在设置里关掉时跟着不显示；别的要常显的内容写 `slot="menubar-end"`，显示在菜单栏右边。连上文档之前写的与之后加的都一样。这样设计器外面不必另起一条操作条。
+
+```ts
+designer.extensions = [{
+  id: 'acme.host',
+  commands: [
+    { id: 'acme.new', label: '新建', shortcut: ['Mod', 'Alt', 'N'], placement: ['menubar:file'], run: () => location.assign('/reports/new') },
+    { id: 'acme.back', label: '返回列表', placement: ['menubar:file', 'toolbar'], run: () => history.back() },
+  ],
+}]
+const title = document.createElement('span')
+title.slot = 'menubar-center'
+title.textContent = '销售看板 · SALES-01'
+const saved = document.createElement('span')
+saved.slot = 'status-end'
+saved.textContent = '已保存'
+designer.append(title, saved)
+```
+
+- 右键菜单的条目是图标加文字，行尾写快捷键。
+- 工具栏末组是面板：点开一张菜单，列出能开关的卡片，勾选的显示，末尾是显示或隐藏所有面板、还原面板显隐与恢复默认布局，见上文「面板布局」。
+- 卡片上的右键菜单依次是剪切、复制、粘贴、创建副本，删除另成一组；空白处的是粘贴、全选、适合窗口与编辑 JSON（开发者模式开着时），各成一组。
+- 扩展登记了导入器时，工具栏最前面多一组「导入模板」（`import-template`，包入口导出的 `REPORT_IMPORT_TEMPLATE_COMMAND`），「数据」菜单的末尾也有它，见[扩展](./extensions)；没有导入器时没有这条命令。
+- `commandLayout` 的位置：工具栏是 `toolbar`，菜单栏是 `menubar:file`、`menubar:edit`、`menubar:view`、`menubar:data`、`menubar:help`，右键菜单是 `menu:card`、`menu:blank`，选中工具条见下一条。某张菜单排空了就不出现。工具栏与菜单栏此刻的缺省排列由包入口导出的 `reportToolbarLayout`、`reportMenubarLayout` 给出，宿主可以在它们上面改。
+- 选中工具条按选中的是一张还是几张卡片取命令落点 `selection:card` 或 `selection:multiple` 的排列，缺省都是创建副本、复制与删除（包入口导出的 `REPORT_SELECTION_LAYOUT`）。宿主用 `commandLayout` 改，写空数组就不放工具条；扩展命令的 `placement` 写上落点，就追加成一组。只读与预览时没有选中工具条，拖动、改大小时收起。
+- 撤销、重做、剪切、复制、粘贴、创建副本、删除、全选、缩放的四条、设计与预览这几条命令的文字，以及工具栏、菜单栏与文件、编辑、视图、帮助四张菜单的名字，是四款设计器共用的文案，在 designer-shell 语言包的 `xh-designer-commands` 一桶里，换语言时随 `mergeXhConfig` 一起换；要改这些文字，在全局配置里覆盖这一桶。报表自己的文案（含「数据」菜单的名字）在 `xh-report-designer`。
+
+```ts
+designer.commandLayout = {
+  'toolbar': [['undo', 'redo'], ['preview']],
+  'menu:card': [['copy', 'duplicate'], ['delete']],
+}
+```
+
+右键点卡片或空白处时派发 `card-contextmenu` 或 `blank-contextmenu`，取消这个事件就不弹内建菜单，宿主可以画自己的；双击卡片派发 `card-dblclick`。
+
+## 设置
+
+设置是用户偏好，每人每机一份，不随报表定义保存。`openSettings(section?)` 打开设置对话框，左边一个分区一页：
+
+- 「基础」（`general`）：主题（跟随页面、跟随系统、亮色、暗色）、主题色（跟随页面、八种预设、自定义颜色）、状态栏、自动保存（`general.autoSave`，缺省关，见上文「打开与保存」）、开发者模式（`general.developer`，缺省关；关着时编辑 JSON 这类调试查看入口不出现），以及分页、渲染两条调试日志（`general.debugPagination`、`general.debugRender`，缺省关，开发者模式关着时只读、也不记）。
+- 「语言」（`language`）：跟随页面（缺省）、跟随系统，或在十种语言里选一种，名字是各自的本名（简体中文、繁體中文、English、日本語……），键是 `language.locale`。
+- 「布局」（`layout`）：逐块卡片一行，改显示、位置、先后与收起，表下是「恢复默认布局」，与面板头的「更多」菜单一样不靠拖动也能改布局；改动照样写进 `layout.panels`。`settingsPolicy` 把 `layout.panels` 写 `hidden` 时没有这一页，写 `locked` 时只读。
+- 「工具栏」（`toolbar`）：按钮显示方式（`toolbar.display`：图标、文字、图标和文字，缺省只显示图标）、显示工具栏（`toolbar.visible`，关掉后整条工具栏不显示，命令照样能经快捷键与右键菜单执行）与按钮表（`toolbar.layout`）。按钮表一组一块，勾掉的按钮不上工具栏，拖动把手换先后、跨组挪，组头的勾选框整组勾选或勾掉，表下「恢复默认」删掉这个键。工具栏先按 `commandLayout`（没写时按缺省排列）排出分组，再套用户的定制；后装的扩展命令放到缺省排列里挨着的位置，已经没有的命令跳过。只管顶部工具栏，右键菜单与选中工具条不进定制。这几条只走设置，没有单独的属性。
+- 扩展登记的分区，排在这几页后面。分区 id 与 `general`、`language`、`layout`、`toolbar` 或别的扩展重名时，给 `extensions` 赋值就抛 `DesignerExtensionError`。
+- 「帮助」：几段操作说明，下面是「开始引导」与「帮助」两颗钮，点了先关上对话框再开始引导或打开本站的设计器一页。
+- 「快捷键」：一张快捷键表，从命令表生成，分通用、编辑、本设计器与扩展几组。保存、设置这些外壳命令归在通用一组，通用一组末尾是各款共有的按键（含 F10 进出菜单栏），报表去掉了看板上没有的按住空格拖动画布，Shift 加方向键写作改卡片大小；本设计器一组末尾是不是命令的几个键（Ctrl/⌘ + C、X、V 复制、剪切与粘贴，Backspace 删除）。
+- 「关于」：报表设计器的版本（包入口导出的 `REPORT_VERSION`）与许可证、界面库的版本，后面接扩展的 `about` 字段给的几行（如附加包的版本与授权）。这三页只显示，不存值。
+
+看板的网格是报表布局的一部分（卡片总落在格子上），随报表定义保存，所以报表没有自己的「画布」一页。`datasetEditing` 管的是能改到什么程度，属于权限，仍是设计器的属性。
+
+```ts
+export function openSettings(designer: XhReportDesigner): void {
+  designer.openSettings()
+}
+```
+
+值是扁平的键值，键是「分区 id.条目 id」，如 `general.theme`，没写的键取缺省值。宿主给缺省、锁定条目或读值时用 `@xihan-ui/designer-shell` 导出的 `DESIGNER_SETTING_KEYS`，不手写键。`settings` 赋值即生效；用户在对话框里改了一条，设计器换成新的一份并派发 `settings-change`，宿主存起来、下次赋回。`settingsPolicy` 隐藏或锁定条目，键是条目键或分区 id：`hidden` 不显示，一个分区的条目全藏了就没有这一页；`locked` 只读，说明换成「由所在系统管理」。
+
+```ts
+export function wireSettings(designer: XhReportDesigner, saved: ReportSettings, store: (settings: ReportSettings) => void): void {
+  // 宿主自己的缺省压在下面，用户存过的值盖在上面
+  designer.settings = { [DESIGNER_SETTING_KEYS.toolbarDisplay]: 'both', ...saved }
+  designer.settingsPolicy = { [DESIGNER_SETTING_KEYS.theme]: 'hidden', [DESIGNER_SETTING_KEYS.brand]: 'hidden' }
+  designer.addEventListener('settings-change', (event) => {
+    store((event as CustomEvent<{ settings: ReportSettings }>).detail.settings)
+  })
+}
+```
+
+- **主题只作用于设计器**：主题与主题色写在 `<xh-report-designer>` 自己的 `data-theme`、`data-brand` 上，页面其余部分不变；设置对话框、菜单这些浮层跟着设计器变。主题色是内置的：跟随页面（缺省，不写 `data-brand`），或 UI 的八种预设，或自定义颜色，宿主不用传预设。
+- **语言只作用于设计器**：设置里选了语言，`<xh-report-designer>` 把这一语言的 UI、designer-shell 与报表语言包作为自己的 `xhConfig` 交出去，设计器、里面的元素（含预览的查看器与图表）与它弹出的浮层都换成这种语言，页面别处不变。跟随系统按浏览器的语言偏好挑最接近的一种，挑不到用英文；语言包第一次用到时才加载。跟随页面时 `xhConfig` 是空对象，照页面的全局配置。
+- **调试日志**：开发者模式与渲染日志都开着时，设计器在浏览器控制台记一组组折叠的日志，前缀是 `[xh-report-designer] render`：每次重画写改动的属性与耗时，画布上每张卡片（或报表主体）的取数、计算与出图各记一组耗时，取数一组里有请求与行数。预览由查看器自己画，不记。报表没有分页，分页日志开着也没有内容。日志只到控制台，不派发事件、不交给宿主。
+- **扩展读设置**：命令、面板与扩展从上下文的 `settings` 读值，各分区没写的条目已经取了缺省值。
+
+独立使用、没有宿主替你存时，给 `settingsStorageKey`：连上文档时若没赋 `settings` 就从根所在窗口的 localStorage 读，用户改了设置就写回去；标了 `secret` 的文本条目（如密钥）不存。读写失败派发 `settings-storage-error`，设置留在内存里。不给就不读写存储。
+
+```ts
+export function standalone(designer: XhReportDesigner): void {
+  designer.settingsStorageKey = 'report-designer:settings'
+  designer.addEventListener('settings-storage-error', (event) => {
+    console.warn('设置没能读写本机存储，这次改的只在内存里', (event as CustomEvent<{ error: unknown }>).detail.error)
+  })
+}
+```
+
+## 用代码编辑
+
+设计器的每一步编辑都是 core 的编辑操作，宿主也可以自己执行：`execute(operations)` 执行一组操作并记为一步撤销，返回新的报表。core 的 `plan…` 函数按报表算出要执行的操作：
+
+```ts
+const card = designer.addCard(cardTemplate('chart.pie', 'sales'))
+const owner = { card: card.id }
+const start = designer.schema!
+const dimension = planAddFieldItem(start, owner, 'dimensions', 'region')
+const withDimension = applyOperations(start, dimension).document
+const measure = planAddFieldItem(withDimension, owner, 'measures', 'amount')
+const withMeasure = applyOperations(withDimension, measure).document
+designer.execute([...dimension, ...measure, ...planFillBindings(withMeasure, card.id)])
+```
+
+删除字段、参数或数据集用对应的 `plan…` 函数，引用它们的地方一并删掉：
+
+```ts
+const removal = planRemoveField(designer.schema!, 'sales', 'channel')
+designer.execute(removal.operations)
+```
+
+另有 `addCard`、照点物料的做法新建卡片的 `addPaletteItem`、`select` 与 `getSelection`、`selectAll`、`copy`、`cut`、`paste`、`duplicate`、`deleteSelection`、`undo`、`redo`、`validate`，以及让卡片露出来的 `revealCard`、在画布上标出一张卡片的 `highlightCard(id | null)`，和 `canUndo`、`canRedo`、`canPaste`、`canDelete` 这几个只读状态；登记了导入器时，`importTemplate()` 与 `canImportTemplate` 同命令「导入模板」。

@@ -1,0 +1,41 @@
+# 曦寒报表设计器
+
+> 框架无关的报表设计器与查看器：以原生 Web Components 交付，报表定义是纯 JSON，按数据集与参数取数后在浏览器里算出明细表、分组报表、交叉表与看板；看板的卡片可以联动、表格可以下钻，结果可以导出 Excel；设计器可视化编辑报表，按实例传入的扩展登记新的卡片与视图种类、渲染、叠加层、导出器、取数中间件、属性编辑器、命令与面板。
+
+本文件由文档站构建期生成，内容与仓库文档同源。
+
+## 机读资产
+
+- [llms-full.txt](https://report.docs.xihanfun.com/llms-full.txt): 全部 20 页正文
+- [llms-guide.txt](https://report.docs.xihanfun.com/llms-guide.txt): 9 页指南
+- [llms-reference.txt](https://report.docs.xihanfun.com/llms-reference.txt): 7 页参考
+- 每页 Markdown：把站点地址后缀成 `.md`，如 https://report.docs.xihanfun.com/guide/dashboard.md
+
+## 开始
+
+- [更新日志](https://report.docs.xihanfun.com/changelog): 本页记录 `@xihan-report/core`、`@xihan-report/runtime`、`@xihan-report/designer` 各版本使用者能感知的变更，每条标注 新增 / 修复 / 调整 / 移除。
+- [曦寒报表设计器](https://report.docs.xihanfun.com/): 框架无关的报表设计、查看与看板
+- [介绍](https://report.docs.xihanfun.com/introduction): 曦寒报表设计器（XiHan.ReportDesigner）是一款框架无关的报表设计器：以原生 Web Components 交付，可视化设计报表，在浏览器里按数据集与参数取数，算出明细表、分组报表、交叉表与看板并显示出来；看板上的卡片可以互相联动，表格的格子可以下钻，计算结果可以导出成 Excel 工作簿。
+- [快速开始](https://report.docs.xihanfun.com/quickstart): 这一页在任意前端项目里装上查看器，把一张销售明细表交给 `<xh-report-viewer>`，由取数回调交回数据并显示出来。
+
+## 指南
+
+- [看板与卡片](https://report.docs.xihanfun.com/guide/dashboard): 主体写成看板 `dashboard` 时，报表是一张网格，上面排着图表、指标与表格卡片。
+- [设计器](https://report.docs.xihanfun.com/guide/designer): `<xh-report-designer>` 可视化编辑报表定义：从物料拖出卡片，把字段拖进卡片，在属性面板里改配置，问题列表随时指出哪里不对。
+- [导出](https://report.docs.xihanfun.com/guide/export): 查看器的 `export(format, options?)` 把此刻的计算结果写成文件，交回 `Blob` 或字符串。
+- [扩展](https://report.docs.xihanfun.com/guide/extensions): 报表设计器的能力可以由扩展加进来：新的卡片与主体视图种类、它们的渲染与属性、画在看板上的叠加层、新的导出格式、包在取数回调外面的中间件，以及设计器里的物料、命令与面板。
+- [与宿主集成](https://report.docs.xihanfun.com/guide/host): 报表组件不发网络请求、不存任何东西。
+- [联动与下钻](https://report.docs.xihanfun.com/guide/linking): 看板上的卡片可以互相筛选：在一张卡片上点选一个值，别的卡片只显示与它相关的数据，这叫联动。
+- [透视与交叉表](https://report.docs.xihanfun.com/guide/pivot): 要看「哪个区域、哪个品类在哪个季度卖了多少」这种两个方向交叉的汇总，用交叉表 `crosstab`：行上一组维度、列上一组维度，每个格子是这一行与这一列交叉处的度量。
+- [报表结构](https://report.docs.xihanfun.com/guide/structure): 一份报表定义 `ReportDocument` 由三部分组成：数据集描述数据长什么样，报表参数让看报表的人筛选，主体决定画成什么。
+- [查看器](https://report.docs.xihanfun.com/guide/viewer): `<xh-report-viewer>` 是业务页面里显示报表的元素：拿到报表定义与取数回调，按参数与联动取数、计算并绘出主体或看板。
+
+## 参考
+
+- [模型层 core](https://report.docs.xihanfun.com/reference/core): `@xihan-report/core` 是纯 TypeScript 的模型层：报表定义的类型、校验、取数请求、计算、编辑操作与扩展的合并，不依赖 DOM，浏览器、Node.js 与其它 JavaScript 运行环境里都能用。
+- [设计器](https://report.docs.xihanfun.com/reference/designer): `@xihan-report/designer` 的公开接口。
+- [扩展](https://report.docs.xihanfun.com/reference/extensions): 扩展按实例传入：查看器与设计器的 `extensions` 属性，以及 core 各入口的 `extensions` 选项。
+- [问题码](https://report.docs.xihanfun.com/reference/issues): 校验问题由 `validateDocument`、查看器的 `issues` 与设计器的问题列表给出，参数取值的问题由 `resolveParameters` 与查看器给出。
+- [属性](https://report.docs.xihanfun.com/reference/properties): 设计器的属性面板按下面的描述编辑报表里的对象。
+- [报表定义类型](https://report.docs.xihanfun.com/reference/schema): 报表定义 `ReportDocument` 的全部类型，按 `@xihan-report/core` 的源码列出。
+- [查看器](https://report.docs.xihanfun.com/reference/viewer): `@xihan-report/runtime` 的公开接口：查看器元素与相关类型。

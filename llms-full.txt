@@ -1,0 +1,4978 @@
+# 曦寒报表设计器 · 全站正文
+
+共 20 页。索引见 https://report.docs.xihanfun.com/llms.txt
+
+---
+
+来源：https://report.docs.xihanfun.com/changelog
+
+# 更新日志
+
+本页记录 `@xihan-report/core`、`@xihan-report/runtime`、`@xihan-report/designer` 各版本使用者能感知的变更，每条标注 **新增 / 修复 / 调整 / 移除**。这几个包总是同一个版本号一起发布；逐包的完整记录见仓库里各包的 `CHANGELOG.md`。
+
+## v1.0.0-rc.1（2026-10-21）
+
+首次发布，以原生 Web Components 交付，不绑定前端框架。报表定义是纯 JSON，按数据集与参数取数后在浏览器里算出明细表、分组报表、交叉表与看板，看板的卡片能联动、表格能下钻，结果能导出 Excel。
+
+- **新增** `@xihan-report/core`：报表定义的结构（数据集与字段、计算字段、报表参数，主体是明细表、分组报表、交叉表或看板与卡片，卡片之间的联动）、校验与问题码、按参数与联动选中算出取数请求、按取回的明细行或汇总行计算视图与卡片（聚合、透视、排序、公式度量）、编辑操作与撤销重做、卡片与视图种类的登记与扩展合并。纯 TypeScript，不依赖 DOM。
+- **新增** `@xihan-report/runtime`：`<xh-report-viewer>` 按报表定义与取数回调计算并显示明细表、分组报表、交叉表与看板，带参数栏、卡片联动与表格下钻事件；`export('xlsx')` 把当前的计算结果写成 Excel 工作簿，`@xihan-report/runtime/xlsx` 把视图排成工作表；与 XiHan.UI 内建语言一一对应的界面语言包（`@xihan-report/runtime/locale`），查看器与设计器共用。
+- **新增** `@xihan-report/designer`：`<xh-report-designer>` 可视化设计器，包括菜单栏与工具栏、数据集与报表参数面板、物料、看板卡片的拖动与改大小、画布缩放、字段栏、属性面板、问题列表、预览、撤销重做与剪贴板，页面结构与历史记录面板，设置对话框（主题、主题色、语言、布局、工具栏、自动保存与开发者模式），从 JSON 样例或 JSON Schema 导入数据集、字段与参数，按 JSON 编辑整份报表，按 `draftKey` 在本机自动保存的草稿，以及新手引导。卡片与视图种类、渲染、导出器、取数中间件、属性编辑器、命令、面板、物料、物料来源、导入器、菜单栏的菜单与设置分区都能经 `extensions` 登记。
+
+---
+
+来源：https://report.docs.xihanfun.com/
+
+# 曦寒报表设计器
+
+```yaml
+layout: home
+title: 曦寒报表设计器
+titleTemplate: 框架无关的报表设计、查看与看板
+
+hero:
+  name: 曦寒报表设计器
+  text: 框架无关的报表设计器
+  tagline: 原生 Web Components · 报表定义即 JSON · 明细、分组、交叉表与看板 · 联动下钻 · 导出 Excel
+  image:
+    src: /images/logo.png
+    alt: 曦寒报表设计器
+  actions:
+    - theme: brand
+      text: 快速开始
+      link: /quickstart
+
+    - theme: alt
+      text: 介绍
+      link: /introduction
+
+features:
+  - title: 框架无关
+    icon: 🧩
+    details: 以原生 Web Components 交付，Vue、React、Angular 或不用框架的页面都能直接使用；同一页面放多个实例互不影响。
+    link: /introduction
+    linkText: 了解设计原则
+
+  - title: 报表定义即数据
+    icon: 📄
+    details: 报表是纯 JSON：数据集、参数与主体视图；计算字段与公式度量用受限表达式，不执行任何代码。
+    link: /guide/structure
+    linkText: 了解报表结构
+
+  - title: 数据由宿主提供
+    icon: 🔌
+    details: 组件不发网络请求。取数回调拿到算好的请求，交回明细行，或在服务端聚合后交回汇总行。
+    link: /guide/host
+    linkText: 了解取数回调
+
+  - title: 明细、分组与交叉表
+    icon: 📊
+    details: 明细表带格式、排序、冻结列与合计；分组报表按多级分组出组头与小计；交叉表按行列维度透视，出小计与总计。
+    link: /guide/pivot
+    linkText: 了解交叉表
+
+  - title: 看板与联动
+    icon: 🧭
+    details: 柱线、饼、漏斗、雷达、桑基、热力与层级图，指标卡带对比与迷你图，表格卡片；点一下图表或表格筛选其它卡片，表格的格子可以下钻。
+    link: /guide/dashboard
+    linkText: 了解看板
+
+  - title: 可视化设计器与扩展
+    icon: 🎨
+    details: 物料、字段栏、属性面板、问题列表、撤销重做与预览；按实例传入扩展，登记新的卡片与视图种类、渲染、导出器与面板。
+    link: /guide/designer
+    linkText: 了解设计器
+```
+
+---
+
+来源：https://report.docs.xihanfun.com/introduction
+
+# 介绍
+
+曦寒报表设计器（XiHan.ReportDesigner）是一款框架无关的报表设计器：以原生 Web Components 交付，可视化设计报表，在浏览器里按数据集与参数取数，算出明细表、分组报表、交叉表与看板并显示出来；看板上的卡片可以互相联动，表格的格子可以下钻，计算结果可以导出成 Excel 工作簿。属于曦寒懿（XiHanFun）开源生态，采用 MIT 授权。
+
+## 能做什么
+
+| 场景 | 用什么 |
+| --- | --- |
+| 在业务页面里显示报表与看板 | `<xh-report-viewer>`：按报表定义取数、计算并绘出主体视图，带参数栏、联动与下钻事件 |
+| 设计与修改报表 | `<xh-report-designer>`：数据面板、物料、字段栏、属性面板、问题列表、撤销重做与剪贴板，可切到预览态 |
+| 导出 | 查看器的 `export('xlsx')` 把当前的计算结果写成工作簿；扩展可以登记别的格式 |
+| 不显示界面，只做计算或校验 | `@xihan-report/core`：校验报表定义、生成取数请求、计算视图与卡片，浏览器与 Node.js 里都能用 |
+
+## 设计原则
+
+- **框架无关**：以原生 Web Components 交付，不绑定任何前端框架。元素用 Light DOM，样式只消费 [XiHan.UI](https://ui.docs.xihanfun.com) 的设计令牌，表格、图表与表单控件也都来自 XiHan.UI。
+- **零第三方依赖**：运行时只依赖 `@xihan-report/*` 与 `@xihan-ui/*`，受限表达式、值格式化、聚合与 Excel 写出都来自 XiHan.UI。
+- **报表定义即数据**：报表是纯 JSON，不含也不执行任何代码。计算字段与公式度量用受限表达式，导入报表定义不会带来脚本注入。
+- **数据由使用方掌控**：组件不发网络请求。报表定义存在哪里、数据从哪里取、谁能改报表，都由使用方决定，经属性、回调与事件交给组件。
+- **没有全局状态**：不往 `window` 上挂对象，不读写固定键名的本地存储，同一页面放多个实例互不影响；扩展也按实例传入，不做全局登记。
+
+## 包与入口
+
+| 入口 | 内容 |
+| --- | --- |
+| `@xihan-report/core` | 报表定义的类型、校验、取数请求、计算、编辑操作与扩展的合并。纯 TypeScript，不依赖 DOM |
+| `@xihan-report/runtime` | 业务页面用的 `<xh-report-viewer>`，样式在 `@xihan-report/runtime/style.css` |
+| `@xihan-report/runtime/locale` | 各语言的语言包，如 `reportZhCN`、`reportJaJP`，与 XiHan.UI 的内建语言包一一对应，查看器与设计器共用 |
+| `@xihan-report/runtime/xlsx` | 把明细表、分组报表与交叉表的计算结果排成工作表，自己组织工作簿时用 |
+| `@xihan-report/designer` | `<xh-report-designer>`，样式在 `@xihan-report/designer/style.css` |
+
+依赖方向固定为 `designer → runtime → core`。业务页面只需要 runtime，设计器只在需要编辑报表的地方加载；Excel 写出的代码在导出时才按需加载。
+
+## 工作流程
+
+```text
+设计器 <xh-report-designer>
+  │  schema-change / save 事件
+  ▼
+宿主保存报表定义 JSON（数据库、文件，由宿主决定）
+  │
+  ▼
+业务页面取出报表定义，交给 <xh-report-viewer>
+  │  dataProvider(request)：查看器按报表定义算出取数请求
+  ▼
+宿主取数（直接查库、调接口，或在服务端聚合）
+  │  交回明细行或汇总行
+  ▼
+查看器计算并绘出视图 ──▶ 联动、下钻事件 ──▶ export('xlsx')
+```
+
+1. 设计：在设计器里编辑报表，设计器派发 `schema-change` 与 `save`，宿主把报表定义存起来。
+2. 取数：查看器按报表定义、参数取值与联动选中，为每个数据集算出取数请求，交给宿主的取数回调。
+3. 计算与显示：取回的数据在浏览器里计算成明细表、分组报表、交叉表或看板的各张卡片，再绘出来；参数或联动变了，只重算受影响的部分。
+
+## 运行环境
+
+- `@xihan-report/core` 不依赖 DOM，可以在浏览器、Node.js 或其它 JavaScript 运行环境里校验报表、生成取数请求并计算结果。
+- `@xihan-report/runtime` 与 `@xihan-report/designer` 要在支持 Custom Elements 的浏览器里运行。
+- 计算字段与公式度量要一个表达式引擎，用 `@xihan-ui/expression` 的 `createExpressionEngine()` 即可；报表里没有公式时不需要。
+
+## 下一步
+
+- [快速开始](./quickstart)：在任意前端项目里装包，显示一张明细表。
+- [报表结构](./guide/structure)：数据集、参数与几种主体视图。
+
+---
+
+来源：https://report.docs.xihanfun.com/quickstart
+
+# 快速开始
+
+这一页在任意前端项目里装上查看器，把一张销售明细表交给 `<xh-report-viewer>`，由取数回调交回数据并显示出来。页面上的示例就是下面这几段代码在运行。
+
+## 安装
+
+```bash
+pnpm add @xihan-report/core @xihan-report/runtime @xihan-ui/styles
+```
+
+| 包 | 用途 |
+| --- | --- |
+| `@xihan-report/core` | 报表定义的类型，这一页用它写报表 |
+| `@xihan-report/runtime` | `<xh-report-viewer>` 与它的样式 |
+| `@xihan-ui/styles` | 设计令牌与组件皮肤，表格、图表与参数栏的颜色与间距都取自它 |
+
+包都是 ESM，用 Vite、webpack 等打包器引入即可。报表定义也可以直接写成 JSON、或从接口取回，这时业务页面只需要 `@xihan-report/runtime`。
+
+## 注册元素并引入样式
+
+元素不在 import 时注册，调用 `defineReportViewer()` 之后页面上才能用 `<xh-report-viewer>`，重复调用不报错。它会一并注册查看器用到的表格、图表与表单控件，不必再全量注册 UI 的元素。
+
+```ts
+import type { ReportDataProvider } from '@xihan-report/runtime'
+import { defineReportViewer } from '@xihan-report/runtime'
+import { rows, schema } from '../reports/quickstart.ts'
+import '@xihan-ui/styles/index.css'
+import '@xihan-report/runtime/style.css'
+
+defineReportViewer()
+```
+
+## 写一张报表
+
+报表定义是纯 JSON：`datasets` 描述数据集有哪些字段，`body` 是报表的主体。这里的主体是一张明细表：按日期倒序，金额保留两位小数并加千分位，数量与金额两列在末尾出合计。
+
+```ts
+export const schema: ReportDocument = {
+  schemaVersion: 1,
+  id: 'orders',
+  title: '销售明细',
+  datasets: [salesDataset],
+  body: {
+    type: 'table',
+    dataset: 'sales',
+    columns: [
+      { id: 'orderId', field: 'orderId', width: 150 },
+      { id: 'date', field: 'date', width: 120 },
+      { id: 'region', field: 'region' },
+      { id: 'category', field: 'category' },
+      { id: 'quantity', field: 'quantity', align: 'end', summary: { aggregate: 'sum' } },
+      {
+        id: 'amount',
+        field: 'amount',
+        align: 'end',
+        format: { kind: 'number', decimals: 2, grouping: true },
+        summary: { aggregate: 'sum' },
+      },
+    ],
+    sort: [{ field: 'date', direction: 'desc' }],
+  },
+}
+```
+
+数据集只描述字段，不含数据：
+
+```ts
+export const salesDataset: DatasetSchema = {
+  id: 'sales',
+  title: '销售订单',
+  fields: [
+    { name: 'orderId', type: 'string', title: '订单号' },
+    { name: 'date', type: 'date', title: '日期' },
+    { name: 'region', type: 'string', title: '区域' },
+    { name: 'category', type: 'string', title: '品类' },
+    { name: 'channel', type: 'string', title: '渠道' },
+    { name: 'quantity', type: 'number', title: '数量' },
+    { name: 'amount', type: 'number', title: '金额' },
+  ],
+}
+```
+
+## 交回数据
+
+查看器不发网络请求。它按报表定义算出每个数据集的取数请求，交给 `dataProvider`；回调交回明细行，筛选、排序与汇总都在浏览器里算。这里直接交回内存里的数组：
+
+```ts
+const dataProvider: ReportDataProvider = async () => ({ kind: 'rows', rows })
+```
+
+请求里带着数据集 id、参数取值、筛选、排序与聚合查询，宿主可以据此查库或在服务端聚合，见[与宿主集成](./guide/host)。
+
+## 显示出来
+
+把取数回调与报表定义交给 `dataProvider` 与 `schema` 两个属性，查看器随即取数、计算并绘出表格；属性变了会自动重算。复杂数据走属性，不走 attribute。
+
+```ts
+const viewer = document.createElement('xh-report-viewer')
+viewer.dataProvider = dataProvider
+viewer.schema = schema
+host.append(viewer)
+```
+
+
+## 界面语言
+
+查看器与设计器的界面文字缺省是英文。报表给 XiHan.UI 的每种内建语言各出一份语言包，名字是 `report` 加 UI 语言包的名字：`zhCN` 对 `reportZhCN`，`jaJP` 对 `reportJaJP`。把同一语言的两份合并后全局设置，所有实例都跟着换。下面以中文为例。这一步要另外安装 `@xihan-ui/web-components`：
+
+```ts
+import { reportZhCN } from '@xihan-report/runtime/locale'
+import { mergeXhConfig, setXhConfig } from '@xihan-ui/web-components'
+import { zhCN } from '@xihan-ui/web-components/locale'
+
+setXhConfig(mergeXhConfig(zhCN, reportZhCN))
+```
+
+## 下一步
+
+- [报表结构](./guide/structure)：数据集、参数与几种主体视图。
+- [看板与卡片](./guide/dashboard)：图表、指标与表格卡片排成看板。
+
+---
+
+来源：https://report.docs.xihanfun.com/guide/dashboard
+
+# 看板与卡片
+
+主体写成看板 `dashboard` 时，报表是一张网格，上面排着图表、指标与表格卡片。每张卡片各自取数、各自计算，可以来自不同的数据集。
+
+
+## 网格与布局
+
+`grid.columns` 是列数，`grid.rowHeight` 是每行的高度（px）；列宽随看板的宽度均分。每张卡片的 `layout` 写左上角所在的格（`x`、`y`，从 0 起）和占多少格（`w`、`h`）：
+
+```ts
+const body: DashboardView = {
+  type: 'dashboard',
+  grid: { columns: 12, rowHeight: 40 },
+  cards: [sales, orders, quantity, trend, regions, top],
+}
+```
+
+- 卡片互相重叠、或超出列数时，校验报 `layout-overlap`、`layout-out-of-bounds`。
+- 视口窄于 768px 时，查看器把看板退成单列，按卡片的位置自上而下排，每张卡片保持原来的高度。
+
+## 取数与刷新
+
+看板上的卡片各自生成取数请求；同一轮里请求相同的卡片只取一次。取回后每张卡片单独计算、单独绘制，取数中显示「正在加载…」，出错的卡片显示「数据加载失败」并派发 `load-error`，不影响其它卡片。
+
+`refresh()` 重新取数，`refresh({ cards: ['trend'] })` 只刷新列出的卡片。刷新与联动时卡片原地更新：同种图表复用元素、只换数据，不重放入场动效，键盘焦点也留在原处，适合定时刷新。
+
+## 查询
+
+图表与指标卡片用一份聚合查询 `query` 取数：按 `dimensions` 分组，每组算出 `measures`。
+
+- 维度写数据集字段 `field`，日期字段可以写粒度 `bucket`（`year`、`quarter`、`month`、`week`、`day`、`hour`），`sort` 按键或按某个度量排成员。
+- 度量写聚合方式 `aggregate` 与字段：`sum`、`avg`、`count`、`min`、`max`、`distinctCount`，`count` 不写字段就是数行数。度量也可以写公式 `formula`，以同一查询的其它度量与 `$参数名` 为变量，在分组算好之后求值。
+- `filter` 是查询自己的筛选，`sort` 按维度或度量 id 排结果行，`limit` 在排序之后截取，不影响总计。
+
+维度与度量的 `id` 是结果行里的键，图表与指标的配置都引用这些 id，而不是字段名。
+
+## 图表卡片
+
+图表卡片 `kind: 'chart'` 带一份查询和一份图表配置 `chart`。图表用 XiHan.UI 的图表元素绘出，颜色只取图表的语义色。
+
+```ts
+const trend: ChartCard = {
+  id: 'trend',
+  kind: 'chart',
+  title: '月度销售额',
+  layout: { x: 0, y: 4, w: 8, h: 7 },
+  dataset: 'sales',
+  query: { dimensions: [month, { id: 'category', field: 'category', title: '品类' }], measures: [amount] },
+  chart: {
+    type: 'cartesian',
+    splitBy: 'category',
+    series: [{ id: 'amount', mark: 'bar', x: 'month', y: 'amount', stack: 'total' }],
+  },
+}
+```
+
+| 图表 | `type` | 绑定 |
+| --- | --- | --- |
+| 柱线图 | `cartesian` | 每条系列 `series` 写标记（`bar`、`line`、`scatter`）、横坐标维度 `x` 与数值度量 `y`；`splitBy` 按一个维度的每个成员各展开一条，`stack` 相同的系列堆叠；横向、坐标轴、标注、缩放与刷选另有配置 |
+| 饼图 | `pie` | 名称维度 `nameField` 与数值度量 `valueField`；`variant: 'donut'` 是环形图，还可以写成玫瑰图、半圆 |
+| 漏斗图 | `funnel` | 阶段维度与数值度量；可以显示相对上一阶段或第一阶段的转化率 |
+| 雷达图 | `radar` | 实体维度 `nameField`，每个指标 `indicators` 是一根轴 |
+| 桑基图 | `sankey` | 源维度、目标维度与数值度量 |
+| 热力图 | `heatmap` | 日历（`calendar`、`month`）按日期维度着色；矩阵（`matrix`）按行列两个维度着色 |
+| 层级图 | `hierarchy` | 各层维度 `levels` 由上到下，数值度量 `valueField`；布局可选矩形树图、旭日图、冰柱图与圆堆图 |
+
+每种图表的全部属性见[属性 · 图表](../reference/properties#chart)。
+
+## 指标卡片
+
+指标卡片 `kind: 'metric'` 显示查询总计里的一个值：
+
+```ts
+const sales: MetricCard = {
+  id: 'sales',
+  kind: 'metric',
+  layout: { x: 0, y: 0, w: 4, h: 4 },
+  dataset: 'sales',
+  query: {
+    dimensions: [month],
+    measures: [amount, { id: 'target', title: '目标', formula: '200000' }],
+  },
+  metric: { value: 'amount', baseline: 'target', prefix: '¥', sparkline: { x: 'month', y: 'amount' } },
+}
+```
+
+- `value` 是显示的度量；`baseline` 是对比基准，卡片按两者比出涨跌与变化率。上面的目标是一个只写常数的公式度量。
+- `prefix`、`suffix`、`format` 决定值怎么写，`size` 与 `tone` 是尺寸与语气。
+- `sparkline` 画一条迷你走势，横坐标是查询的一个维度、数值是一个度量，所以查询按月分组时迷你图就按月走。
+
+## 表格卡片
+
+表格卡片 `kind: 'table'` 带一个视图 `view`：明细表、分组报表或交叉表，写法与报表主体一样，有自己的数据集与筛选。
+
+```ts
+const top: TableCard = {
+  id: 'top',
+  kind: 'table',
+  title: '金额最高的订单',
+  layout: { x: 0, y: 11, w: 12, h: 6 },
+  view: {
+    type: 'table',
+    dataset: 'sales',
+    columns: [
+      { id: 'orderId', field: 'orderId', width: 150 },
+      { id: 'date', field: 'date' },
+      { id: 'region', field: 'region' },
+      { id: 'category', field: 'category' },
+      { id: 'amount', field: 'amount', align: 'end', format: money },
+    ],
+    sort: [{ field: 'amount', direction: 'desc' }],
+    limit: 8,
+  },
+}
+```
+
+## 扩展卡片
+
+[扩展](./extensions)可以登记新的卡片种类，种类名带点，如 `gantt.timeline`。没装登记它的扩展时，校验报 `unknown-kind`：查看器不取数，显示「报表定义有问题」；设计器里卡片原样保留，画出种类名占位。
+
+---
+
+来源：https://report.docs.xihanfun.com/guide/designer
+
+# 设计器
+
+`<xh-report-designer>` 可视化编辑报表定义：从物料拖出卡片，把字段拖进卡片，在属性面板里改配置，问题列表随时指出哪里不对。报表存在哪里、谁能改，都由宿主决定。全部属性、方法与事件见[参考 · 设计器](../reference/designer)。
+
+## 注册与样式
+
+设计器要的样式多一份设计器零件（designer-shell）的，也要查看器的，因为画布与预览用的就是查看器的绘制：
+
+```ts
+import type { ReportDesignerEventMap } from '@xihan-report/designer'
+import { defineReportDesigner } from '@xihan-report/designer'
+import { createExpressionEngine } from '@xihan-ui/expression'
+import { rows, schema } from '../reports/dashboard.ts'
+import '@xihan-ui/styles/index.css'
+import '@xihan-ui/designer-shell/style.css'
+import '@xihan-report/runtime/style.css'
+import '@xihan-report/designer/style.css'
+
+defineReportDesigner()
+```
+
+## 打开与保存
+
+把报表定义写进 `schema` 就装载它，清空撤销历史与选择；之后读 `schema` 得到当前的报表。取数回调与查看器是同一个，画布与预览用它显示示例数据：
+
+```ts
+const designer = document.createElement('xh-report-designer')
+designer.expressionEngine = createExpressionEngine()
+designer.dataProvider = async () => ({ kind: 'rows', rows })
+designer.schema = schema
+```
+
+每改一步派发 `schema-change`，detail 带新的报表、这一步的操作与来由（执行、撤销、重做或装载）。设计器不自己存：在画布上按 Ctrl+S（macOS 上 ⌘S），或点「文件」菜单的「保存」（命令 `save`）时派发 `save`，宿主把报表存好后调 `markSaved()`，`dirty` 与 `dirty-change` 据此判断有没有未保存的改动：
+
+```ts
+designer.addEventListener('dirty-change', (event) => {
+  const { dirty } = (event as ReportDesignerEventMap['dirty-change']).detail
+  status.textContent = dirty ? '有未保存的改动' : '已保存'
+})
+
+designer.addEventListener('save', () => {
+  const saved = JSON.stringify(designer.schema)
+  // 宿主在这里把 saved 存进数据库或文件，存好之后：
+  designer.markSaved()
+  status.textContent = `已保存（${saved.length} 个字符）`
+})
+```
+
+
+设置「基础」页里开着自动保存（`general.autoSave`，缺省关）时，未保存的修改停手约一秒存成这台浏览器里的草稿，保存（`markSaved()`）后删掉。下次装进同一份报表、和草稿不一样时，弹确认框问恢复还是丢弃：恢复是整份换上草稿、记一步撤销，丢弃即删。不同报表用 `draftKey`（attribute `draft-key`，宿主写报表 id）区分，不写时按页面地址区分。草稿只存在本机，宿主不用存、也不用接新事件；要固定开或关，在 `settings` 里预先写或用 `settingsPolicy` 藏起、锁住这一条。只读时不问。
+
+没给取数回调时，画布上取数的卡片画占位，说明给了取数回调后会显示示例数据。用到计算字段或公式度量时还要给 `expressionEngine`，校验公式也用它。
+
+## 界面
+
+外框从上到下是菜单栏、工具栏、中间三栏（左边数据集、报表参数、物料与页面结构，中间画布，右边字段栏与属性）、画布下方的问题列表与最底下的状态栏。各块面板停在哪一栏、显不显示、收没收起、浮没浮出，记在一份面板布局里，见下文「面板布局」；预览态只留菜单栏、工具栏与画布。
+
+| 部分 | 位置 | 面板 id | 作用 |
+| --- | --- | --- | --- |
+| 菜单栏 | 最上面 | — | 文件、编辑、视图、数据、帮助五张菜单；正中放宿主的模板标题（`slot="menubar-center"`），右边一段放宿主别的常显内容（`slot="menubar-end"`），见下文「命令与菜单」 |
+| 工具栏 | 菜单栏下面 | — | 撤销重做；剪切、复制、粘贴、创建副本、删除；拖动工具与缩放；设计与预览；扩展登记的命令；末组是面板 |
+| 数据集 | 左栏最上面 | `datasets` | 数据集与字段，下面是新增数据集与新增字段 |
+| 报表参数 | 左栏，数据集下面 | `parameters` | 报表参数，下面是新增参数；没有参数又不能新增时收起 |
+| 物料 | 左栏，报表参数下面 | `palette` | 图表、指标、表格，每种带种类图标；拖到看板上或点一下新建卡片。扩展的物料来源（`paletteSources`）接在后面，见[扩展](./extensions) |
+| 页面结构 | 左栏最下面 | `outline` | 按树列出卡片、卡片的列表与列表项，见下文「页面结构」 |
+| 画布 | 中间 | — | 看板的卡片可以框选、拖动与改大小，落在网格上；可以缩放，见下文「缩放」 |
+| 选中工具条 | 选中框上方 | — | 选中卡片时浮出：创建副本、复制与删除，见下文「命令与菜单」 |
+| 尺寸徽标 | 选中框下方 | — | 选中卡片时常驻，写宽 × 高（格）；选中一张时可以直接改，见下文 |
+| 问题 | 画布下方 | `issues` | 校验问题，点一条选中出问题的对象；错误与警告的条数在面板头上，点一下只看或不看这一级 |
+| 字段栏 | 右栏上面 | `wells` | 选中卡片（或主体视图）的维度、度量、系列、列与分组，可以拖进字段、拖动换序 |
+| 属性 | 右栏中间 | `properties` | 选中对象的属性；选中多张卡片时编辑共同的属性 |
+| 历史记录 | 右栏下面，缺省隐藏 | `history` | 打开报表以来的每一步，见下文「撤销历史」 |
+| 状态栏 | 最下面 | — | 左边写选中的对象：选中一张卡片是种类与所在的格，选中几张是个数，选中字段、参数等对象是它的种类与名字，没有选中时是数据集数与卡片数；右边写缩放倍数，点一下回到实际大小，宿主的保存状态（`slot="status-end"`）排在它左边。窄时左边一段先收窄。设置里可以关掉 |
+
+数据集、报表参数、物料、页面结构、问题、字段栏、属性与历史记录是外框里的卡片：面板头写图标与标题，属性卡片的标题下面写正在编辑的对象，「?」里是这块面板的用法。
+
+### 面板布局
+
+- 面板头上的「×」隐藏这块面板，收起钮（或双击面板头）收成只剩标题条，「更多」菜单里换到别的栏、调先后、浮出成小窗或停靠回去。按住面板头拖：拖到外框边上换栏，拖到两块面板之间调先后，拖到画布上浮出成小窗；小窗不出外框。
+- 工具栏与「视图」菜单里的「面板」列出这八块卡片，勾选的显示；末尾是「显示 / 隐藏所有面板」（Ctrl / ⌘ + \）、「还原面板显隐」（Ctrl / ⌘ + Shift + \，位置与大小不动）与「恢复默认布局」。每块卡片另有一条开关命令 `panel:<面板 id>`，不在工具栏上，用 `commandLayout` 排上去即可。
+- 布局一改，设计器就把整份布局写进设置的 `layout.panels`（`DESIGNER_SETTING_KEYS.layout`），派发 `settings-change`，宿主存起来、下次随 `settings` 赋回即可；给了 `settingsStorageKey` 时设计器自己存。拖分隔条只在松手时写一次。
+- 宿主用 `defaultLayout` 给缺省布局：用户没存过布局时用它，「恢复默认布局」也回到它。用 `settingsPolicy` 管控：`layout.panels` 锁定整份布局，`layout.panels.<面板 id>` 写 `hidden` 就没有这块面板、写 `locked` 就固定这块面板。面板 id 见包入口导出的 `REPORT_DESIGNER_PANELS`。
+- 报表参数卡片没有参数又不能新增时不登记，菜单栏、工具栏与状态栏在设置里关掉时不登记；没登记的区不显示，存在设置里的布局不受影响，再登记时照布局放回。
+
+```ts
+export function wireLayout(designer: XhReportDesigner): void {
+  // 缺省收起问题列表；宿主用不到物料面板，也不许用户把它开出来
+  designer.defaultLayout = { version: 1, hidden: [REPORT_DESIGNER_PANELS.issues] }
+  designer.settingsPolicy = { [`${DESIGNER_SETTING_KEYS.layout}.${REPORT_DESIGNER_PANELS.palette}`]: 'hidden' }
+}
+```
+
+窗口窄时左右两栏收起，从「面板」菜单打开时以抽屉盖在画布上；浮出的面板在窄屏时按停靠位置收进抽屉。
+
+工具栏缺省只显示图标；设置的「工具栏」页可以换成文字或图标加文字，藏起、调换或跨组挪动按钮，也能整条隐藏，见下文「设置」。按钮的名字与快捷键报给读屏，悬停或键盘聚焦到按钮时提示命令的文字与快捷键；会删掉内容的命令按危险色显示。工具栏放不下时，末尾的按钮收进「更多」。
+
+- 尺寸徽标按格计：选中一张卡片时宽、高各一个数字框，加减钮与上下方向键一次改一格，Shift 加方向键一次十格，输入格数后按 Enter 或离开数字框才生效，宽不超出看板的右边，至少一格；压到的卡片让开。连着点加减钮或按方向键合为一步撤销，输入的单独一步。选中几张或只读时只显示尺寸。
+- 把字段拖到卡片上，数值字段进度量，其余进维度（明细表与分组报表进列，交叉表进行）；加减维度、度量后，图表与指标卡片按查询里现有的项补全必填的引用。
+- 报表参数的固定候选项在属性面板里是一张选项表，逐行编辑值、文字与禁用，可以新增、删除与换序，重复的取值标在那一格上。值格跟着参数的类型：`string` 是文本框，`number` 是数字框，`date`、`datetime` 是日期框；`boolean` 固定 `true`、`false` 两行，值格只读，只编辑文字与禁用。
+- 删除被别处用着的字段、参数或数据集时，先弹确认框列出会一并删掉的地方，确认后合为一步撤销。
+- `datasetEditing` 决定数据集能改到什么程度：`none` 只读；`fields`（缺省）能改字段的标题、类型与计算字段公式，增删报表参数；`full` 另能增删数据集与字段。
+- `readonly` 只能选择、浏览与预览，不能修改。attribute 按三态读：没写或写 `"false"` 可修改，空串、`"true"` 与别的写法只读，移除后回到可修改。这是一处行为变化：此前 `readonly="false"` 也算只读，现在是可修改。
+- `mode` 写 `preview` 切到预览，用查看器按 `parameters` 显示报表；切换时派发 `mode-change`。
+
+### 页面结构
+
+- 看板按阅读顺序（先行后列）列出卡片：有标题的写标题、名字下面写种类，没有标题的写「种类名 · id」，行首是卡片种类的图标（包入口导出的 `REPORT_CARD_TYPE_ICONS`）。卡片下面是它的列表（维度、度量、系列、列、分组、行），列表下面是项。主体不是看板时，顶层是那一个视图。数据集与参数在数据面板里，联动在字段栏里，这里不列。
+- 点一行选中它并让卡片露出来，画布上选中了什么，这里跟着选中那几行；悬停或用键盘走到一行时，画布上标出它所在的卡片。卡片可以多选：Ctrl/⌘ 加点加选或取消一行，Shift 选一段；列表项一次只选一个，新点上一项就换成选它。新选上的卡片滚进画布的可见区，只取消几行时画布不动。Delete 删除选中的卡片或列表项，与画布上删除一样进撤销。
+- 列表项能拖动或用 Alt + 方向键换序，交叉表的行与列之间能互换；卡片的位置由网格定，不能在树里挪。顶上有搜索框。只读时只能看。
+
+### 导入数据集、字段与参数
+
+- 入口：数据集卡片的面板头上有「导入数据集」与「导入字段」，报表参数卡片的面板头上有「导入参数」。导入数据集与字段要 `datasetEditing` 为 `full`，导入参数要 `fields` 起，不够或只读时没有这几颗钮；导入字段还要先在数据面板里选中一个数据集或它的字段，导进那个数据集。
+- 对话框里粘贴一份 JSON 样例或 JSON Schema，也可以从 .json 文件读进来；解析失败时写出第几行第几列。下面的预览列出推断出的字段，可以去掉不要的、改显示名与类型，确认后才导入。
+- 数据集与字段是扁平的，只取一行的值字段：样例的根是数组时取它的项；根是对象、里面有带子字段的列表时（如 `{ "data": [...], "total": 2 }`），取第一个这样的列表的项；否则对象本身就是一行。嵌套的对象与列表跳过。
+- 参数取顶层：值字段各是一个参数，标量数组是多值参数，对象跳过；JSON Schema 里的 `required`、`enum`、`default` 换成必填、固定候选项与缺省值。
+- 同名的字段与参数保留现有的，导入只新增，不改不删。一次导入记一步撤销；导入数据集后选中新数据集。
+- 用代码：`canImportData(kind)` 判断此刻能不能导入，`openDataImport(kind)` 打开对话框，`kind` 为 `dataset`、`fields` 或 `parameters`。三条命令的 id 是 `import-dataset`、`import-fields` 与 `import-parameters`，也在菜单栏的「数据」菜单里，可以用 `commandLayout` 排到别处。
+- 对话框只有 JSON 样例与 JSON Schema 两页；扩展可以经 `fieldSources` 再登记来源页，见[扩展](./extensions)。
+
+## 快捷键
+
+画布在 Tab 顺序里只占一个位置：卡片里的图例、图形与表格行在设计时只用来看，不接收焦点，点在上面就是点那张卡片。焦点在画布上时：
+
+| 按键 | 作用 |
+| --- | --- |
+| Ctrl/⌘ + Z | 撤销 |
+| Ctrl/⌘ + Shift + Z、Ctrl + Y | 重做 |
+| Ctrl/⌘ + C、X、V | 复制、剪切、粘贴，经系统剪贴板，能在两个设计器之间粘贴 |
+| Ctrl/⌘ + D | 给选中的卡片创建副本 |
+| Ctrl/⌘ + Shift + J | 打开「编辑 JSON」对话框（开发者模式开着时） |
+| Delete、Backspace | 删除选中的对象 |
+| Ctrl/⌘ + A | 全选看板上的卡片 |
+| 方向键 | 把选中的卡片挪一格；加 Shift 改大小。同一张卡片连着按、相隔不超过 1 秒的合为一步撤销 |
+| PageUp、PageDown、Home、End | 滚动画布；没有选中卡片（或选中了几张）时方向键也是滚动 |
+| Esc | 取消选择 |
+| F10 | 把焦点交给菜单栏，再按 F10 或在菜单栏上按 Esc 回到画布 |
+| Alt + F10 | 把焦点交给选中工具条（排列为空时交给尺寸徽标），在里面按 Esc 回到画布 |
+| +（或 =）、- | 放大、缩小一档 |
+| 0 | 适合窗口 |
+| H | 打开或关上拖动工具 |
+| Ctrl/⌘ + 滚轮 | 以指针为中心缩放 |
+| Ctrl/⌘ + S | 保存（命令 `save`），派发 `save` |
+| Ctrl/⌘ + , | 打开设置对话框 |
+
+## 撤销历史
+
+- 每一步撤销都带一句说明，按这一步改了什么生成，如「删除卡片「销售额」」「把字段「region」改名为「area」」「修改度量「amount」的聚合」；连带删掉引用时写上删了几处。说明按此刻的语言取，换了语言跟着换。工具栏上撤销、重做的名字与提示写着这一步，如「撤销：删除卡片「销售额」」。
+- 「历史记录」卡片从上到下列出打开时的起点与之后的各步，当前所在的那一步选中；撤销掉、还能重做的标「已撤销」，保存时所在的那一步标「已保存」。点一步就一次跳过去，读屏播报跳到了哪一步、走了几步。卡片缺省隐藏，从「面板」菜单打开，打开后在右栏属性下面；面板头上是「清空历史」，确认后只清空撤销与重做，报表不变。
+- 撤销步数缺省最多 100 步，`historyLimit`（attribute `history-limit`）改上限，下一次装载报表时生效；超出上限时最早的几步丢掉，起点改写「更早的步骤已丢弃」。
+- 用代码：`historyState` 读快照（各步的说明、状态、是不是保存时所在，以及当前位置），`goToHistory(position)` 跳到一步或起点，`clearHistory()` 清空；撤销历史每变一次派发 `history-change`，detail 与 `historyState` 相同。只读时不能跳，也不能清空。
+- 清空历史也是一条命令 `clear-history`，不在工具栏上，可以用 `commandLayout` 排上去。
+
+## 编辑 JSON
+
+设置「基础」页里开着开发者模式时，「编辑」菜单与空白处的右键菜单末尾是「编辑 JSON」（命令 `edit-json`，Ctrl/⌘ + Shift + J），打开一个对话框，写着整份报表定义的 JSON（缩进两格）。开发者模式关着（缺省）时这条命令不出现，快捷键也不响应。
+
+- 边改边检查：写得不是合法 JSON 时说明第几行第几列出错，能跳过去；JSON 读得了就按当前的扩展与表达式引擎校验，问题列在下面，说明与所在对象的名字同「问题」卡片，点一条光标跳到那一处。
+- 没有错误、内容又改过时「应用」才能按：整份换上改好的报表，清空选择，记一步撤销，说明是「编辑 JSON」，派发一次 `schema-change`。
+- 对话框里还能格式化与复制。只读或预览态时只能看与复制，没有「应用」。
+- 用代码：`openJsonEditor()` 打开对话框，不看开发者模式，还没有报表时返回 `false`。宿主要让用户用编辑 JSON，在 `settings` 里预先写 `general.developer` 为 `true`，或用 `settingsPolicy` 锁住它。整份替换是 core 的编辑操作 `replaceDocument`，宿主也可以自己执行。
+
+## 新手引导
+
+第一次打开设计器、铺好画布后，自动开始一段新手引导（设计器放在隐藏的页签或容器里时，等它显示出来再开始），一步步高亮对应的面板、菜单或按钮：先是欢迎与菜单栏（各张菜单里有什么，F10 进出菜单栏），再是各款共用的几步（工具栏、物料、画布、属性、问题、状态栏），接着是报表自己的几步——数据面板、「数据」菜单（导入数据集、字段与参数，登记了导入器时还说最下面的导入模板）、字段、卡片、联动与预览（并说「视图」菜单里也能在设计与预览之间切换），最后一步是设置：高亮「文件」菜单，设置在那里，引导能从「帮助」菜单重新开始。遮罩只盖住设计器的外框，页面别处照常能用。看板上没有卡片时跳过卡片与联动两步，目标面板隐藏着的那一步也跳过。
+
+窄屏时菜单栏收成一颗「菜单」钮，「数据」菜单与设置两步都落在这颗钮上；工具栏上收进「更多」的钮，那一步落在「更多」钮上。
+
+- 走完、跳过或关上一次以后，设计器在设置里记下 `help.tourDone`（`DESIGNER_TOUR_DONE_KEY`），派发 `settings-change`；宿主存起设置、下次赋回，就不再自动开始。
+- 宿主不要自动开始时写 `autoTour = false`（attribute `auto-tour="false"`）。「帮助」菜单与设置「帮助」页里的「开始引导」、命令 `start-tour` 与 `startTour()` 随时从头开始；预览态或没有报表时 `startTour()` 返回 `false`。
+- 同一页只开一个引导：页面上别的设计器的引导开着时不自动开始；「开始引导」、`start-tour` 与 `startTour()` 先收起那一个再开始。
+- 扩展可以经 `tourSteps` 加自己的步骤，排在报表的几步之后，见[扩展](./extensions)。
+
+## 缩放
+
+工具栏的缩放一组是拖动工具、缩小、放大、适合窗口与实际大小，空白处的右键菜单里也有适合窗口，状态栏右边写着缩放倍数，点一下回到实际大小。缩放范围是 10%–400%，每档 1.2 倍，放大、缩小以画布中间为准，Ctrl/⌘ 加滚轮以指针为准。
+
+看板总是铺满画布的宽，缩放改的是卡片与文字的大小：缩小时一屏看到更多行。适合窗口缩到整块看板的高度落进画布，不放大到实际尺寸以上；之后画布或看板的尺寸变了就重新适配，直到改了缩放或在画布上按下指针。拖动卡片、改大小、框选与从物料面板拖进卡片在任何缩放下都落在同样的格子上。
+
+设计器打开时按实际尺寸（100%）显示，从看板左上角开始，不自动适合窗口；要整块看板落进画布时点「适合窗口」。拖动工具（快捷键 H）开着时，在画布上哪儿按住拖动都是平移：不选中、不挪卡片，只点一下也不改选择，双击不当作双击卡片；画布显示手形，拖动中握拳。拖动途中按 Esc 只取消这一次、滚回原处，不在拖动时按 Esc 退出拖动工具。缩放只是看的方式，不进报表定义，也不记到下次打开。`getViewport()` 读当前视口（屏幕坐标 = 画布坐标 × `zoom` + (`x`, `y`)，画布坐标是实际尺寸下的像素），`setViewport()` 设置它；`zoomIn()`、`zoomOut()`、`zoomToFit()`、`zoomToActual()` 与四条命令相同；视口变了（缩放或滚动画布）派发 `viewport-change`。
+
+## 命令与菜单
+
+菜单栏、工具栏与右键菜单里的项都是命令，扩展可以登记新的命令（见[扩展](./extensions)）。`commandLayout` 改写它们的排列：写了某个位置，那里就只显示列出的命令，内置的与扩展的命令 id 可以混排。
+
+最上一条是菜单栏，下面是工具栏。菜单栏放通用的功能，文件、编辑、视图、帮助四张与四款设计器一致，报表另有一张「数据」：
+
+- 「文件」：保存（Ctrl / ⌘ + S）、设置（Ctrl / ⌘ + ,，同 `openSettings()`）。
+- 「编辑」：撤销、重做，剪切、复制、粘贴、删除、创建副本，全选，编辑 JSON（开发者模式开着时）。
+- 「视图」：设计、预览，放大、缩小、适合窗口、实际大小，拖动，「面板」与「外观」两个子菜单；外观里是工具栏、状态栏两个显示开关（改的是设置）。
+- 「数据」：导入数据集、导入字段、导入参数；登记了导入器时末尾另一组是「导入模板」。这张菜单的 id 是包入口导出的 `REPORT_DATA_MENU`（`data`）。
+- 「帮助」：开始引导、帮助（在新窗口打开本站的设计器一页，地址是包入口导出的 `REPORT_DESIGNER_HELP_URL`）、快捷键（打开设置的快捷键页），关于（打开设置的关于页）。
+
+画布有焦点时按 F10 把焦点交给菜单栏，左右键在菜单之间走，下键、Enter 或 Space 展开；再按 F10，或在菜单栏上按 Esc，回到画布。窄屏时菜单栏收成行首一颗「菜单」钮，各张菜单是它的子菜单。菜单栏常开，没有关掉它的开关；设置与帮助只在菜单栏里。
+
+宿主自己的操作（新建、预览、返回列表）写成一个扩展的命令，`placement` 写 `menubar:file` 就进「文件」菜单，写了 `toolbar` 也上工具栏；模板标题写成设计器的子元素 `slot="menubar-center"`，显示在整条菜单栏的正中，放不下时截断加省略号，再窄就藏起；保存状态写成 `slot="status-end"`，显示在状态栏右端、缩放比例的左边，状态栏在设置里关掉时跟着不显示；别的要常显的内容写 `slot="menubar-end"`，显示在菜单栏右边。连上文档之前写的与之后加的都一样。这样设计器外面不必另起一条操作条。
+
+```ts
+designer.extensions = [{
+  id: 'acme.host',
+  commands: [
+    { id: 'acme.new', label: '新建', shortcut: ['Mod', 'Alt', 'N'], placement: ['menubar:file'], run: () => location.assign('/reports/new') },
+    { id: 'acme.back', label: '返回列表', placement: ['menubar:file', 'toolbar'], run: () => history.back() },
+  ],
+}]
+const title = document.createElement('span')
+title.slot = 'menubar-center'
+title.textContent = '销售看板 · SALES-01'
+const saved = document.createElement('span')
+saved.slot = 'status-end'
+saved.textContent = '已保存'
+designer.append(title, saved)
+```
+
+- 右键菜单的条目是图标加文字，行尾写快捷键。
+- 工具栏末组是面板：点开一张菜单，列出能开关的卡片，勾选的显示，末尾是显示或隐藏所有面板、还原面板显隐与恢复默认布局，见上文「面板布局」。
+- 卡片上的右键菜单依次是剪切、复制、粘贴、创建副本，删除另成一组；空白处的是粘贴、全选、适合窗口与编辑 JSON（开发者模式开着时），各成一组。
+- 扩展登记了导入器时，工具栏最前面多一组「导入模板」（`import-template`，包入口导出的 `REPORT_IMPORT_TEMPLATE_COMMAND`），「数据」菜单的末尾也有它，见[扩展](./extensions)；没有导入器时没有这条命令。
+- `commandLayout` 的位置：工具栏是 `toolbar`，菜单栏是 `menubar:file`、`menubar:edit`、`menubar:view`、`menubar:data`、`menubar:help`，右键菜单是 `menu:card`、`menu:blank`，选中工具条见下一条。某张菜单排空了就不出现。工具栏与菜单栏此刻的缺省排列由包入口导出的 `reportToolbarLayout`、`reportMenubarLayout` 给出，宿主可以在它们上面改。
+- 选中工具条按选中的是一张还是几张卡片取命令落点 `selection:card` 或 `selection:multiple` 的排列，缺省都是创建副本、复制与删除（包入口导出的 `REPORT_SELECTION_LAYOUT`）。宿主用 `commandLayout` 改，写空数组就不放工具条；扩展命令的 `placement` 写上落点，就追加成一组。只读与预览时没有选中工具条，拖动、改大小时收起。
+- 撤销、重做、剪切、复制、粘贴、创建副本、删除、全选、缩放的四条、设计与预览这几条命令的文字，以及工具栏、菜单栏与文件、编辑、视图、帮助四张菜单的名字，是四款设计器共用的文案，在 designer-shell 语言包的 `xh-designer-commands` 一桶里，换语言时随 `mergeXhConfig` 一起换；要改这些文字，在全局配置里覆盖这一桶。报表自己的文案（含「数据」菜单的名字）在 `xh-report-designer`。
+
+```ts
+designer.commandLayout = {
+  'toolbar': [['undo', 'redo'], ['preview']],
+  'menu:card': [['copy', 'duplicate'], ['delete']],
+}
+```
+
+右键点卡片或空白处时派发 `card-contextmenu` 或 `blank-contextmenu`，取消这个事件就不弹内建菜单，宿主可以画自己的；双击卡片派发 `card-dblclick`。
+
+## 设置
+
+设置是用户偏好，每人每机一份，不随报表定义保存。`openSettings(section?)` 打开设置对话框，左边一个分区一页：
+
+- 「基础」（`general`）：主题（跟随页面、跟随系统、亮色、暗色）、主题色（跟随页面、八种预设、自定义颜色）、状态栏、自动保存（`general.autoSave`，缺省关，见上文「打开与保存」）、开发者模式（`general.developer`，缺省关；关着时编辑 JSON 这类调试查看入口不出现），以及分页、渲染两条调试日志（`general.debugPagination`、`general.debugRender`，缺省关，开发者模式关着时只读、也不记）。
+- 「语言」（`language`）：跟随页面（缺省）、跟随系统，或在十种语言里选一种，名字是各自的本名（简体中文、繁體中文、English、日本語……），键是 `language.locale`。
+- 「布局」（`layout`）：逐块卡片一行，改显示、位置、先后与收起，表下是「恢复默认布局」，与面板头的「更多」菜单一样不靠拖动也能改布局；改动照样写进 `layout.panels`。`settingsPolicy` 把 `layout.panels` 写 `hidden` 时没有这一页，写 `locked` 时只读。
+- 「工具栏」（`toolbar`）：按钮显示方式（`toolbar.display`：图标、文字、图标和文字，缺省只显示图标）、显示工具栏（`toolbar.visible`，关掉后整条工具栏不显示，命令照样能经快捷键与右键菜单执行）与按钮表（`toolbar.layout`）。按钮表一组一块，勾掉的按钮不上工具栏，拖动把手换先后、跨组挪，组头的勾选框整组勾选或勾掉，表下「恢复默认」删掉这个键。工具栏先按 `commandLayout`（没写时按缺省排列）排出分组，再套用户的定制；后装的扩展命令放到缺省排列里挨着的位置，已经没有的命令跳过。只管顶部工具栏，右键菜单与选中工具条不进定制。这几条只走设置，没有单独的属性。
+- 扩展登记的分区，排在这几页后面。分区 id 与 `general`、`language`、`layout`、`toolbar` 或别的扩展重名时，给 `extensions` 赋值就抛 `DesignerExtensionError`。
+- 「帮助」：几段操作说明，下面是「开始引导」与「帮助」两颗钮，点了先关上对话框再开始引导或打开本站的设计器一页。
+- 「快捷键」：一张快捷键表，从命令表生成，分通用、编辑、本设计器与扩展几组。保存、设置这些外壳命令归在通用一组，通用一组末尾是各款共有的按键（含 F10 进出菜单栏），报表去掉了看板上没有的按住空格拖动画布，Shift 加方向键写作改卡片大小；本设计器一组末尾是不是命令的几个键（Ctrl/⌘ + C、X、V 复制、剪切与粘贴，Backspace 删除）。
+- 「关于」：报表设计器的版本（包入口导出的 `REPORT_VERSION`）与许可证、界面库的版本，后面接扩展的 `about` 字段给的几行（如附加包的版本与授权）。这三页只显示，不存值。
+
+看板的网格是报表布局的一部分（卡片总落在格子上），随报表定义保存，所以报表没有自己的「画布」一页。`datasetEditing` 管的是能改到什么程度，属于权限，仍是设计器的属性。
+
+```ts
+export function openSettings(designer: XhReportDesigner): void {
+  designer.openSettings()
+}
+```
+
+值是扁平的键值，键是「分区 id.条目 id」，如 `general.theme`，没写的键取缺省值。宿主给缺省、锁定条目或读值时用 `@xihan-ui/designer-shell` 导出的 `DESIGNER_SETTING_KEYS`，不手写键。`settings` 赋值即生效；用户在对话框里改了一条，设计器换成新的一份并派发 `settings-change`，宿主存起来、下次赋回。`settingsPolicy` 隐藏或锁定条目，键是条目键或分区 id：`hidden` 不显示，一个分区的条目全藏了就没有这一页；`locked` 只读，说明换成「由所在系统管理」。
+
+```ts
+export function wireSettings(designer: XhReportDesigner, saved: ReportSettings, store: (settings: ReportSettings) => void): void {
+  // 宿主自己的缺省压在下面，用户存过的值盖在上面
+  designer.settings = { [DESIGNER_SETTING_KEYS.toolbarDisplay]: 'both', ...saved }
+  designer.settingsPolicy = { [DESIGNER_SETTING_KEYS.theme]: 'hidden', [DESIGNER_SETTING_KEYS.brand]: 'hidden' }
+  designer.addEventListener('settings-change', (event) => {
+    store((event as CustomEvent<{ settings: ReportSettings }>).detail.settings)
+  })
+}
+```
+
+- **主题只作用于设计器**：主题与主题色写在 `<xh-report-designer>` 自己的 `data-theme`、`data-brand` 上，页面其余部分不变；设置对话框、菜单这些浮层跟着设计器变。主题色是内置的：跟随页面（缺省，不写 `data-brand`），或 UI 的八种预设，或自定义颜色，宿主不用传预设。
+- **语言只作用于设计器**：设置里选了语言，`<xh-report-designer>` 把这一语言的 UI、designer-shell 与报表语言包作为自己的 `xhConfig` 交出去，设计器、里面的元素（含预览的查看器与图表）与它弹出的浮层都换成这种语言，页面别处不变。跟随系统按浏览器的语言偏好挑最接近的一种，挑不到用英文；语言包第一次用到时才加载。跟随页面时 `xhConfig` 是空对象，照页面的全局配置。
+- **调试日志**：开发者模式与渲染日志都开着时，设计器在浏览器控制台记一组组折叠的日志，前缀是 `[xh-report-designer] render`：每次重画写改动的属性与耗时，画布上每张卡片（或报表主体）的取数、计算与出图各记一组耗时，取数一组里有请求与行数。预览由查看器自己画，不记。报表没有分页，分页日志开着也没有内容。日志只到控制台，不派发事件、不交给宿主。
+- **扩展读设置**：命令、面板与扩展从上下文的 `settings` 读值，各分区没写的条目已经取了缺省值。
+
+独立使用、没有宿主替你存时，给 `settingsStorageKey`：连上文档时若没赋 `settings` 就从根所在窗口的 localStorage 读，用户改了设置就写回去；标了 `secret` 的文本条目（如密钥）不存。读写失败派发 `settings-storage-error`，设置留在内存里。不给就不读写存储。
+
+```ts
+export function standalone(designer: XhReportDesigner): void {
+  designer.settingsStorageKey = 'report-designer:settings'
+  designer.addEventListener('settings-storage-error', (event) => {
+    console.warn('设置没能读写本机存储，这次改的只在内存里', (event as CustomEvent<{ error: unknown }>).detail.error)
+  })
+}
+```
+
+## 用代码编辑
+
+设计器的每一步编辑都是 core 的编辑操作，宿主也可以自己执行：`execute(operations)` 执行一组操作并记为一步撤销，返回新的报表。core 的 `plan…` 函数按报表算出要执行的操作：
+
+```ts
+const card = designer.addCard(cardTemplate('chart.pie', 'sales'))
+const owner = { card: card.id }
+const start = designer.schema!
+const dimension = planAddFieldItem(start, owner, 'dimensions', 'region')
+const withDimension = applyOperations(start, dimension).document
+const measure = planAddFieldItem(withDimension, owner, 'measures', 'amount')
+const withMeasure = applyOperations(withDimension, measure).document
+designer.execute([...dimension, ...measure, ...planFillBindings(withMeasure, card.id)])
+```
+
+删除字段、参数或数据集用对应的 `plan…` 函数，引用它们的地方一并删掉：
+
+```ts
+const removal = planRemoveField(designer.schema!, 'sales', 'channel')
+designer.execute(removal.operations)
+```
+
+另有 `addCard`、照点物料的做法新建卡片的 `addPaletteItem`、`select` 与 `getSelection`、`selectAll`、`copy`、`cut`、`paste`、`duplicate`、`deleteSelection`、`undo`、`redo`、`validate`，以及让卡片露出来的 `revealCard`、在画布上标出一张卡片的 `highlightCard(id | null)`，和 `canUndo`、`canRedo`、`canPaste`、`canDelete` 这几个只读状态；登记了导入器时，`importTemplate()` 与 `canImportTemplate` 同命令「导入模板」。
+
+---
+
+来源：https://report.docs.xihanfun.com/guide/export
+
+# 导出
+
+查看器的 `export(format, options?)` 把此刻的计算结果写成文件，交回 `Blob` 或字符串。内置的是 Excel 工作簿 `xlsx`；扩展可以登记别的格式。导出用的就是屏幕上这一份结果：当时的参数、联动选中与卡片筛选都已经算在里面，不会再取一次数。
+
+```ts
+const button = document.createElement('button')
+button.type = 'button'
+button.textContent = '导出 Excel'
+button.addEventListener('click', async () => {
+  const blob = await viewer.export('xlsx', { name: '销售汇总' }) as Blob
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = '分区域销售汇总.xlsx'
+  link.click()
+  URL.revokeObjectURL(link.href)
+})
+```
+
+
+## 导出了什么
+
+| 报表主体 | 工作簿 |
+| --- | --- |
+| 明细表、分组报表、交叉表 | 一张表，表名取 `options.name`，缺省取报表标题 |
+| 看板 | 每张已算好的表格卡片一张表，表名取卡片标题，重名时加序号；图表与指标卡片不导出 |
+
+- 明细表：首行是列标题，之后每行一条明细，有汇总时末行写合计。
+- 分组报表：前几列是各级分组，组头写组的键、组尾写小计，末尾写总计；不列明细时每组一行。
+- 交叉表：上方是列方向的多层表头、左侧是行方向的多层表头，相同的上层成员合并单元格，小计与总计照屏幕上的位置写。
+- 表头冻结；列宽按报表里写的列宽换算；数值按值格式换成 Excel 的数字格式，表达不了的写成格式化好的文本；日期写成日期单元格。
+
+还没有可导出的表格（比如看板里只有图表）时，`export('xlsx')` 以 `RangeError` 拒绝；没有导出器认这种格式时同样以 `RangeError` 拒绝。写出工作簿的代码在第一次导出时才加载，不导出的页面不会下载它。
+
+## 自己组织工作簿
+
+要把几张报表放进同一个工作簿、或自己决定表名，用 `@xihan-report/runtime/xlsx` 把视图的计算结果排成工作表，再交给 `@xihan-ui/xlsx` 写出：
+
+```ts
+import { crosstabSheet, groupSheet, tableSheet } from '@xihan-report/runtime/xlsx'
+import { writeXlsx, xlsxBlob } from '@xihan-ui/xlsx'
+
+function sheetOf(view: ViewResult, name: string): XlsxSheet {
+  const options = { dataset: view.dataset, name, timeZone: 'Asia/Shanghai' }
+  if (view.type === 'table')
+    return tableSheet(view.view, view.result, options)
+  if (view.type === 'group')
+    return groupSheet(view.view, view.result, options)
+  return crosstabSheet(view.view, view.result, options)
+}
+
+/** 每项是一个查看器与它那张表的表名。 */
+export async function exportWorkbook(entries: readonly (readonly [XhReportViewer, string])[]): Promise<Blob> {
+  const sheets: XlsxSheet[] = []
+  for (const [viewer, name] of entries) {
+    const body = viewer.getResults().body
+    if (body && 'type' in body)
+      sheets.push(sheetOf(body, name))
+  }
+  return xlsxBlob(await writeXlsx({ sheets }))
+}
+```
+
+`tableSheet`、`groupSheet`、`crosstabSheet` 与内置导出排出的工作表完全一样；`getResults()` 给出每个查看器此刻的计算结果。
+
+## 别的格式
+
+导出器是[扩展](./extensions)的一部分：扩展登记 `exporters`，写明能导出的格式与导出函数，`export(format)` 交给登记了这种格式的第一个导出器，内置的 `xlsx` 在最前。导出器拿到的上下文里有报表定义、`getResults()` 的结果、文案、时区与调用方给的 `options`。
+
+---
+
+来源：https://report.docs.xihanfun.com/guide/extensions
+
+# 扩展
+
+报表设计器的能力可以由扩展加进来：新的卡片与主体视图种类、它们的渲染与属性、画在看板上的叠加层、新的导出格式、包在取数回调外面的中间件，以及设计器里的物料、命令与面板。内置的图表、指标与表格卡片，内置的 xlsx 导出，走的也是同一套扩展。全部接口见[参考 · 扩展](../reference/extensions)。
+
+## 按实例传入，分三层
+
+扩展是一个普通对象，交给元素的 `extensions` 属性，或 core 各入口的 `extensions` 选项，只对这一个实例生效，没有全局登记。
+
+| 层 | 类型 | 用在哪里 | 在上一层之上加的 |
+| --- | --- | --- | --- |
+| core | `ReportCoreExtension` | `validateDocument`、`computeCard` 等 core 入口 | 卡片与视图种类（校验、计算、补全绑定）、属性、问题说明、校验规则、编辑方式 |
+| 运行时 | `ReportRuntimeExtension` | `<xh-report-viewer>` | 卡片与视图的渲染、叠加层、导出器、取数中间件 |
+| 设计器 | `ReportDesignerExtension` | `<xh-report-designer>` | 物料组与物料项、物料来源、导入器、命令、面板、属性编辑器、`setup` |
+
+一层是下一层的超集，所以同一个扩展写成三个对象、一层包着一层：业务页面只引运行时层，打包里没有设计器的代码；Node 里只引 core 层。下面用一个示例扩展 `@acme/goal` 走一遍：它登记一种「目标进度」卡片，显示完成值与目标的进度条。
+
+
+## 命名
+
+- 扩展的 `id` 用包名加功能名，如 `@acme/goal`；它也是报表里扩展数据的键。
+- 卡片与视图种类、物料项、物料组的名字带点、以 id 的末段开头：`goal.progress`、`goal.items`；命令、导出器与叠加层的 id 写完整的扩展 id 加点加名字：`@acme/goal.raise`。
+- 扩展自己的问题码同样以末段加点开头，如 `goal.target-positive`。
+- 合并时任何一处重名都抛 `DesignerExtensionError`（码 `designer.extension-conflict`），元素保持原来的扩展不变。同一个扩展数组只合并一次，宿主要保持引用稳定。
+
+## core 层：种类
+
+一种卡片声明自己的取数形状 `data`：`query` 同图表与指标卡片，卡片上有 `dataset`、`parameters` 与聚合查询 `query`；`view` 同表格卡片，带一个明细表、分组报表或交叉表；`none` 不取数。core 据此生成取数请求、校验数据绑定、算出联动维度，种类自己只管多出来的字段：
+
+```ts
+/** 目标进度卡片在报表里多出来的两个字段。 */
+export interface GoalCard extends CardBase {
+  readonly value?: string
+  readonly target?: number
+}
+
+/** 交给渲染的值。 */
+export interface GoalValue {
+  readonly value: number
+  readonly target: number
+}
+
+const goalProgress: ReportCardKind<GoalCard, GoalValue> = {
+  data: 'query',
+  validate: (card, check) => {
+    const issues: SchemaIssue[] = []
+    if (card.value === undefined || !check.measures.has(card.value))
+      issues.push({ code: 'goal.value-measure', path: [...check.path, 'value'] })
+    if (typeof card.target !== 'number' || !(card.target > 0))
+      issues.push({ code: 'goal.target-positive', path: [...check.path, 'target'] })
+    return issues
+  },
+  compute: (card, input) => ({
+    value: Number((input.query as QueryResult).total[card.value!] ?? 0),
+    target: card.target!,
+  }),
+  fillBindings: (card, ids) => (card.value !== undefined && ids.measures.includes(card.value)) || ids.measures[0] === undefined
+    ? []
+    : [{ path: ['value'], value: ids.measures[0] }],
+}
+```
+
+- `validate` 查种类自己的字段，问题路径以 `check.path` 开头；`check.measures`、`check.dimensions` 是查询里的度量与维度 id，`check.fieldType` 查字段类型。
+- `compute` 把跑好的查询结果换成交给渲染的值。
+- `fillBindings` 在设计器的字段栏加减维度、度量之后补全必填的引用：返回要改的属性，路径从卡片算起。
+
+种类、属性与问题说明合成 core 层的扩展：
+
+```ts
+export const goalCore: ReportCoreExtension = {
+  id: '@acme/goal',
+  cards: { 'goal.progress': goalProgress },
+  properties: {
+    'card:goal.progress': [
+      { path: ['value'], group: 'data', label: '完成值', control: { kind: 'measure' }, required: true },
+      { path: ['target'], group: 'data', label: '目标', control: { kind: 'number', exclusiveMin: 0 }, required: true },
+    ],
+  },
+  issueText: (issue) => {
+    if (issue.code === 'goal.value-measure')
+      return '完成值要是查询里的一个度量'
+    if (issue.code === 'goal.target-positive')
+      return '目标要是大于 0 的数'
+    return undefined
+  },
+}
+```
+
+- `properties` 按对象种类追加属性：`card:<种类>`、`chart:<图表类型>`、`series`、`metric`、`view:<视图类型>`、`column`、`dimension`、`measure`、`field`、`parameter`、`link` 等，追加在内置之后，与内置的同路径时抛错；`documentProperties` 追加在报表本身上。
+- `issueText` 给出自己问题码的说明，设计器的问题列表照样显示。
+- 主体视图种类 `views` 写法相同，取数形状只能是 `query` 或 `none`。
+
+报表里用到扩展登记的种类，而元素没装这个扩展时，校验报 `unknown-kind`：查看器显示「报表定义有问题」，设计器里卡片原样保留、画种类名占位，不会丢数据。
+
+## 运行时层：渲染与叠加层
+
+渲染拿到卡片的内容区、算好的结果与渲染上下文。上一轮画过的元素还在内容区里，同种卡片复用它们、只换数据，刷新与联动时就不会闪。示例用 UI 的 `<xh-progress>` 画进度条，元素里写好它的部件：
+
+```ts
+/** 线形进度条：<xh-progress> 里写 root > track > range 三层部件。 */
+function createProgress(): XhProgressElement {
+  const part = (name: string): HTMLDivElement => {
+    const node = document.createElement('div')
+    node.dataset.xhPart = name
+    return node
+  }
+  const root = part('root')
+  const track = part('track')
+  track.append(part('range'))
+  root.append(track)
+  const progress = document.createElement('xh-progress') as XhProgressElement
+  progress.append(root)
+  return progress
+}
+```
+
+```ts
+cardRenderers: {
+  'goal.progress': (body, result, context) => {
+    const { value, target } = result.value as GoalValue
+    const progress = body.querySelector<XhProgressElement>('xh-progress') ?? createProgress()
+    const caption = body.querySelector('p') ?? document.createElement('p')
+    progress.max = target
+    progress.value = Math.min(value, target)
+    progress.setAttribute('aria-label', result.card.title ?? result.card.id)
+    progress.tone = value >= target ? 'success' : 'brand'
+    caption.textContent = `${context.text(value, { kind: 'number', grouping: true }, 'number')} / ${context.text(target, { kind: 'number', grouping: true }, 'number')}`
+    if (progress.parentElement !== body || caption.parentElement !== body)
+      body.replaceChildren(progress, caption)
+    return undefined
+  },
+},
+```
+
+渲染上下文的 `text` 按值格式写出显示文字，`translations` 是查看器此刻的文案。渲染返回 `RenderedChart` 或 `RenderedTable`（UI 的图表或表格元素，加上由点按明细查出取值的函数）时，查看器给它接上联动与下钻；只画自己的内容时返回 `undefined`。
+
+叠加层铺满看板，画在卡片之下（`below`）或之上（`above`），不接指针，适合边框装饰、卡片之间的连线、角标。场景给出每张卡片的网格位置、相对看板的像素矩形、状态与算好的结果；看板排好、卡片状态或看板大小变了时调用：
+
+```ts
+overlays: [{
+  id: '@acme/goal.reached',
+  layer: 'below',
+  render: (container, scene) => {
+    container.replaceChildren(...scene.cards.flatMap((item) => {
+      const goal = item.result?.value as GoalValue | undefined
+      if (item.card.kind !== 'goal.progress' || item.status !== 'ready' || goal === undefined || goal.value < goal.target)
+        return []
+      const halo = document.createElement('div')
+      Object.assign(halo.style, {
+        position: 'absolute',
+        boxSizing: 'border-box',
+        left: `calc(${item.rect.x}px - var(--xh-space-1))`,
+        top: `calc(${item.rect.y}px - var(--xh-space-1))`,
+        width: `calc(${item.rect.width}px + 2 * var(--xh-space-1))`,
+        height: `calc(${item.rect.height}px + 2 * var(--xh-space-1))`,
+        borderRadius: 'var(--xh-radius-md)',
+        border: 'var(--xh-stroke-thick) solid var(--xh-fg-success)',
+      })
+      return [halo]
+    }))
+  },
+}],
+```
+
+上面给达成目标的卡片外面垫一圈描边。设计器的画布上同样画叠加层，上下文的 `mode` 是 `designer`。
+
+## 运行时层：导出与取数中间件
+
+导出器写明能导出的格式，`export(format)` 交给登记了这种格式的第一个导出器：
+
+```ts
+exporters: [{
+  id: '@acme/goal.csv',
+  label: 'CSV',
+  formats: ['csv'],
+  export: async (_format, context) => {
+    const lines = context.results.cards
+      .filter(item => item.result.card.kind === 'goal.progress')
+      .map((item) => {
+        const goal = item.result.value as GoalValue
+        return [item.result.card.title ?? item.result.card.id, goal.value, goal.target].join(',')
+      })
+    return ['卡片,完成值,目标', ...lines].join('\n')
+  },
+}],
+```
+
+取数中间件拿到下一层的取数回调，返回包在它外面的一层，按扩展顺序一层层包在宿主的 `dataProvider` 外面，后登记的在最外。鉴权、缓存、记录耗时、把几个数据集拼起来都可以写在这里：
+
+```ts
+dataProvider: next => async (request, context) => {
+  const started = performance.now()
+  try {
+    return await next(request, context)
+  }
+  finally {
+    onFetch({ dataset: request.dataset, milliseconds: Math.round(performance.now() - started) })
+  }
+},
+```
+
+装到查看器上：
+
+```ts
+const goal = createGoalRuntime((record) => {
+  fetches.textContent = `取数 ${record.dataset}：${record.milliseconds} ms`
+})
+const viewer = document.createElement('xh-report-viewer')
+viewer.extensions = [goal]
+viewer.dataProvider = async () => ({ kind: 'rows', rows })
+viewer.schema = schema
+```
+
+## 设计器层：物料与命令
+
+物料组与物料项让新种类出现在物料面板里，拖到看板上或激活时按模板新建卡片：
+
+```ts
+paletteGroups: [{ id: 'goal.items', label: '目标' }],
+palette: [{
+  id: 'goal.progress',
+  group: 'goal.items',
+  label: '目标进度',
+  template: dataset => ({
+    kind: 'goal.progress',
+    title: '目标进度',
+    layout: { w: 4, h: 3 },
+    dataset,
+    query: { dimensions: [], measures: [] },
+    target: 100000,
+  }),
+}],
+```
+
+命令写 `placement` 决定出现在工具栏（`toolbar`）、菜单栏的哪张菜单（`menubar:file`、`menubar:edit`、`menubar:view`、`menubar:data`、`menubar:help`，排在那张菜单收尾的一组之前；「数据」菜单接在导入之后）、右键菜单（`menu:card`、`menu:blank`）还是选中工具条（`selection:card`、`selection:multiple`），`enabled` 决定可不可用，`shortcut` 可以绑快捷键；宿主再用 `commandLayout` 改排列：
+
+```ts
+commands: [{
+  id: '@acme/goal.raise',
+  label: '目标提高一成',
+  placement: ['menu:card'],
+  enabled: ({ designer }) => !designer.readonly && selectedGoal(designer) !== undefined,
+  run: ({ designer }) => {
+    const card = selectedGoal(designer)
+    if (card?.target !== undefined)
+      designer.execute([{ type: 'updateCard', id: card.id, changes: [{ path: ['target'], value: Math.round(card.target * 1.1) }] }])
+  },
+}],
+```
+
+
+物料面板最下面多出「目标」一组；右键点一张目标进度卡片，菜单里有「目标提高一成」，执行后目标变成原来的 1.1 倍，可以撤销。
+
+设计器层还可以登记：
+
+- `panels`：放进设计器外框某个区的面板，或开一个新区；它同样记在面板布局里，用户能隐藏、挪动与浮出，「面板」菜单里也能开关它。
+- `menubarMenus`：菜单栏上的菜单 `{ id, label, order? }`，`order` 写在 30–80 之间，排在「视图」与「帮助」之间（报表的「数据」菜单是 30），命令写 `menubar:<菜单 id>` 落进去；没有命令的菜单不出现。菜单 id 与内置的或别的扩展的重名时，给 `extensions` 赋值就抛 `DesignerExtensionError`。
+- `tourSteps`：新手引导里的几步，`order` 从 200 起，排在报表的几步之后；id 写扩展 id 加点，不能重名。`target` 指要高亮的目标：`{ panel }` 一块面板，`{ command }` 工具栏上的一条命令，`{ region }` 外框的区，`{ menubar }` 菜单栏上的一张菜单（菜单 id，如 `file`、`data`，窄屏时落在「菜单」钮上），`{ selector }` 设计器里的任意节点；目标看不见的那步自动跳过。
+- `about`：设置「关于」页里的几行 `{ label, value }`，如附加包的版本与授权。
+- `fieldSources`：导入对话框里在 JSON 样例、JSON Schema 两页之后多出的来源页。页里拿到内容（样例、Schema 或现成的字段）后交给对话框，推断、预览与确认走对话框自己的，导进报表时照内置两页的规则。
+- `paletteSources`：物料来源，往物料面板里加几组（如附加包的「我的物料」、模板库），接在所有物料组后面，每次刷新面板时现取。条目被点按时交给来源的 `insert(item, context)`；拖到看板上放下时再带上落点 `ReportPaletteDrop`，即指针所在的格（`x` 列、`y` 行，从 0 起）。插什么、插在哪由来源自己定，如经 `context.designer.addCard()` 新建卡片。来源 id 不能重名；只读或报表主体不是看板时物料面板只能浏览。
+- `importers`：导入器，把选中的文件换成一份整份的报表模板，见下文。
+- `editors`：属性编辑器，按编辑方式（`byControl`）、属性路径（`byPath`）或对象种类加路径（`byTarget`）换掉设计器内建的编辑器，后登记的压前面的。
+- `setup`：元素连上文档时调用，返回断开时的清理。
+
+登记了导入器，工具栏最前面与「数据」菜单的末尾就多一条「导入模板」（命令 `import-template`）；一个导入器都没有时没有这条命令。点它弹出选文件对话框，只列各导入器 `fileTypes` 写的类型（MIME 类型或扩展名，都没写时不限）。选中的文件按扩展顺序问 `accepts`，第一个接下的 `import(source, context)` 给出 `{ document }`：整份换上当前报表、清空选择，记一步撤销；给出 `undefined` 就不载入。没有导入器接下、导入器抛错或给出的不是报表对象时派发 `import-error`，报表不变；载入的模板有校验问题时照常列在问题卡片里。
+
+```ts
+const jsonTemplate: ReportDesignerImporter = {
+  id: '@acme/templates.json',
+  fileTypes: ['.json', 'application/json'],
+  accepts: source => source.name?.endsWith('.json') ?? false,
+  import: async source => ({ document: JSON.parse(await source.file!.text()) as ReportDocument }),
+}
+
+const templates: ReportDesignerExtension = { id: '@acme/templates', importers: [jsonTemplate] }
+designer.extensions = [templates]
+designer.addEventListener('import-error', (event) => {
+  const { importer, error } = (event as ReportDesignerEventMap['import-error']).detail
+  console.warn('导入失败', importer, error)
+})
+```
+
+## 扩展数据
+
+报表里的各个对象都可以带 `extensions`，键是扩展 id，值是这个扩展自己的 JSON 对象，例如在数据集上记下数据源连接、在卡片上记下大屏版式。校验只查它是对象，编辑操作与剪贴板原样带过去：
+
+```json
+{ "id": "sales", "fields": [], "extensions": { "@acme/connector": { "source": "warehouse.orders" } } }
+```
+
+---
+
+来源：https://report.docs.xihanfun.com/guide/host
+
+# 与宿主集成
+
+报表组件不发网络请求、不存任何东西。宿主负责三件事：按请求取数，存取报表定义，决定谁能看、谁能改。
+
+## 取数回调
+
+查看器与设计器共用同一种取数回调 `dataProvider(request, { signal })`：拿到 core 按报表定义、参数与联动算出的请求，交回 `Promise<DatasetData>`。
+
+| 请求字段 | 内容 |
+| --- | --- |
+| `dataset` | 数据集 id |
+| `parameters` | 数据集参数的取值，已按绑定解析；没给值的参数不出现 |
+| `filter` | 已代入参数的筛选树；引用了计算字段时为 `null`，由 core 在取回的行上筛 |
+| `sort`、`limit` | 明细视图的排序与行数上限；聚合视图为 `null` |
+| `query` | 视图需要的聚合：维度、度量与 `rollups`；明细视图或引用了计算字段时为 `null` |
+
+最直接的做法是把请求原样交给自己的接口：
+
+```ts
+export const dataProvider: ReportDataProvider = async (request, { signal }) => {
+  const response = await fetch(`/api/reports/datasets/${encodeURIComponent(request.dataset)}/query`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  })
+  if (!response.ok)
+    throw new Error(`取数失败：${response.status}`)
+  return await response.json() as DatasetData
+}
+```
+
+- 同一轮里请求完全相同的几张卡片只调一次回调。
+- 参数或联动变了、元素从页面上拿掉时，上一轮的 `signal` 被取消，回调应随之中止请求。
+- 回调抛错或拒绝时，这张卡片（或报表主体）显示「数据加载失败」，查看器派发 `load-error`。
+
+## 交回明细，还是交回聚合
+
+回调可以交回两种数据：
+
+| | 交回 | 谁来算 |
+| --- | --- | --- |
+| 明细行 | `{ kind: 'rows', rows }`，行以字段名为键 | core 在浏览器里筛选、分组、聚合与计算公式 |
+| 已聚合的行 | `{ kind: 'aggregated', rows, rollups }`，行以维度 id 与度量 id 为键 | 宿主按 `request.query` 在服务端聚合，core 只做排版、排序与公式 |
+
+请求的 `query` 为 `null` 时只能交回明细行；不为 `null` 时两种都行，数据量大时在服务端聚合就不必把明细搬到浏览器。`avg`、`distinctCount` 这类不能由下层累加的度量，小计与总计要单独算：`query.rollups` 列出要给的分组（每项是一组维度 id，空数组是总计），交回时放在 `rollups` 里。
+
+下面模拟一个按请求聚合的后端，页面下方列出查看器发出的每个请求：
+
+```ts
+/** 在「服务端」按请求聚合：每组一行，另给出 rollups 列出的各组汇总。 */
+function aggregate(request: DatasetRequest): DatasetData {
+  const query = request.query!
+  const run = (ids: readonly string[]): ReturnType<typeof runQuery> => runQuery(
+    { dimensions: query.dimensions.filter(item => ids.includes(item.id)), measures: query.measures, filter: request.filter ?? undefined },
+    salesDataset,
+    { kind: 'rows', rows },
+    { timeZone: 'Asia/Shanghai' },
+  )
+  const leaf = run(query.dimensions.map(item => item.id))
+  const rollups: DatasetRollup[] = query.rollups.flatMap(ids => (ids.length === 0
+    ? [{ dimensions: [], row: leaf.total }]
+    : run(ids).rows.map(row => ({ dimensions: ids, row }))))
+  return { kind: 'aggregated', rows: leaf.rows, rollups }
+}
+```
+
+```ts
+const dataProvider: ReportDataProvider = async (request) => {
+  seen.push(`${request.dataset} ${request.query ? `聚合 ${request.query.dimensions.map(item => item.id).join('、') || '（总计）'}` : `明细 limit=${request.limit}`}`)
+  log.textContent = seen.join('\n')
+  return request.query ? aggregate(request) : { kind: 'rows', rows }
+}
+```
+
+
+## 存取报表定义
+
+报表定义是纯 JSON。设计器派发 `save` 时宿主把 `designer.schema` 存进数据库或文件，存好后调 `markSaved()`；业务页面取出它交给查看器的 `schema`。
+
+`@xihan-report/core` 不依赖 DOM，服务端收到报表定义时可以在 Node 里先校验，有问题就拒收：
+
+```ts
+import type { ReportDocument, ValidationIssue } from '@xihan-report/core'
+import { validateDocument } from '@xihan-report/core'
+import { createExpressionEngine } from '@xihan-ui/expression'
+
+const expressionEngine = createExpressionEngine()
+
+export function acceptReport(schema: ReportDocument): { readonly ok: boolean, readonly issues: readonly ValidationIssue[] } {
+  const issues = validateDocument(schema, { expressionEngine })
+  return { ok: issues.length === 0, issues }
+}
+```
+
+## 权限
+
+- 能不能改报表由宿主决定：只给能改的人打开设计器，或者打开时写 `readonly`；`datasetEditing` 控制数据集能改到什么程度。
+- 能看到哪些数据由取数接口决定。请求里的筛选来自报表定义与参数，服务端不能拿它当作权限的依据，要按登录的用户与租户自己加上限制。
+- 报表里不含也不执行任何代码，计算字段与公式用受限表达式，导入报表定义不会带来脚本注入。
+
+## 在框架里使用
+
+元素是原生 Web Components，任何框架都能直接用。复杂数据交给元素的属性，不走 attribute；事件是冒泡的 `CustomEvent`。
+
+在 Vue 里，先在 `@vitejs/plugin-vue` 的 `template.compilerOptions` 里写 `isCustomElement: tag => tag.startsWith('xh-')`，免得 `xh-` 开头的标签被当成组件去解析；之后用 `.prop` 把对象交给元素的属性，用 `@` 监听事件：
+
+```vue
+<script setup lang="ts">
+/*
+ * Copyright (c) 2021-Present XiHanFun and contributors.
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
+// 在 Vue 里使用查看器：对象经 .prop 交给元素的属性，事件用 @ 监听；参数由 Vue 的状态管着（受控）。
+
+import type { ParameterValues } from '@xihan-report/core'
+import type { ReportDataProvider, ReportViewerEventMap } from '@xihan-report/runtime'
+import { defineReportViewer } from '@xihan-report/runtime'
+import { createExpressionEngine } from '@xihan-ui/expression'
+import { ref } from 'vue'
+import { rows, schema } from '../reports/regional.ts'
+
+defineReportViewer()
+
+const expressionEngine = createExpressionEngine()
+const dataProvider: ReportDataProvider = async () => ({ kind: 'rows', rows })
+const parameters = ref<ParameterValues>({ region: '华南' })
+
+function onParametersChange(event: Event): void {
+  parameters.value = (event as ReportViewerEventMap['parameters-change']).detail.value
+}
+</script>
+
+<template>
+  <p>区域：{{ parameters.region ?? '全部' }}</p>
+  <xh-report-viewer
+    :schema.prop="schema"
+    :data-provider.camel.prop="dataProvider"
+    :expression-engine.camel.prop="expressionEngine"
+    :parameters.prop="parameters"
+    @parameters-change="onParametersChange"
+  />
+</template>
+```
+
+
+React 19 起会把对象直接赋给自定义元素的同名属性；事件可以用 `ref` 拿到元素后 `addEventListener` 监听。
+
+---
+
+来源：https://report.docs.xihanfun.com/guide/linking
+
+# 联动与下钻
+
+看板上的卡片可以互相筛选：在一张卡片上点选一个值，别的卡片只显示与它相关的数据，这叫联动。表格的格子还会报出行主操作，宿主据此打开明细、跳到另一张报表，这叫下钻。
+
+
+点环形图的一个区域，柱图与订单表只剩这个区域；再点柱图的一个月，订单表只剩这个月。再点一次同一个值取消选中，或点参数栏旁的「清除联动」。点订单表的格子，下方记下 `action` 事件带出的取值。
+
+## 写联动
+
+联动写在看板的 `links` 上：
+
+```ts
+const links: DashboardLink[] = [
+  {
+    id: 'byRegion',
+    card: 'regions',
+    dimension: 'region',
+    targets: [{ card: 'months', field: 'region' }, { card: 'orders', field: 'region' }],
+  },
+  {
+    id: 'byMonth',
+    card: 'months',
+    dimension: 'month',
+    targets: [{ card: 'orders', field: 'date' }],
+  },
+]
+```
+
+| 字段 | 含义 |
+| --- | --- |
+| `id` | 联动的身份，在看板内唯一；选中值按它记 |
+| `card` | 源卡片 |
+| `dimension` | 源卡片上发出取值的维度：图表与指标卡片是查询的维度 id，表格卡片按视图是明细表的列 id、分组报表的分组 id、交叉表的行列维度 id |
+| `targets` | 目标：每个目标写卡片与它数据集里的字段 |
+
+在源卡片上选中一个值，每个目标卡片就多一个「字段 属于 选中值」的筛选条件，与卡片自己的筛选同时满足。源维度带日期粒度时，条件也带同一粒度：上面按月的柱图联动到订单表的 `date` 字段，比较的是月份。一张卡片可以同时是一个联动的源和另一个联动的目标。
+
+## 选中与取消
+
+- 点图表的一个数据点，或表格卡片的一个格子，按以它为源的各联动切换选中值；同一个值再点一次就取消。
+- 源图表把选中的值强调出来。
+- 只有筛选变了的卡片重新取数计算，其余卡片保持原样。
+- 看板有联动时，参数栏旁出现「清除联动」按钮；也可以调 `clearSelections()`。
+
+选中值变化时查看器派发 `selections-change`，detail 的 `value` 是联动 id 到选中值的对照：
+
+```ts
+viewer.addEventListener('selections-change', (event) => {
+  const { value } = (event as ReportViewerEventMap['selections-change']).detail
+  log.textContent = `联动：${JSON.stringify(value)}`
+})
+```
+
+宿主要自己管选中值（比如写进地址栏、在几个查看器之间同步）时写 `selections` 属性。这时查看器只派发事件、不自己改，宿主把新值写回去。
+
+## 点按事件
+
+- 图表的数据点被点中时，查看器转发 `datum-press`：`card` 是卡片 id，`link` 与 `value` 是这次点按对应的联动与源维度上的取值，与联动无关时为 null，`chart` 是图表元素原样的明细。
+- 表格的行主操作（点一个格子，或焦点行上按 Enter）派发 `action`，用来下钻。
+
+## 下钻
+
+`action` 的 detail 说明点中的是哪一格：
+
+```ts
+viewer.addEventListener('action', (event) => {
+  const { card, kind, column, values } = (event as ReportViewerEventMap['action']).detail
+  log.textContent = `下钻：卡片 ${card}，${kind} 行，列 ${column}，${JSON.stringify(values)}`
+})
+```
+
+| 字段 | 含义 |
+| --- | --- |
+| `card` | 看板里的表格卡片；报表主体是表格时为 null |
+| `kind` | 行的种类：`detail` 明细行（交叉表是成员行）、`group` 组头、`subtotal` 小计 |
+| `column` | 点中的列：明细表与分组报表是列 id 或分组 id，交叉表的值格是度量 id、行表头格是行维度 id；按 Enter 时为 null |
+| `values` | 这一行（与这一列）在各维度上的取值，键的写法与联动的 `dimension` 相同 |
+| `link`、`value` | 表格卡片作联动源时，这次点按对应的联动与取值 |
+
+查看器只报出点中了什么，打开哪张报表、带什么参数由宿主决定。常见的做法是把 `values` 换成另一张明细报表的参数，交给另一个查看器或跳转页面：
+
+```ts
+viewer.addEventListener('action', (event) => {
+  const { values } = (event as ReportViewerEventMap['action']).detail
+  if (typeof values.region === 'string')
+    detailViewer.parameters = { region: values.region }
+})
+```
+
+---
+
+来源：https://report.docs.xihanfun.com/guide/pivot
+
+# 透视与交叉表
+
+要看「哪个区域、哪个品类在哪个季度卖了多少」这种两个方向交叉的汇总，用交叉表 `crosstab`：行上一组维度、列上一组维度，每个格子是这一行与这一列交叉处的度量。它可以作报表主体，也可以放进看板的表格卡片。
+
+
+```ts
+body: {
+  type: 'crosstab',
+  dataset: 'sales',
+  rows: [
+    { id: 'region', field: 'region', title: '区域', sort: { by: 'amount', direction: 'desc' } },
+    { id: 'category', field: 'category', title: '品类' },
+  ],
+  columns: [{ id: 'quarter', field: 'date', bucket: 'quarter', title: '季度' }],
+  measures: [
+    { id: 'amount', field: 'amount', aggregate: 'sum', title: '销售额', format: money },
+    { id: 'quantity', field: 'quantity', aggregate: 'sum', title: '销量' },
+    { id: 'price', formula: 'amount / quantity', title: '平均单价', format: money },
+  ],
+  rowTotals: { subtotals: true },
+},
+```
+
+## 行与列
+
+`rows` 与 `columns` 各是一组维度，由外到内逐层展开；写法与查询的维度一样，日期字段可以按 `bucket` 取粒度，上面的列是按季度。
+
+成员缺省按键升序。维度的 `sort.by` 写一个度量 id 时，按该成员在另一条轴总计上的值排，上面的区域按全年销售额从高到低。
+
+## 度量
+
+`measures` 是每个格子里的值，写聚合方式或公式。公式度量在每个格子的聚合值上求值，所以上面的平均单价是这一格的销售额除以这一格的销量，小计与总计上也一样，不是把各格的单价加起来。
+
+几个度量缺省并排在列方向上；`measuresOn: 'rows'` 改排在行方向。
+
+## 小计与总计
+
+`rowTotals` 管行方向，`columnTotals` 管列方向：
+
+| 字段 | 缺省 | 作用 |
+| --- | --- | --- |
+| `subtotals` | `false` | 除最内层外，每层维度的成员之后写一行（或一列）小计 |
+| `grandTotal` | `true` | 轴的末尾写总计 |
+
+`avg`、`distinctCount` 这类不能由下层累加出来的度量，小计与总计都按这一组的明细重新算。取数回调交回已聚合的行时，请求里会列出要单独给出的汇总分组，见取数请求的 `rollups`。
+
+## 分组报表还是交叉表
+
+| | 分组报表 `group` | 交叉表 `crosstab` |
+| --- | --- | --- |
+| 方向 | 只在行方向分组 | 行、列两个方向交叉 |
+| 明细 | 组内列出明细行，组尾写小计 | 每格只有聚合值，不列明细 |
+| 适合 | 要逐笔核对的清单 | 对比不同维度组合的汇总 |
+
+两种都能导出成 Excel 工作簿，分组的层级、小计与总计照样保留。
+
+---
+
+来源：https://report.docs.xihanfun.com/guide/structure
+
+# 报表结构
+
+一份报表定义 `ReportDocument` 由三部分组成：数据集描述数据长什么样，报表参数让看报表的人筛选，主体决定画成什么。它是纯 JSON，可以原样存进数据库、从接口取回，或在设计器里编辑。全部字段见[报表定义类型](../reference/schema#reportdocument)。
+
+| 字段 | 内容 |
+| --- | --- |
+| `schemaVersion` | 报表定义的版本，写 `REPORT_SCHEMA_VERSION` |
+| `id`、`title`、`description` | 报表的身份、标题与说明 |
+| `datasets` | 数据集：字段与数据集参数，不含数据 |
+| `parameters` | 报表参数：查看器在报表上方排出参数栏 |
+| `body` | 主体：明细表、分组报表、交叉表或看板 |
+
+## 数据集
+
+数据集只描述字段，数据由取数回调按请求交回。字段的 `type` 取 `string`、`number`、`boolean`、`date`、`datetime` 之一，决定能用哪些聚合与运算符、怎么显示；`title` 是表头与设计器里显示的名字。
+
+### 计算字段
+
+字段写了 `formula` 就是计算字段：取回数据后，在每一行上按公式算出它的值，可以引用同一行的其它字段，也可以用 `$参数名` 引用报表参数。下面的单价由金额除以数量得到：
+
+```ts
+const sales = {
+  ...salesDataset,
+  fields: [
+    ...salesDataset.fields,
+    { name: 'unitPrice', type: 'number', title: '单价', formula: 'amount / quantity' },
+  ],
+} as const
+```
+
+公式是受限表达式，不执行任何代码，写法见 XiHan.UI 的[表达式文法](https://ui.docs.xihanfun.com/runtime/expression#文法)。用到公式时要给查看器（和设计器）一个表达式引擎：
+
+```ts
+import { createExpressionEngine } from '@xihan-ui/expression'
+
+const viewer = document.querySelector('xh-report-viewer')!
+viewer.expressionEngine = createExpressionEngine()
+```
+
+计算字段只在浏览器里算。筛选引用了计算字段时，取数请求里不带筛选，由 core 在取回的明细行上筛。
+
+### 数据集参数
+
+数据集还可以声明自己的参数 `parameters`，表示取数时要由宿主带进查询的值，例如只查某个门店。视图或卡片用 `parameters` 把它们绑定到字面值或报表参数上，取数请求的 `parameters` 里就是解析好的取值，宿主据此查数：
+
+```ts
+export const stores: DatasetSchema = {
+  id: 'sales',
+  fields: [
+    { name: 'orderId', type: 'string' },
+    { name: 'amount', type: 'number' },
+  ],
+  parameters: [{ name: 'store', type: 'string', required: true }],
+}
+
+export const byStore: TableView = {
+  type: 'table',
+  dataset: 'sales',
+  parameters: { store: { parameter: 'store' } },
+  columns: [
+    { id: 'orderId', field: 'orderId' },
+    { id: 'amount', field: 'amount' },
+  ],
+}
+```
+
+## 报表参数
+
+报表参数由看报表的人填写，查看器在主体上方按参数类型排出参数栏：
+
+| 参数 | 控件 |
+| --- | --- |
+| 有 `options` | 下拉选择，`multiple` 时可多选 |
+| `boolean` | 开关 |
+| `date`、`datetime` | 日期选择，`datetime` 精确到秒 |
+| `multiple` 且没有 `options` | 标签输入 |
+| `number`、`string` | 数字框、文本框；失焦或回车时才提交，不按每次击键重算 |
+
+```ts
+parameters: [
+  {
+    name: 'region',
+    type: 'string',
+    title: '区域',
+    options: [{ value: '华东' }, { value: '华北' }, { value: '华南' }],
+  },
+  { name: 'since', type: 'date', title: '起始日期', defaultValue: '2026-04-01' },
+],
+```
+
+- `options` 是固定的候选项，每项 `{ value, label?, disabled? }`：`value` 的类型要与参数一致，`date` 写 `YYYY-MM-DD`，`datetime` 写不带时区的 `YYYY-MM-DDTHH:mm[:ss]`，同一个参数里不能重复；`label` 不写按取值显示；写了 `disabled` 的照样列出，但不能选。
+- `defaultValue` 是没给值时的取值；`required` 的参数没有值时查看器不取数，显示「报表参数缺少或取值不合格」。
+- 筛选条件的操作数写 `{ parameter: '名字' }` 就引用参数；参数没有值时这个条件不参与筛选，所以上面的「区域」不选就是全部区域。
+- 公式里用 `$名字` 引用参数。
+- 参数栏改了取值，查看器派发 `parameters-change` 并重新取数。宿主要自己管参数时写 `parameters` 属性，这时查看器只派发事件、不自己改，宿主把新取值写回去；`hide-parameters` 不显示参数栏。
+
+## 主体
+
+### 明细表 `table`
+
+逐行列出数据。每一列 `columns` 对应数据集的一个字段，可以写标题、[值格式](#值格式)、列宽、对齐与冻结（`sticky` 固定在行首侧或行尾侧）。`summary` 写聚合方式或公式，在末尾出合计行。`sort` 是明细的排序，`limit` 是行数上限；行数多时表格自动改为按需渲染可见的行。
+
+### 分组报表 `group`
+
+按 `groups` 由外到内逐级分组，组内列出明细，组尾写小计，末尾写总计：
+
+```ts
+body: {
+  type: 'group',
+  dataset: 'sales',
+  groups: [
+    { id: 'region', field: 'region', title: '区域', sort: { by: 'amount', direction: 'desc' } },
+    { id: 'category', field: 'category', title: '品类' },
+  ],
+  columns: [
+    { id: 'orderId', field: 'orderId', width: 150 },
+    { id: 'date', field: 'date', width: 120 },
+    { id: 'channel', field: 'channel' },
+    { id: 'unitPrice', field: 'unitPrice', align: 'end', format: money },
+    { id: 'quantity', field: 'quantity', align: 'end', summary: { aggregate: 'sum' } },
+    { id: 'amount', field: 'amount', align: 'end', format: money, summary: { aggregate: 'sum' } },
+  ],
+  filter: {
+    logic: 'and',
+    conditions: [
+      { id: 'region', field: 'region', operator: 'eq', value: { parameter: 'region' } },
+      { id: 'since', field: 'date', operator: 'gte', value: { parameter: 'since' } },
+    ],
+  },
+  sort: [{ field: 'date' }],
+},
+```
+
+- 每级分组可以写日期粒度 `bucket`（按年、季度、月、周、日、小时取键），`header` 与 `subtotal` 控制组头与组小计，缺省都显示。
+- 组的次序缺省按键升序；`sort.by` 写一个带汇总的列 id 时按该列的组小计排，上面按金额从高到低排区域。
+- `detail: false` 只留组头与小计，`grandTotal: false` 不写总计。
+
+
+### 交叉表与看板
+
+交叉表 `crosstab` 按行、列两组维度透视出度量，见[透视与交叉表](./pivot)；看板 `dashboard` 把图表、指标与表格卡片排在网格上，见[看板与卡片](./dashboard)。扩展还可以登记新的主体视图种类。
+
+## 筛选
+
+视图、卡片的查询与看板联动都用同一种筛选树 `FilterGroup`：`logic` 取 `and`（全部满足）或 `or`（任一满足），`conditions` 里是条件，也可以嵌套带 `id` 的子组。一个条件写字段、运算符与操作数：
+
+```ts
+export const filter: FilterGroup = {
+  logic: 'and',
+  conditions: [
+    { id: 'channel', field: 'channel', operator: 'in', value: ['线上', '门店'] },
+    { id: 'big', field: 'amount', operator: 'gte', value: 1000 },
+    { id: 'month', field: 'date', bucket: 'month', operator: 'eq', value: '2026-03' },
+  ],
+}
+```
+
+- 运算符见 [FilterOperator](../reference/schema#filteroperator)：`between` 要两个值，`in`、`notIn` 要一组值，`isEmpty`、`isNotEmpty` 不要操作数；字符串运算符可以写 `ignoreCase`。
+- 写了 `bucket` 的条件先把字段值按日期粒度取键再比较，操作数直接写键。
+- 否定运算符（`neq`、`notIn`、`notContains`）匹配缺失值；操作数为空的条件不参与筛选，组里的条件都不参与时整组不筛选。
+
+## 值格式
+
+列、维度、度量与坐标轴的 `format` 用 XiHan.UI 的值格式说明，取 `number`、`percent`、`date`、`rmbUpper` 几种，十进制精确舍入，写法见[格式化](https://ui.docs.xihanfun.com/runtime/expression#格式化)：
+
+```ts
+export const money: FormatSpec = { kind: 'number', decimals: 2, grouping: true }
+export const share: FormatSpec = { kind: 'percent', decimals: 1 }
+export const day: FormatSpec = { kind: 'date', pattern: 'yyyy年M月d日' }
+```
+
+没写格式时，数值按界面语言加千分位，日期写成 `YYYY-MM-DD`，日期时间写到秒。要换掉全部值的显示方式，给查看器一个 `formatter`。
+
+---
+
+来源：https://report.docs.xihanfun.com/guide/viewer
+
+# 查看器
+
+`<xh-report-viewer>` 是业务页面里显示报表的元素：拿到报表定义与取数回调，按参数与联动取数、计算并绘出主体或看板。它只在 `@xihan-report/runtime` 里，页面不需要加载设计器。全部属性、方法与事件见[参考 · 查看器](../reference/viewer)。
+
+## 注册与样式
+
+```ts
+import type { ReportDataProvider } from '@xihan-report/runtime'
+import { defineReportViewer } from '@xihan-report/runtime'
+import { rows, schema } from '../reports/quickstart.ts'
+import '@xihan-ui/styles/index.css'
+import '@xihan-report/runtime/style.css'
+
+defineReportViewer()
+```
+
+`defineReportViewer()` 注册查看器与它用到的表格、图表和表单控件，重复调用不报错。查看器用 Light DOM，样式只消费 XiHan.UI 的设计令牌：亮色暗色、紧凑与舒适密度都跟着 UI 的主题走。
+
+查看器的宽度随容器，作为 flex 或 grid 子项时可以收窄；比容器宽的表格在自己的区域里横向滚动，不撑宽页面。高度随内容：看板按行数与行高排开，明细多时表格按需渲染可见的行。
+
+## 属性
+
+| 属性 | 作用 |
+| --- | --- |
+| `schema` | 报表定义 |
+| `dataProvider` | 取数回调，见[与宿主集成](./host) |
+| `parameters` | 报表参数的取值；写了就是受控，参数栏的改动只派发 `parameters-change` |
+| `selections` | 看板联动的选中值；写了就是受控 |
+| `hideParameters`（`hide-parameters`） | 不显示参数栏；缺省显示 |
+| `expressionEngine` | 表达式引擎，计算字段与公式度量要用 |
+| `formatter` | 换掉全部值的显示方式；缺省按格式说明写 |
+| `locale`、`timeZone`（`time-zone`） | 语言与时区；缺省取全局配置与运行环境所在的时区 |
+| `translations` | 这个元素自己的文案，压在全局配置之上 |
+| `extensions` | 扩展：新的卡片与视图种类、渲染、叠加层、导出器与取数中间件，见[扩展](./extensions) |
+
+布尔 attribute 按三态读：没写取缺省，写 `"false"` 是关，空串、`"true"` 与别的写法都是开，移除后回到缺省。这与 HTML 原生的布尔 attribute 不同：原生的只要写了就算开。这是一处行为变化，报表元素此前也照原生读，`hide-parameters="false"` 会隐藏参数栏，现在是显示。
+
+复杂数据都走属性，`schema`、`dataProvider`、`parameters`、`extensions` 或时区变了会重新取数；`selections` 变了只重算受影响的卡片；文案、语言或格式化器变了只重绘。
+
+## 宿主自己管参数
+
+参数栏适合直接给人用。参数要由页面上别的控件、地址栏或权限决定时，写 `parameters` 并隐藏参数栏：
+
+```ts
+viewer.hideParameters = true
+viewer.parameters = { region: '华东' }
+
+const regions = ['华东', '华北', '华南'].map((region) => {
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.textContent = region
+  button.addEventListener('click', () => {
+    viewer.parameters = { ...viewer.parameters, region }
+  })
+  return button
+})
+```
+
+没写的参数按报表里的缺省值取。参数栏改了取值（没隐藏时），查看器派发 `parameters-change`，受控时宿主把新取值写回 `parameters`。
+
+## 刷新与结果
+
+```ts
+const refresh = document.createElement('button')
+refresh.type = 'button'
+refresh.textContent = '重新取数'
+refresh.addEventListener('click', () => void viewer.refresh())
+
+viewer.addEventListener('loading-change', (event) => {
+  const { loading } = (event as ReportViewerEventMap['loading-change']).detail
+  if (loading)
+    return
+  const { body, parameters } = viewer.getResults()
+  const count = body && 'type' in body && body.type === 'group' ? body.result.count : 0
+  log.textContent = `参数 ${JSON.stringify(parameters)}，筛选后 ${count} 笔订单`
+})
+```
+
+
+- `refresh()` 重新取数；看板可以只刷新部分卡片：`refresh({ cards: ['trend'] })`。刷新时保留旧结果，不回到加载态。
+- `getResults()` 是此刻的计算结果快照：主体视图或各张已算好的卡片，以及当时的参数取值、联动选中与各卡片收到的联动筛选。导出与宿主自己汇总都用它。
+- `loading` 表示还有取数没完成，开始与结束时派发 `loading-change`；`issues` 是报表定义与参数的问题，变了派发 `issues-change`。
+
+## 状态
+
+查看器把当前状态写在自己的 `data-state` 上，宿主可以按它调整外围的样式：
+
+| `data-state` | 什么时候 | 显示 |
+| --- | --- | --- |
+| `idle` | 没有报表定义，或没给取数回调 | 空白 |
+| `loading` | 报表主体第一次取数 | 正在加载… |
+| `invalid` | 报表定义有错误级问题 | 报表定义有问题，无法显示 |
+| `parameters` | 必填参数没有值，或取值不合格 | 报表参数缺少或取值不合格 |
+| `error` | 报表主体取数或计算出错，派发 `load-error` | 数据加载失败 |
+| `ready` | 算好了 | 报表 |
+
+看板上每张卡片各有自己的加载与出错状态，不影响整个查看器。
+
+## 界面文字
+
+查看器的文字取全局配置：用 `setXhConfig(mergeXhConfig(zhCN, reportZhCN))` 换成中文，其他语言同理（见[快速开始](../quickstart#界面语言)）。只改某个实例的个别文字时写 `translations`，例如 `{ empty: '本期没有数据' }`；全部文案键见[参考 · 查看器](../reference/viewer#reportviewertranslations)。
+
+同一页面放多少个查看器都互不影响：它们不共享状态，扩展也按实例传入。
+
+---
+
+来源：https://report.docs.xihanfun.com/reference/core
+
+# 模型层 core
+
+<!-- 本页由 docs/scripts/gen-reference.mjs 从源码生成，不要手改；源码变了之后在 docs/ 运行 pnpm gen。 -->
+
+`@xihan-report/core` 是纯 TypeScript 的模型层：报表定义的类型、校验、取数请求、计算、编辑操作与扩展的合并，不依赖 DOM，浏览器、Node.js 与其它 JavaScript 运行环境里都能用。报表定义的字段见[报表定义类型](./schema)，属性见[属性](./properties)。下表按源码模块列出全部导出。
+
+## 全部导出
+
+### binding-plans
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `FillBindingsOptions` | 接口 | 补全绑定的选项。 |
+| `planFillBindings` | 函数 | 补全一张卡片的必填绑定：取数形状为 query 的卡片交给它种类的 fillBindings，拿到查询里现有的维度与度量 id。 |
+
+### card-data
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `bodyQuery` | 函数 | 扩展视图作主体时的查询：取数形状为 query 的扩展视图；别的主体为 undefined。 |
+| `cardDataset` | 函数 | 卡片取数的数据集 id；不取数的卡片为 undefined。 |
+| `cardQuery` | 函数 | 卡片的查询：图表与指标卡片，或取数形状为 query 的扩展卡片；别的卡片为 undefined。 |
+| `cardView` | 函数 | 卡片带的视图：表格卡片，或取数形状为 view 的扩展卡片；别的卡片为 undefined。 |
+| `isDataView` | 函数 | 主体是不是明细表、分组报表或交叉表。 |
+| `QueryBinding` | 接口 | 带查询的取数部分：数据集、参数绑定与聚合查询。 |
+
+### card-templates
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `cardTemplate` | 函数 | 新卡片的模板：取数用 dataset，查询、图表与视图里的字段绑定都留空（空字符串或空列表），由设计器随后填上。 |
+| `CardTemplate` | 类型 | 内置种类的新卡片模板。 |
+| `cardTypeOf` | 函数 | 卡片的种类：内置的按图表或视图类型细分，扩展卡片就是它的种类名。 |
+| `REPORT_CARD_TYPES` | 常量 | 全部卡片种类：图表、指标、表格依次排列。 |
+| `ReportCardType` | 类型 | 卡片种类：chart.&lt;图表类型&gt;、metric、table.&lt;视图类型&gt;。 |
+
+### data-plans
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `DataCascade` | 接口 | 删除时一并删掉的别处：列表项、筛选条件、明细排序、联动目标（目标删空时连同联动）与参数绑定。 |
+| `DataRemoval` | 接口 | 删除计划：操作合为一步撤销，cascade 是一并删掉的别处的数目。 |
+| `datasetUsage` | 函数 | 使用这个数据集的卡片与视图的数目。 |
+| `planRemoveDataset` | 函数 | 删除数据集；还有卡片或视图使用它时抛 RangeError，数据集不存在时也抛 RangeError。 |
+| `planRemoveField` | 函数 | 删除字段：取这个字段的列表项走 planRemoveItem 一并删掉（连带它们的引用），绑定这个数据集的对象里以它为字段的筛选条件、明细排序与联动目标也删掉（目标删空的联动整条删掉），最后 removeField。 |
+| `planRemoveParameter` | 函数 | 删除报表参数：以它为操作数的筛选条件与引用它的参数绑定一并删掉，最后 removeParameter。 |
+| `planRenameParameter` | 函数 | 报表参数改名：updateParameter，并把引用它的地方一起改掉——筛选条件的操作数、参数绑定，以及计算字段、公式度量与列汇总公式里的 $名字。 |
+
+### engine/aggregate
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `createRollupAccumulator` | 函数 | 已聚合值的再汇总累加器：sum 与 count 相加，min / max 取最值，规则同 createAccumulator。 |
+| `isAdditive` | 函数 | 聚合方式能否由已聚合值再汇总得到。 |
+| `NEEDS_ROLLUP` | 常量 | 已聚合值无法再汇总、需要使用方另给汇总值的标记。 |
+
+### engine/chart-data
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `CartesianChartData` | 接口 | 直角坐标图的数据：rows 是所有系列共用的数据行。 |
+| `CartesianSeriesData` | 接口 | 直角坐标图的一条系列。 |
+| `chartData` | 函数 | 把查询结果整成图表的数据。 |
+| `ChartData` | 类型 | 交给图表渲染的数据，形状随图表类型。 |
+| `DateHeatmapData` | 接口 | 日期热力图的数据：每天一格，日期写 YYYY-MM-DD。 |
+| `HierarchyChartData` | 接口 | 层级图的数据：扁平的节点表，次序是父在子前。 |
+| `HierarchyNodeData` | 接口 | 层级图的一个节点：根节点的 parent 为 null，叶子带数值。 |
+| `MatrixHeatmapData` | 接口 | 矩阵热力图的数据：行与列按首次出现的次序。 |
+| `RowsChartData` | 接口 | 饼图、漏斗图、雷达图的数据：查询行原样使用，字段按规格取。 |
+| `SankeyChartData` | 接口 | 桑基图的数据：节点按首次出现的次序，同值的源与目标是同一个节点。 |
+
+### engine/compute
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `CardResult` | 接口 | 一张卡片的计算结果：value 的形状由种类定，内置的图表是 ChartData、指标是 MetricValue、表格是 ViewResult。 |
+| `computeCard` | 函数 | 按种类计算一张卡片：先按取数形状跑查询或视图，再交给种类的 compute。 |
+| `computeExtensionView` | 函数 | 按种类计算作主体的扩展视图，规则同 computeCard。 |
+| `computeView` | 函数 | 按视图类型计算明细表、分组报表或交叉表。 |
+| `ExtensionViewResult` | 接口 | 作主体的扩展视图的计算结果：value 的形状由种类定。 |
+| `ViewResult` | 类型 | 一个数据视图的计算结果。 |
+
+### engine/context
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `ComputeEnvironment` | 接口 | 一次计算的环境。 |
+| `ComputeOptions` | 接口 | 计算选项。 |
+
+### engine/crosstab
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `buildCrosstab` | 函数 | 计算交叉表：行维度与列维度交叉，每格写各度量的聚合值。 |
+| `CrosstabHeader` | 接口 | 交叉表一条轴上的一项。 |
+| `CrosstabResult` | 接口 | 交叉表的计算结果。 |
+
+### engine/crosstab-axis
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `crosstabAxes` | 函数 | 交叉表两条轴的表头结构。 |
+| `CrosstabAxes` | 接口 | 交叉表两条轴的表头结构。 |
+| `CrosstabAxis` | 接口 | 一条轴的表头结构。 |
+| `CrosstabAxisNode` | 接口 | 表头树的一个节点：一个标签占一格或合并的一片。 |
+| `CrosstabLabel` | 类型 | 表头上的一个标签；id 相同的相邻标签合成一格。 |
+| `CrosstabLeaf` | 接口 | 轴上的一个叶子：交叉表的一行或一列。 |
+
+### engine/cube
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `isAggregateMeasure` | 函数 | 度量是否为聚合度量。 |
+
+### engine/dashboard
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `cardDimension` | 函数 | 卡片上的一个维度：图表与指标卡片是查询的维度，表格卡片按视图类型是明细表的列、分组报表的分组、交叉表的行列维度。 |
+| `CardDimension` | 接口 | 卡片上一个可发出取值的维度。 |
+| `computeMetric` | 函数 | 指标卡片的取值：从查询总计里取 value 与 baseline，比出涨跌与变化率。 |
+| `findCard` | 函数 | 按 id 找卡片。 |
+| `LinkSelections` | 类型 | 联动的选中值：联动 id 到源维度上选中的取值；空数组或缺项表示没有选中。 |
+| `MetricResult` | 接口 | 指标卡片的取值。 |
+| `resolveLinkFilters` | 函数 | 把联动的选中值换成各目标卡片的筛选条件：每个目标得到 field in 选中值，源维度带日期粒度时条件带同一粒度。 |
+
+### engine/date
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `createDateTools` | 函数 | 建一组绑定时区的日期工具。 |
+| `DateTools` | 接口 | 绑定了时区的日期工具。 |
+
+### engine/errors
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `ComputeErrorCode` | 类型 | 计算错误码。 |
+| `ReportComputeError` | 类 | 计算错误：message 即错误码，定位与取值放在 params 里。 |
+
+### engine/filter
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `compileFilter` | 函数 | 把筛选编译成行谓词。 |
+| `FilterEnvironment` | 接口 | 编译筛选需要的环境。 |
+| `isEmptyOperand` | 函数 | 操作数为空：缺失值，或去掉缺失元素后为空的数组。 |
+| `isFilterGroup` | 函数 | 判断一个节点是否为子组。 |
+| `resolveOperand` | 函数 | 操作数的值：参数引用取参数值，未给值的参数为 undefined。 |
+| `RowPredicate` | 类型 | 行谓词。 |
+
+### engine/formula
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `applyCalculatedFields` | 函数 | 给每行算出计算字段，返回新的行数组；数据集没有计算字段时原样返回。 |
+
+### engine/parameters
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `PARAMETER_ISSUE_CODES` | 常量 | 参数取值的问题码。 |
+| `ParameterIssueCode` | 类型 | 参数取值的问题码。 |
+| `ResolvedParameters` | 接口 | 解析后的参数取值。 |
+| `resolveParameters` | 函数 | 解析报表参数的取值：输入里没有的参数取缺省值，输入写 null 表示不给值。 |
+
+### engine/query
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `QueryResult` | 接口 | 查询结果。 |
+| `runQuery` | 函数 | 执行聚合查询。 |
+
+### engine/request
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `createDatasetRequest` | 函数 | 生成取数请求。 |
+| `findDataset` | 函数 | 按 id 找数据集。 |
+| `RequestOptions` | 接口 | 生成取数请求的选项。 |
+| `RequestSource` | 类型 | 取数的来源：明细表、分组报表、交叉表，或带查询的卡片与扩展视图。 |
+
+### engine/sort
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `sortRows` | 函数 | 按明细排序规则排序行，返回新数组。 |
+
+### engine/table
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `buildGroupReport` | 函数 | 计算分组报表：逐级分组，每组算出带汇总的列的小计。 |
+| `buildTable` | 函数 | 计算明细表：算出计算字段、筛选、排序、汇总，再截取。 |
+| `GroupNode` | 接口 | 分组报表里的一个组。 |
+| `GroupReportResult` | 接口 | 分组报表的计算结果。 |
+| `TableResult` | 接口 | 明细表的计算结果。 |
+
+### expression
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `CompiledExpression` | 类型 | 转导出自 @xihan-ui/expression |
+| `EngineCompileOptions` | 类型 | 转导出自 @xihan-ui/expression |
+| `EngineCompileResult` | 类型 | 转导出自 @xihan-ui/expression |
+| `EngineEvaluation` | 类型 | 转导出自 @xihan-ui/expression |
+| `ExpressionEngine` | 类型 | 转导出自 @xihan-ui/expression |
+| `ExpressionIssue` | 类型 | 转导出自 @xihan-ui/expression |
+
+### extensions
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `createReportModel` | 函数 | 合出报表模型：内置扩展 REPORT_CORE_EXTENSION 在前，extensions 按顺序在后。 |
+| `MetricValue` | 接口 | 指标卡片的计算结果。 |
+| `REPORT_CORE_EXTENSION` | 常量 | 内置的卡片、主体视图与编辑方式。 |
+| `REPORT_CORE_EXTENSION_ID` | 常量 | 内置扩展的 id。 |
+| `REPORT_EXTENSION_SPACES` | 常量 | 报表各层扩展共用的名字空间：卡片种类、视图种类、追加属性与文档级属性的路径。 |
+| `ReportCardData` | 类型 | 卡片种类的取数形状：query 同图表与指标卡片（卡片上有 dataset、parameters 与 query），view 同表格卡片（带一个明细表、分组报表或交叉表），none 不取数。 |
+| `ReportCardKind` | 接口 | 一种卡片。 |
+| `ReportCoreExtension` | 接口 | 报表 core 层的扩展。 |
+| `ReportKindCheck` | 接口 | 种类校验拿到的上下文：公共字段与取数部分 core 已经查过。 |
+| `ReportKindEntry` | 接口 | 合并后的一个种类：定义、登记它的扩展 id，以及是不是内置的。 |
+| `ReportKindInput` | 接口 | 交给种类计算的取数结果：query 形状是查询结果，view 形状是视图结果，none 两者都没有。 |
+| `ReportModel` | 接口 | 一组扩展合出的报表模型。 |
+| `ReportPropertyTarget` | 类型 | 属性追加到哪一类对象上：document 之外的键同属性面板的分区——dashboard、card:&lt;种类&gt;、chart:&lt;图表类型&gt;、series、metric、view:&lt;视图类型&gt;、column、group-level、dimension、measure、field、parameter、link。 |
+| `ReportQueryIds` | 接口 | 卡片查询里现有的维度与度量 id，按查询里的先后。 |
+| `ReportRuleContext` | 接口 | 规则拿到的上下文：合并后的报表模型。 |
+| `ReportViewData` | 类型 | 主体视图种类的取数形状：扩展视图只能是 query 或 none；table、group、crosstab、dashboard 是内置四种自己的形状。 |
+| `ReportViewKind` | 接口 | 一种主体视图。 |
+
+### grid
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `CardPlacement` | 接口 | 新增卡片的位置：写了 x、y 时放在那里并推开压到的卡片，没写时放到第一个放得下的空位。 |
+| `gridItems` | 函数 | 看板上全部卡片的网格位置，次序与卡片相同。 |
+| `layoutOperations` | 函数 | 把布局的变化写成一条 layoutCards：before 里有、位置大小变了的卡片；没有变化时为空数组。 |
+| `NewCard` | 类型 | 待新增的卡片：layout 只需写大小，位置可以留给 planAddCard 找空位。 |
+| `NewExtensionCard` | 接口 | 待新增的扩展卡片：同 ExtensionCard，layout 只需写大小。 |
+| `planAddCard` | 函数 | 新增卡片：按 placement 放进网格（推开压到的卡片，缺省整体压实），产出 addCard 与其余卡片的 layoutCards。 |
+| `planCardLayout` | 函数 | 拖动或改大小：把卡片放到 target（只改写了的项），压到的卡片向下推开，向下拖过下方卡片时两者对调，之后缺省整体压实。 |
+| `planCompactLayout` | 函数 | 压实布局：每张卡片向上移到碰到别的卡片为止，原本重叠的向下推开；没有变化时为空数组。 |
+| `planRemoveCard` | 函数 | 删除卡片并清理联动：以它为源的联动整条删除，指向它的目标从联动里去掉，目标删空的联动也删除；之后缺省整体压实。 |
+
+### item-plans
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `planAddFieldItem` | 函数 | 从数据集字段生成一个列表项并加进列表：维度（查询的 dimensions、交叉表的 rows / columns、分组报表的 groups）取这个字段，日期字段缺省按月分桶；度量里数值字段缺省 sum，其余缺省 count；明细表与分组报表的列只取字段。 |
+| `planRemoveItem` | 函数 | 删除列表项，并清理对它的引用：以这张卡片为源、在它上面发出取值的联动删除；引用它的直角坐标系列删除，雷达指标与层级从数组里去掉，可选的引用（splitBy、气泡大小与颜色、指标基准值）删掉属性，引用它的迷你图删掉；查询排序的规则与各处的 sort.by 去掉，标注里指向被删系列的去掉。 |
+| `planRenameField` | 函数 | 字段改名：updateField，并把绑定这个数据集的视图与查询里引用它的地方一起改掉——列、分组、维度与度量的 field，筛选条件与明细排序的 field、目标卡片绑定这个数据集的联动目标的 field，以及同一数据集里计算字段公式对它的引用。 |
+| `planRenameItem` | 函数 | 列表项改 id：updateItem，并把别处对它的引用一起改掉——图表与指标配置里引用它的字段、查询排序的 key 与维度排序的 by、分组的 sort.by（列）、交叉表维度的 sort.by（度量）、直角坐标图标注的 series，以及以这张卡片为源、在它上面发出取值的联动。 |
+
+### operations/apply
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `applyOperation` | 函数 | 以纯函数方式执行编辑操作：不修改传入的文档，返回新文档与逆操作数组；没有改到的部分沿用原引用。 |
+| `applyOperations` | 函数 | 按顺序执行一组编辑操作，整体成功或整体失败（@xihan-ui/designer-kit 的 applyInSequence）；逆操作为各操作逆操作按相反顺序的拼接。 |
+
+### operations/describe
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `describeReportStep` | 函数 | 撤销栈里一步的说明素材：按第一个操作定动作与对象种类，同一步里同动作、同种类的操作合起来计个数；只改了一个对象时带上它的名字（标题，没有时取 id 或字段名）。 |
+| `ReportStep` | 接口 | 一步的说明素材。 |
+| `ReportStepAction` | 类型 | 一步里的动作。 |
+| `ReportStepKind` | 类型 | 一步改的对象种类，与设计器文案 objectKinds 的键同一组。 |
+
+### operations/errors
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `ReportOperationError` | 类 | 操作无法应用时抛出的错误：message 即错误码，输入文档保持不变。 |
+| `ReportOperationErrorCode` | 类型 | 操作失败的原因： |
+
+### operations/path
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `itemKey` | 函数 | 数组项的键：id，没有 id 时取 name；都不是字符串时为 undefined。 |
+| `readPath` | 函数 | 读取路径处的值；路径不存在时为 undefined，路径段不合法（负数、小数、原型键）时抛 JsonPathError。 |
+
+### operations/types
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `AddCardOperation` | 接口 | 新增卡片，index 缺省放在末尾；位置大小写在卡片的 layout 里。 |
+| `AddDatasetOperation` | 接口 | 新增数据集，index 缺省放在末尾。 |
+| `AddFieldOperation` | 接口 | 在数据集里新增字段，index 缺省放在末尾。 |
+| `AddItemOperation` | 接口 | 在列表里新增一项，index 缺省放在末尾。 |
+| `AddLinkOperation` | 接口 | 新增联动，index 缺省放在末尾。 |
+| `AddParameterOperation` | 接口 | 新增报表参数，index 缺省放在末尾。 |
+| `ItemList` | 类型 | 视图或查询里的列表：明细表的 columns；分组报表的 groups、columns；交叉表的 rows、columns、measures；图表与指标卡片查询的 dimensions、measures；直角坐标图的 series。 |
+| `ItemOwner` | 接口 | 列表项的所在：card 缺省时是报表主体的视图；表格卡片是它的视图，图表与指标卡片是它的查询，series 是直角坐标图的配置。 |
+| `LayoutCardsOperation` | 接口 | 一次改多张卡片的位置大小。 |
+| `MoveDatasetOperation` | 接口 | 把数据集移到 index。 |
+| `MoveFieldOperation` | 接口 | 把数据集里的字段移到 index。 |
+| `MoveItemOperation` | 接口 | 把列表项移到 index；写了 to 时移到同一视图的另一个列表，如交叉表的行维度换到列维度。 |
+| `MoveParameterOperation` | 接口 | 把报表参数移到 index。 |
+| `PropertyChange` | 接口 | 一处属性修改：path 相对被修改的对象，写法同 ReportPath；value 不写表示删除该属性。 |
+| `RemoveCardOperation` | 接口 | 删除卡片；引用它的联动不随之改动，用 planRemoveCard 一并清理。 |
+| `RemoveDatasetOperation` | 接口 | 删除数据集；用着它的卡片、视图与联动不一并改，要连带删除时用 planRemoveDataset。 |
+| `RemoveFieldOperation` | 接口 | 删除数据集里的字段；引用它的地方不一并改，要连带删除时用 planRemoveField。 |
+| `RemoveItemOperation` | 接口 | 删除报表主体或卡片里某个列表的一项。 |
+| `RemoveLinkOperation` | 接口 | 删除看板的联动。 |
+| `RemoveParameterOperation` | 接口 | 删除报表参数；引用它的地方不一并改，要连带删除时用 planRemoveParameter。 |
+| `ReplaceDocumentOperation` | 接口 | 整份换掉报表定义，如编辑整份 JSON 之后应用。 |
+| `ReportOperation` | 类型 | 编辑操作。 |
+| `ReportOperationResult` | 类型 | 操作结果，即 @xihan-ui/designer-kit 的 OperationResult：新文档，以及按顺序作用于新文档即可还原出传入文档的逆操作。 |
+| `ReportOperationType` | 类型 | 编辑操作的种类。 |
+| `ReportPath` | 类型 | 报表里的路径：字符串段是对象的属性名，或数组里带 id（没有 id 时取 name）的那一项；数字段是数组下标。 |
+| `SetBodyOperation` | 接口 | 换掉报表主体，用来改报表的类型。 |
+| `UpdateCardOperation` | 接口 | 修改卡片；不能修改 id、kind 与 layout（位置大小用 layoutCards）。 |
+| `UpdateDashboardOperation` | 接口 | 修改看板本身（网格）；不能修改 type、cards 与 links。 |
+| `UpdateDatasetOperation` | 接口 | 修改数据集；不能修改 id 与 fields（字段用字段的操作）。 |
+| `UpdateDocumentOperation` | 接口 | 修改文档本身的属性；不能修改 schemaVersion、datasets、parameters 与 body。 |
+| `UpdateFieldOperation` | 接口 | 修改字段；可以改 name，同一数据集里不能重名。 |
+| `UpdateItemOperation` | 接口 | 修改列表项；可以改 id，同一列表里不能重复。 |
+| `UpdateLinkOperation` | 接口 | 修改联动；不能修改 id。 |
+| `UpdateParameterOperation` | 接口 | 修改报表参数；可以改 name，不能与别的参数重名。 |
+| `UpdateViewOperation` | 接口 | 修改视图：card 缺省时是报表主体（须是明细表、分组报表或交叉表），否则是那张表格卡片的视图；不能修改 type。 |
+
+### properties
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `builtinProperties` | 函数 | 某类对象的内置属性；扩展追加的属性不能与它们同路径。 |
+| `cardProperties` | 函数 | 卡片自身的属性：标题、说明；带查询的卡片（图表、指标，或取数形状为 query 的扩展卡片）还有数据集、参数绑定与查询的筛选、行数上限。 |
+| `chartProperties` | 函数 | 图表配置的属性，路径相对图表配置；直角坐标图的系列另用 seriesProperties。 |
+| `dashboardProperties` | 函数 | 看板本身的属性：网格的列数与行高（px）。 |
+| `datasetFieldProperties` | 函数 | 数据集一个字段的属性，路径相对字段。 |
+| `dimensionProperties` | 函数 | 查询或交叉表一个维度的属性，路径相对维度。 |
+| `documentProperties` | 函数 | 报表文档的属性：标题与说明。 |
+| `extensionViewProperties` | 函数 | 作主体的扩展视图的属性：取数形状为 query 时是取数属性，none 时没有。 |
+| `groupLevelProperties` | 函数 | 分组报表一级分组的属性，路径相对分组。 |
+| `linkProperties` | 函数 | 看板联动的属性，路径相对联动。 |
+| `measureProperties` | 函数 | 一个度量的属性，路径相对度量：写了 formula 的是公式度量，否则是聚合度量。 |
+| `metricProperties` | 函数 | 指标卡片配置的属性，路径相对指标配置；迷你图的属性只在写了迷你图时显示。 |
+| `parameterProperties` | 函数 | 报表参数的属性，路径相对参数。 |
+| `REPORT_PROPERTY_GROUPS` | 常量 | 属性分组的先后。 |
+| `ReportPropertyControl` | 类型 | 报表的编辑方式：designer-kit 的内建方式，加上报表自己的几种。 |
+| `ReportPropertyDescriptor` | 类型 | 报表的属性描述。 |
+| `ReportPropertyGroup` | 类型 | 属性分组。 |
+| `seriesProperties` | 函数 | 直角坐标图一个系列的属性，路径相对系列；各标记的专有属性只在该标记下显示。 |
+| `tableColumnProperties` | 函数 | 明细表与分组报表一列的属性，路径相对列；汇总写聚合或公式之一。 |
+| `viewProperties` | 函数 | 视图的属性，路径相对视图（报表主体或表格卡片的 view）；列表里的项另用各自的描述。 |
+
+### schema/chart
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `CartesianAnnotationSpec` | 类型 | 注释；axis 的 x 是自变量轴，y 是数值轴。 |
+| `CartesianAxisSpec` | 接口 | 坐标轴；时间值写 ISO 8601 字符串。 |
+| `CartesianBarSeriesSpec` | 接口 | 柱系列。 |
+| `CartesianChartSpec` | 接口 | 笛卡尔图：柱、折线、面积、散点。 |
+| `CartesianLineSeriesSpec` | 接口 | 折线系列。 |
+| `CartesianScatterSeriesSpec` | 接口 | 散点系列：每个维度组合一个点。 |
+| `CartesianSeriesSpec` | 类型 | 柱线图的一条系列：柱、折线或散点。 |
+| `CartesianSeriesSpecBase` | 接口 | 笛卡尔图系列的共有属性。 |
+| `CHART_TYPES` | 常量 | 全部图表类型。 |
+| `ChartPalette` | 类型 | 顺序色阶的色板，与 XiHan.UI 的 ChartPalette 一致。 |
+| `ChartSize` | 类型 | 尺寸档。 |
+| `ChartSpec` | 类型 | 图表配置，按 type 分。 |
+| `ChartSymbol` | 类型 | 散点形状：XiHan.UI 图表引擎的 SymbolName。 |
+| `ChartTone` | 类型 | 语气：XiHan.UI 的 Tone。 |
+| `FunnelChartSpec` | 接口 | 漏斗图：每个维度成员一个阶段。 |
+| `HeatmapChartSpec` | 类型 | 热力图：日历（含按月）或矩阵。 |
+| `HeatmapChartSpecBase` | 接口 | 热力图共有的属性。 |
+| `HeatmapDateChartSpec` | 接口 | 日期热力图：calendar 连续周列，month 按自然月分块。 |
+| `HeatmapMatrixChartSpec` | 接口 | 矩阵热力图：行列各是一个维度。 |
+| `HierarchyChartSpec` | 接口 | 层级图：维度依次是由上到下的层。 |
+| `MetricSpec` | 接口 | 指标卡片：一个汇总值，可带对比与走势。 |
+| `PieChartSpec` | 接口 | 饼图：每个维度成员一个扇区。 |
+| `RadarChartSpec` | 接口 | 雷达图：每个维度成员一个实体，每个指标一根轴。 |
+| `RadarIndicatorSpec` | 接口 | 雷达图的一个指标。 |
+| `SankeyChartSpec` | 接口 | 桑基图：每个维度组合一条流带。 |
+| `SparklineSpec` | 接口 | 迷你图：指标卡片里的走势。 |
+
+### schema/dataset
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `DatasetAggregated` | 接口 | 已聚合数据：使用方按请求里的 query 在后端聚合并筛选过。 |
+| `DatasetData` | 类型 | 使用方交回的数据。 |
+| `DatasetField` | 接口 | 数据集里的一个字段。 |
+| `DatasetParameter` | 接口 | 数据集接受的一个参数：取数时由使用方的数据源解释。 |
+| `DatasetQuery` | 接口 | 视图需要的聚合：使用方可以照此在后端聚合，返回 aggregated 数据。 |
+| `DatasetQueryDimension` | 接口 | 取数请求里的一个维度：按 field 分组，写了 bucket 时按日期粒度取键。 |
+| `DatasetQueryMeasure` | 接口 | 取数请求里的一个度量：对 field 做 aggregate；count 不写 field 时数行。 |
+| `DatasetRequest` | 接口 | 取数请求：core 按视图与参数取值算出，使用方据此取数。 |
+| `DatasetRollup` | 接口 | 一条汇总行：按 dimensions 分组的汇总值，键同已聚合行。 |
+| `DatasetRows` | 接口 | 明细行：core 负责计算字段、筛选、分组与聚合。 |
+| `DatasetSchema` | 接口 | 报表引用的一个数据集。 |
+
+### schema/document
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `ParameterOption` | 接口 | 参数的一个候选项。 |
+| `REPORT_SCHEMA_VERSION` | 常量 | 当前的 schema 版本。 |
+| `ReportDocument` | 接口 | 报表文档：纯 JSON。 |
+| `ReportParameter` | 接口 | 报表参数：报表使用者填写，经绑定传给数据集参数或筛选条件。 |
+
+### schema/extension
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `ReportExtensible` | 接口 | 能带扩展数据的对象：文档、数据集、字段、参数、视图、卡片、各列表项与联动。 |
+| `ReportExtensionData` | 类型 | 对象上各扩展自己的数据：键是扩展 id，值归那个扩展；校验只查它与每一块都是对象，里面不看。 |
+| `ReportExtensionKind` | 类型 | 扩展登记的卡片与视图种类名：扩展 id 的末段、一个点、名字，如 gantt.timeline。 |
+
+### schema/filter
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `FILTER_OPERATORS` | 常量 | 转导出自 @xihan-ui/viz |
+| `FilterCondition` | 接口 | 一个筛选条件。 |
+| `FilterGroup` | 接口 | 条件组：and 全部满足，or 任一满足。 |
+| `FilterNode` | 类型 | 条件组里的一项：条件或子组。 |
+| `FilterOperator` | 类型 | 转导出自 @xihan-ui/viz |
+| `FilterSubgroup` | 接口 | 嵌套在条件组里的子组。 |
+| `NullsPosition` | 类型 | 转导出自 @xihan-ui/viz |
+| `Operand` | 类型 | 操作数：字面值、字面值数组，或报表参数。 |
+| `ParameterRef` | 接口 | 引用一个报表参数的值。 |
+| `RowSortRule` | 接口 | 明细行的一条排序规则。 |
+| `SortDirection` | 类型 | 转导出自 @xihan-ui/viz |
+
+### schema/format
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `DateFormatSpec` | 类型 | 转导出自 @xihan-ui/expression |
+| `FormatRounding` | 类型 | 转导出自 @xihan-ui/expression |
+| `FormatSpec` | 类型 | 转导出自 @xihan-ui/expression |
+| `NumberFormatSpec` | 类型 | 转导出自 @xihan-ui/expression |
+| `NumericFormatSpec` | 类型 | 图表数值用的格式说明：数字或百分比。 |
+| `PercentFormatSpec` | 类型 | 转导出自 @xihan-ui/expression |
+| `RmbUpperFormatSpec` | 类型 | 转导出自 @xihan-ui/expression |
+
+### schema/options
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `ANNOTATION_AXES` | 常量 | 取值：`x`、`y`。 |
+| `ANNOTATION_KINDS` | 常量 | 取值：`line`、`band`、`point`、`average`、`trend`。 |
+| `ANNOTATION_POINTS` | 常量 | 取值：`max`、`min`、`last`。 |
+| `AXIS_FITS` | 常量 | 取值：`all`、`window`。 |
+| `AXIS_LABEL_OVERFLOWS` | 常量 | 取值：`auto`、`rotate`、`truncate`、`wrap`。 |
+| `AXIS_SCALES` | 常量 | 取值：`band`、`point`、`linear`、`log`、`sqrt`、`pow`、`symlog`、`time`、`utc`。 |
+| `BAR_LABELS` | 常量 | 取值：`none`、`inside`、`end`。 |
+| `BAR_SHAPES` | 常量 | 取值：`bar`、`lollipop`。 |
+| `BAR_STACK_OFFSETS` | 常量 | 取值：`none`、`expand`、`diverging`。 |
+| `CARD_KINDS` | 常量 | 取值：`chart`、`metric`、`table`。 |
+| `CARTESIAN_ORIENTATIONS` | 常量 | 取值：`vertical`、`horizontal`。 |
+| `CHART_INTERACTION_AXES` | 常量 | 缩放与刷选的方向。 |
+| `CHART_PALETTES` | 常量 | 取值：`red`、`orange`、`amber`、`yellow`、`lime`、`green`、`teal`、`cyan`、`blue`、`indigo`、`purple`、`pink`、`gray`。 |
+| `CHART_RENDERERS` | 常量 | 取值：`svg`、`canvas`、`auto`。 |
+| `CHART_SIZES` | 常量 | 取值：`sm`、`md`、`lg`。 |
+| `CHART_TONES` | 常量 | 取值：`brand`、`neutral`、`success`、`warning`、`danger`、`info`。 |
+| `CHART_TRIGGERS` | 常量 | 取值：`axis`、`item`。 |
+| `COLUMN_ALIGNS` | 常量 | 取值：`start`、`center`、`end`。 |
+| `COLUMN_STICKY_SIDES` | 常量 | 取值：`start`、`end`。 |
+| `FILTER_LOGICS` | 常量 | 取值：`and`、`or`。 |
+| `FUNNEL_ALIGNS` | 常量 | 取值：`center`、`start`。 |
+| `FUNNEL_CONVERSIONS` | 常量 | 取值：`previous`、`first`、`none`。 |
+| `FUNNEL_DIRECTIONS` | 常量 | 取值：`down`、`up`。 |
+| `FUNNEL_LABELS` | 常量 | 取值：`inside`、`outside`。 |
+| `FUNNEL_SHAPES` | 常量 | 取值：`trapezoid`、`bar`。 |
+| `HEATMAP_SCALES` | 常量 | 取值：`sequential`、`diverging`。 |
+| `HEATMAP_VARIANTS` | 常量 | 取值：`calendar`、`month`、`matrix`。 |
+| `HIERARCHY_COLOR_BY` | 常量 | 取值：`branch`、`value`、`uniform`。 |
+| `HIERARCHY_LAYOUTS` | 常量 | 取值：`treemap`、`sunburst`、`icicle`、`pack`。 |
+| `HIERARCHY_ORIENTATIONS` | 常量 | 取值：`vertical`、`horizontal`。 |
+| `HIERARCHY_TILES` | 常量 | 取值：`squarify`、`binary`、`slice-dice`。 |
+| `LINE_CURVES` | 常量 | 取值：`linear`、`monotone`、`step`、`step-before`、`step-after`。 |
+| `LINE_LABELS` | 常量 | 取值：`none`、`end`。 |
+| `LINE_STACK_OFFSETS` | 常量 | 取值：`none`、`expand`、`silhouette`、`wiggle`。 |
+| `LINE_SYMBOLS` | 常量 | 取值：`auto`、`always`、`none`。 |
+| `MEASURES_ON` | 常量 | 取值：`columns`、`rows`。 |
+| `NULLS_POSITIONS` | 常量 | 取值：`first`、`last`。 |
+| `PIE_LABEL_CONTENTS` | 常量 | 取值：`name-share`、`name-value`、`name`、`share`、`value`。 |
+| `PIE_LABELS` | 常量 | 取值：`none`、`inside`、`outside`。 |
+| `PIE_SORTS` | 常量 | 取值：`none`、`descending`。 |
+| `PIE_SWEEPS` | 常量 | 取值：`full`、`half`。 |
+| `PIE_VARIANTS` | 常量 | 取值：`pie`、`donut`。 |
+| `RADAR_CURVES` | 常量 | 取值：`linear`、`catmull-rom`。 |
+| `RADAR_SCALES` | 常量 | 取值：`shared`、`independent`。 |
+| `RADAR_SHAPES` | 常量 | 取值：`polygon`、`circle`。 |
+| `SANKEY_LINK_COLORS` | 常量 | 取值：`neutral`、`source`、`target`、`gradient`。 |
+| `SANKEY_NODE_ALIGNS` | 常量 | 取值：`justify`、`start`、`end`、`center`。 |
+| `SANKEY_NODE_SORTS` | 常量 | 取值：`auto`、`input`。 |
+| `SANKEY_ORIENTATIONS` | 常量 | 取值：`horizontal`、`vertical`。 |
+| `SERIES_MARKS` | 常量 | 取值：`bar`、`line`、`scatter`。 |
+| `SORT_DIRECTIONS` | 常量 | 取值：`asc`、`desc`。 |
+| `SPARKLINE_CURVES` | 常量 | 取值：`linear`、`monotone`。 |
+| `SPARKLINE_MARKERS` | 常量 | 取值：`none`、`last`、`extremes`。 |
+| `SPARKLINE_VARIANTS` | 常量 | 取值：`line`、`area`、`bar`、`win-loss`。 |
+| `TOOLTIP_ORDERS` | 常量 | 取值：`series`、`descending`、`ascending`。 |
+| `TREND_METHODS` | 常量 | 取值：`linear`、`moving-average`。 |
+
+### schema/query
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `AGGREGATE_KINDS` | 常量 | 转导出自 @xihan-ui/viz |
+| `AggregateKind` | 类型 | 转导出自 @xihan-ui/viz |
+| `AggregateMeasure` | 接口 | 聚合度量：对字段做聚合；count 不写 field 时数行。 |
+| `AxisSort` | 接口 | 成员的次序：按键，或按某个度量在该成员上的汇总值。 |
+| `DATE_BUCKETS` | 常量 | 全部日期粒度，由粗到细。 |
+| `DateBucket` | 类型 | 日期粒度：把日期取成分组键。 |
+| `Dimension` | 接口 | 维度：按字段分组。 |
+| `FormulaMeasure` | 接口 | 公式度量：在聚合之后，以同一查询其它度量的值与报表参数（$名字）为变量求值。 |
+| `Measure` | 类型 | 度量：聚合度量或公式度量。 |
+| `MeasureBase` | 接口 | 共有的度量属性。 |
+| `QuerySortRule` | 接口 | 查询结果行的一条排序规则。 |
+| `ReportQuery` | 接口 | 聚合查询：按维度分组、计算度量，结果每个维度组合一行。 |
+
+### schema/value
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `DataRow` | 类型 | 一行数据：字段名到值。 |
+| `FIELD_TYPES` | 常量 | 全部字段类型，按声明次序。 |
+| `FieldType` | 类型 | 字段类型。 |
+| `JsonValue` | 类型 | 转导出自 @xihan-ui/core/json |
+| `ParameterValue` | 类型 | 参数的取值：单值，或多选参数的值数组。 |
+| `ParameterValues` | 类型 | 一组参数取值：参数名到值。 |
+| `ScalarValue` | 类型 | JSON 标量：模板里能写下的单个值。 |
+
+### schema/view
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `CardBase` | 接口 | 卡片的共有属性。 |
+| `CardLayout` | 接口 | 卡片在网格上的位置与大小，单位是格。 |
+| `ChartCard` | 接口 | 图表卡片。 |
+| `ColumnSummary` | 类型 | 汇总：对列的字段做聚合，或以其它列的汇总值与报表参数（$名字）为变量求公式。 |
+| `CrosstabTotals` | 接口 | 交叉表一条轴上的汇总。 |
+| `CrosstabView` | 接口 | 交叉表：行维度与列维度交叉，格子里写度量。 |
+| `DashboardCard` | 类型 | 看板上的一张卡片：图表、指标、表格，或扩展登记的种类。 |
+| `DashboardGrid` | 接口 | 看板网格。 |
+| `DashboardLink` | 接口 | 筛选联动：在源卡片上选中的取值，成为目标卡片在对应字段上的 in 条件。 |
+| `DashboardView` | 接口 | 看板：网格上排列的卡片。 |
+| `DataBinding` | 接口 | 视图取数的数据集与参数绑定。 |
+| `DataView` | 类型 | 可以直接取数计算的视图。 |
+| `ExtensionCard` | 接口 | 扩展登记的卡片：kind 是带点的种类名。 |
+| `ExtensionView` | 接口 | 扩展登记的主体视图：type 是带点的种类名。 |
+| `GroupLevel` | 接口 | 分组报表的一级分组。 |
+| `GroupView` | 接口 | 分组报表：多级分组，组内列出明细，组尾写小计，末尾写总计。 |
+| `LinkTarget` | 接口 | 联动的一个目标：在目标卡片上按字段筛选。 |
+| `MetricCard` | 接口 | 指标卡片。 |
+| `ReportBody` | 类型 | 报表的主体。 |
+| `TableCard` | 接口 | 表格卡片：内嵌一个明细表、分组报表或交叉表。 |
+| `TableColumn` | 接口 | 表格的一列。 |
+| `TableView` | 接口 | 明细表：逐行列出数据。 |
+
+### validate/checker
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `REPORT_ISSUE_CODES` | 常量 | 报表自己的校验问题码，按字母序；通用问题码见 @xihan-ui/designer-kit/schema 的 CommonIssueCode。 |
+| `ValidationIssue` | 类型 | 一条校验问题：path 只用对象键与数组下标，target 指出所在的带键对象。 |
+| `ValidationIssueCode` | 类型 | 校验问题码：designer-kit/schema 的通用问题码、报表自己的（REPORT_ISSUE_CODES），以及扩展的问题码（扩展 id 的末段、一个点、码）。 |
+
+### validate/document
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `validateDocument` | 函数 | 校验报表文档，返回全部问题；没有问题时为空数组。 |
+| `ValidateOptions` | 接口 | 校验选项。 |
+
+---
+
+来源：https://report.docs.xihanfun.com/reference/designer
+
+# 设计器
+
+<!-- 本页由 docs/scripts/gen-reference.mjs 从源码生成，不要手改；源码变了之后在 docs/ 运行 pnpm gen。 -->
+
+`@xihan-report/designer` 的公开接口。样式在 `@xihan-report/designer/style.css`，还要同时引入 `@xihan-ui/designer-shell/style.css` 与 `@xihan-report/runtime/style.css`。
+
+## `<xh-report-designer>`
+
+注册 &lt;xh-report-designer&gt; 与它用到的查看器、UI 元素与 designer-shell 零件；import 时不注册。
+
+### 属性
+
+| 属性 | attribute | 类型 | 说明 |
+| --- | --- | --- | --- |
+| `schema` | — | `ReportDocument \| undefined` | 报表定义：赋值即装载（清空历史与选择）；赋回当前这一份不重新装载。读取得到当前报表。 |
+| `dataProvider` | — | `ReportDataProvider \| undefined` | 与查看器同一个取数回调，画布与预览用；不给时画布画占位。 |
+| `expressionEngine` | — | `ExpressionEngine \| undefined` | 表达式引擎：计算字段与公式度量要用，校验公式也用它。 |
+| `formatter` | — | `ReportFormatter \| undefined` | 值的显示文字；缺省按格式说明调 formatValue。 |
+| `parameters` | — | `ParameterValues \| undefined` | 预览与画布取数用的报表参数取值。 |
+| `commandLayout` | — | `DesignerCommandLayout \| undefined` | 工具栏、菜单栏的各张菜单（menubar:file、menubar:edit、menubar:view、menubar:data、menubar:help）、右键菜单（menu:card、menu:blank）与选中工具条（selection:card、selection:multiple）的命令排列；写了某个位置就只显示列出的命令。 |
+| `translations` | — | `Partial<ReportDesignerTranslations> \| undefined` | 元素自己的文案，压在全局配置之上。 |
+| `locale` | `locale` | `string \| undefined` | BCP 47 语言标记；缺省取全局配置。 |
+| `timeZone` | `time-zone` | `string \| undefined` | IANA 时区；缺省取运行环境所在的时区。 |
+| `readonly` | `readonly` | `boolean \| undefined` | 只读：可选择、浏览与预览，不能修改；缺省可修改。attribute 写 "false" 是可修改，其余写法是只读。 |
+| `mode` | `mode` | `ReportDesignerMode \| undefined` | design 或 preview，缺省 design。 |
+| `autoTour` | `auto-tour` | `boolean \| undefined` | 第一次铺好画布、设计器显示出来（画布有宽度）后自动开始新手引导，缺省开；设置里记过 help.tourDone（走完、跳过或关上过一次）时不再自动开始。写 false 关掉，start-tour 命令、帮助页的「开始引导」与 startTour() 照样能开始。同名 attribute auto-tour，写 "false" 是关。 |
+| `defaultLayout` | — | `DesignerLayout \| undefined` | 面板布局的缺省：设置里还没有 layout.panels 时用它，「恢复默认布局」也回到它；不给时各面板停在登记的位置，全部显示。面板 id 见 REPORT_DESIGNER_PANELS，另有扩展登记的面板。用户挪了面板、改了显隐或大小，整份布局写进设置的 layout.panels（DESIGNER_SETTING_KEYS.layout）并派发 settings-change。 |
+| `datasetEditing` | `dataset-editing` | `ReportDatasetEditing \| undefined` | 缺省 fields。 |
+| `settings` | — | `DesignerSettings \| undefined` | 设置的值：扁平的键值，键是「分区 id.条目 id」，如 general.theme；没写的键取条目的缺省值。赋值即生效；用户在设置对话框里改了以后设计器换成新的一份并派发 settings-change。 |
+| `settingsPolicy` | — | `DesignerSettingsPolicy \| undefined` | 宿主对设置条目的管控：键是条目键或分区 id，hidden 不显示，locked 只读、说明换成「由所在系统管理」。 |
+| `settingsStorageKey` | `settings-storage-key` | `string \| undefined` | 设置存在根所在窗口 localStorage 的哪个键下：给了，连上文档时若没赋 settings 就从这里读，用户改了设置就写回去，标了 secret 的条目不存；读写失败派发 settings-storage-error。不给就不读写。同名 attribute settings-storage-key。 |
+| `draftKey` | `draft-key` | `string \| undefined` | 自动保存草稿的键：区分同一页、同一种设计器里的不同报表（宿主写报表 id）；不给时按页面地址区分。设置里开着自动保存时，未保存的修改停手约一秒存成这台浏览器里的草稿；下次装进同一个键的报表、和草稿不一样时问恢复还是丢弃。同名 attribute draft-key。 |
+| `historyLimit` | `history-limit` | `number \| undefined` | 撤销步数上限，缺省 100；在下一次装载（赋 schema）时生效。同名 attribute history-limit。 |
+
+### 存取器
+
+| 属性 | 读写 | 类型 | 说明 |
+| --- | --- | --- | --- |
+| `extensions` | 可读写 | `readonly ReportDesignerExtension[] \| undefined` | 扩展：卡片与视图种类、渲染、属性编辑器、命令、面板与物料都从这里来，内置扩展自动排在最前。赋值时当场合并查重，冲突抛 DesignerExtensionError、什么都不变；各扩展的 setup 在元素连上文档时调用、断开时清理。同一个扩展对象换了引用当作卸下再装上，宿主要保持引用稳定。去掉的扩展登记的种类在报表里原样保留，画布上画占位。 |
+| `canUndo` | 只读 | `boolean` | 能不能撤销；只读时为 false。 |
+| `canRedo` | 只读 | `boolean` | 能不能重做；只读时为 false。 |
+| `dirty` | 只读 | `boolean` | 有未保存的修改。 |
+| `canPaste` | 只读 | `boolean` | 编辑模型里留着可粘贴的内容。 |
+| `canDelete` | 只读 | `boolean` | deleteSelection() 此刻能删掉东西：选中了卡片、列表项或联动，或 datasetEditing 允许删的数据面板对象。 |
+| `historyState` | 只读 | `HistorySnapshot` | 撤销历史的快照：各步的说明按此刻的语言取好；还没有报表时只有起点。 |
+| `xhConfig` | 只读 | `XhConfig` | 设计器这棵子树的配置：设置里选了语言时是这一语言的 UI、designer-shell 与报表语言包，跟随页面时是空对象。设计器自己、里面的元素（含预览的查看器与图表）与它弹出的浮层都按它取 locale 与文案，页面别处不受影响。 |
+| `canImportTemplate` | 只读 | `boolean` | 此刻能不能导入模板：登记了导入器、有报表、在设计态且不是只读。 |
+
+### 方法
+
+| 方法 | 说明 |
+| --- | --- |
+| `execute(operations: readonly ReportOperation[], options?: ExecuteOptions): ReportDocument` | 执行一组操作并记为一步撤销；返回新文档。还没有报表时抛错。 |
+| `undo(): boolean` | 撤销一步；只读或没有可撤销的时返回 false。 |
+| `redo(): boolean` | 重做一步；只读或没有可重做的时返回 false。 |
+| `goToHistory(position: number): boolean` | 跳到撤销历史里的一步或起点（historyState 里的位置号）；只读、预览、拖动中或位置号不认识时返回 false。 |
+| `clearHistory(): void` | 清空撤销与重做；报表与是否已保存不变。只读或拖动中时什么都不做。 |
+| `markSaved(): void` | 把当前位置记为保存点。 |
+| `addCard(init: ReportAddCardInit, options?: ExecuteOptions): DashboardCard` | 新增卡片并选中它；报表主体不是看板时抛错。 |
+| `addPaletteItem(id: string): DashboardCard \| undefined` | 照点物料的做法新建一张卡片：放到第一个空位、选中它并滚到看得见的地方，返回新卡片；只读、主体不是看板或没有这个物料项时什么都不做，返回 undefined。点物料面板的条目时调它。 |
+| `select(selection: Partial<ReportSelection>): void` | 换成给出的选择：给了 data 只选数据面板里的对象，否则选 cards，再带 item 或 link 之一。 |
+| `selectAll(): void` | 选中看板上的全部卡片；主体不是看板时清空选择。 |
+| `getSelection(): ReportSelection` | 当前的选择。 |
+| `deleteSelection(): boolean` | 删除选中的对象：卡片、列表项或联动直接删；数据面板里的字段、参数与数据集按 datasetEditing 能删时删，会一并删掉别处时先弹确认框，确认后合为一步撤销。返回是否删除（或已弹出确认框）。 |
+| `copy(): ReportClipboard \| undefined` | 复制选中的卡片，同时写进系统剪贴板；没有选中卡片时返回 undefined。 |
+| `cut(): ReportClipboard \| undefined` | 复制后删除选中的卡片，同时写进系统剪贴板；只读或没有选中卡片时返回 undefined。 |
+| `paste(clipboard?: ReportClipboard): ReportSelection` | 粘贴卡片，不给 clipboard 时用最近一次复制的内容；返回新的选择。 |
+| `duplicate(): ReportSelection` | 复制选中的卡片并当场粘贴，不经剪贴板；返回新的选择。 |
+| `validate(): readonly ValidationIssue[]` | 按当前的表达式引擎校验报表。 |
+| `refresh(): Promise<void>` | 丢掉缓存的数据，画布重新取数计算。 |
+| `scrollToCard(id: string): void` | 滚动到卡片。 |
+| `revealCard(id: string): void` | 卡片不在画布的可见区时才滚动到它。 |
+| `highlightCard(id: string \| null): void` | 在画布上标出一张卡片（画悬停框），null 撤掉；不改选择、不滚动。页面结构面板悬停或聚焦到一行时用它。 |
+| `canImportData(kind: ReportDataImportKind): boolean` | 这种导入此刻能不能做：只读、预览态或 datasetEditing 不够时不能（导入数据集与字段要 full，导入参数要 fields 起）；导入字段还要在数据面板里选中一个数据集或它的字段。 |
+| `openDataImport(kind: ReportDataImportKind): boolean` | 打开导入对话框：dataset 从 JSON 样例或 JSON Schema 新建一个数据集，fields 往选中的数据集里加字段，parameters 从 JSON Schema（也可以是样例）加报表参数。对话框里还有扩展登记的字段来源页（fieldSources）。导入的字段只取值字段，同名的保留现有的，一次导入记一步撤销。此刻不能做时返回 false。 |
+| `startTour(): boolean` | 从头开始新手引导：通用步骤加报表与扩展的步骤；同一页别的设计器的引导开着时先收起那一个。预览态、还没有报表或没有能走的步骤时返回 false。 |
+| `openJsonEditor(): boolean` | 打开编辑整份报表定义 JSON 的对话框：写出当前报表，边改边按当前扩展与表达式引擎校验、报问题（文字与问题列表的一致）；没有错误时「应用」整份换上，记一步撤销，说明是「编辑 JSON」。只读或预览态时只能看、不能应用。还没有报表时返回 false。 |
+| `importTemplate(): boolean` | 导入模板：弹出选文件对话框（accept 取各导入器的 fileTypes），选中的文件按扩展顺序交给第一个接下的导入器，给出的整份模板换上当前报表、清空选择，记一步撤销（说明是「导入模板」）。没有导入器接下、导入器抛错或给出的不是报表对象时派发 import-error。此刻不能导入（见 canImportTemplate）时什么都不做，返回 false。 |
+| `revealItem(ref: ReportItemRef): void` | 选中列表项所在的卡片并让它可见。 |
+| `getViewport(): Viewport` | 视口：屏幕坐标（画布可见区的左上角为原点）= 画布坐标 × zoom + (x, y)；画布坐标是实际尺寸下画布里的像素，zoom 为 1 时是实际尺寸。画布还没有布局时 x、y 为 0。 |
+| `setViewport(viewport: Viewport): void` | 设置视口：缩放夹进 10%–400%，平移落在画布能滚到的范围里；此后尺寸变化不再自动适配。 |
+| `zoomToFit(): void` | 缩放到整块内容的高度落进可见区，宽度总是铺满可见区，不放大到实际尺寸以上；此后画布或内容的尺寸变了就重新适配，直到改了缩放、设置视口或在画布上按下指针。 |
+| `zoomIn(): void` | 以可见区中心放大一档。 |
+| `zoomOut(): void` | 以可见区中心缩小一档。 |
+| `zoomToActual(): void` | 以可见区中心缩放到实际尺寸。 |
+| `openSettings(section?: string): void` | 打开设置对话框，给了分区 id 就显示那一页：基础是 general，扩展的是它登记的分区 id。 |
+
+### 事件
+
+事件都是冒泡的 `CustomEvent`。
+
+| 事件 | detail | 说明 |
+| --- | --- | --- |
+| `schema-change` | `{ schema: ReportDocument, operations: readonly ReportOperation[], kind: ReportSchemaChangeKind }` | 报表变了：schema 是新的报表，operations 是这一步的操作，kind 说明是执行、撤销、重做还是装载。 |
+| `selection-change` | `ReportSelection` | 选择变了，detail 是新的选择。 |
+| `dirty-change` | `{ dirty: boolean }` | 与保存点相比有没有改动变了。 |
+| `history-change` | `HistorySnapshot` | 撤销历史变了：执行（含并入上一步）、撤销、重做、跳转、装载、清空与保存之后都派发，拖动等事务进行中不派发。detail 是此刻的 historyState。 |
+| `issues-change` | `{ issues: readonly ValidationIssue[] }` | 报表的校验问题变了。 |
+| `save` | `Record<string, never>` | 在画布上按了 Ctrl+S（macOS 上 ⌘S），或点了「文件」菜单的「保存」（命令 save）；保存由宿主做，存好后调 markSaved()。 |
+| `mode-change` | `{ mode: ReportDesignerMode }` | 在设计与预览之间切换了。 |
+| `card-dblclick` | `{ id: string }` | 双击了一张卡片。 |
+| `card-contextmenu` | `{ id: string, x: number, y: number }` | 可取消；不取消时弹内建右键菜单。 |
+| `blank-contextmenu` | `{ x: number, y: number }` | 可取消；不取消时弹内建右键菜单。 |
+| `settings-change` | `{ key: string, value: JsonValue \| undefined, settings: DesignerSettings }` | 在设置对话框里改了一条设置，或在外框上挪了面板（键是 layout.panels，值是整份布局）：设计器已换成新的 settings 并生效（主题、主题色、扩展读的值与面板布局）；value 为 undefined 表示删掉这个键、回到缺省值。宿主存起来，下次赋回 settings。 |
+| `settings-storage-error` | `VisualEnvironmentStorageError` | 读写 settingsStorageKey 指的本机存储失败（内容不是对象、无痕窗口、配额满）；设置留在内存里。 |
+| `viewport-change` | `{ viewport: Viewport }` | 视口变了：缩放、适合窗口、setViewport 与滚动画布都会派发。 |
+| `import-error` | `{ importer?: string, source: DesignerImportSource, error: unknown }` | 导入模板没有成功：导入器抛了错，或给出的不是报表对象，importer 是导入器的 id；选中的文件没有导入器接下时也派发，此时没有 importer。 |
+
+## 函数
+
+### defineReportDesigner() {#definereportdesigner}
+
+```ts
+declare function defineReportDesigner(): void
+```
+
+注册 &lt;xh-report-designer&gt; 与它用到的查看器、UI 元素与 designer-shell 零件；import 时不注册。
+
+### readReportClipboard() {#readreportclipboard}
+
+```ts
+declare function readReportClipboard(text: string): ReportClipboard | undefined
+```
+
+从剪贴板文本读出卡片与联动；不是报表的剪贴板、版本不支持或内容不合格时为 undefined。
+
+### writeReportClipboard() {#writereportclipboard}
+
+```ts
+declare function writeReportClipboard(clipboard: ReportClipboard): string
+```
+
+把卡片与联动写成剪贴板文本。
+
+## 类型
+
+### ReportDesignerMode {#reportdesignermode}
+
+设计或预览。
+
+```ts
+type ReportDesignerMode = 'design' | 'preview'
+```
+
+### ReportDatasetEditing {#reportdatasetediting}
+
+数据集能改到什么程度：none 只读；fields 能改字段的标题、类型与计算字段公式，增删报表参数；full 另能增删数据集与字段。
+
+```ts
+type ReportDatasetEditing = 'none' | 'fields' | 'full'
+```
+
+### ReportSchemaChangeKind {#reportschemachangekind}
+
+schema-change 的来由。
+
+```ts
+type ReportSchemaChangeKind = 'execute' | 'undo' | 'redo' | 'load'
+```
+
+### REPORT_DESIGNER_PANELS {#report_designer_panels}
+
+设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.&lt;面板 id&gt;）与 commandLayout（panel:&lt;面板 id&gt;）时用。
+
+```ts
+const REPORT_DESIGNER_PANELS = {
+  datasets: 'datasets',
+  parameters: 'parameters',
+  palette: 'palette',
+  wells: 'wells',
+  properties: 'properties',
+  issues: 'issues',
+  history: 'history',
+  outline: 'outline',
+} as const
+```
+
+### ReportSelection {#reportselection}
+
+选择：看板上的卡片，以及可选的一个列表项或一条以选中卡片为源的联动；或者数据面板里的一个对象，这时不选卡片、列表项与联动。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `cards` | `readonly string[]` | 选中的卡片 id。 |
+| `item?` | `ReportItemRef` | 选中的列表项。 |
+| `link?` | `string` | 选中的联动 id；它的源卡片也在 cards 里。 |
+| `data?` | `ReportDataRef` | 数据面板里选中的对象。 |
+
+### ReportItemRef {#reportitemref}
+
+选中的列表项：报表主体或卡片里某个列表的一项（列、分组、维度、度量、系列）。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `card?` | `string` | 所在的卡片；报表主体的列表项不写。 |
+| `list` | `ItemList` | 所在的列表：dimensions、measures、series、rows、columns、groups。 |
+| `id` | `string` | 列表项的 id。 |
+
+### ReportDataRef {#reportdataref}
+
+数据面板里选中的对象：数据集、数据集的字段或报表参数。
+
+```ts
+type ReportDataRef = | { readonly kind: 'dataset', readonly dataset: string } | { readonly kind: 'field', readonly dataset: string, readonly name: string } | { readonly kind: 'parameter', readonly name: string }
+```
+
+### ReportAddCardInit {#reportaddcardinit}
+
+新增卡片的参数：id 缺省时按卡片种类分配，layout 只写大小时放到第一个空位。
+
+```ts
+type ReportAddCardInit = | (BuiltinNewCard extends infer C ? C extends BuiltinNewCard ? Omit<C, 'id'> & { readonly id?: string } : never : never) | ReportAddExtensionCardInit
+```
+
+### ReportAddExtensionCardInit {#reportaddextensioncardinit}
+
+待新增的扩展卡片：同 NewExtensionCard，id 可以不给。
+
+继承 `Partial<DataBinding>`。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `id?` | `string` |  |
+| `kind` | `ReportExtensionKind` |  |
+| `title?` | `string` |  |
+| `description?` | `string` |  |
+| `layout` | `CardPlacement` |  |
+| `query?` | `ReportQuery` |  |
+| `view?` | `DataView` |  |
+| `extensions?` | `ReportExtensionData` |  |
+| `[key: string]` | `unknown` |  |
+
+### ReportClipboard {#reportclipboard}
+
+剪贴板里的内容：卡片，以及源卡片与目标都在其中的联动。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `cards` | `readonly DashboardCard[]` | 复制的卡片。 |
+| `links` | `readonly DashboardLink[]` | 源卡片与全部目标都在复制范围里的联动。 |
+
+### ReportDesignerTranslations {#reportdesignertranslations}
+
+设计器的内建文案。
+
+文案键是 `xh-report-designer`，中文在 `@xihan-report/runtime/locale` 的 `reportZhCN` 里。
+
+| 键 | 类型 | 说明 | 中文 |
+| --- | --- | --- | --- |
+| `label` | `string` | 设计器的可及名。 | 报表设计器 |
+| `canvas` | `string` |  | 画布 |
+| `datasets` | `string` | 数据集与报表参数两块卡片的标题。 | 数据集 |
+| `parameters` | `string` |  | 报表参数 |
+| `wells` | `string` | 字段栏的标题。 | 字段 |
+| `lists` | `Readonly<Record<string, string>>` | 字段栏各列表的名字：dimensions、measures、series、rows、columns（交叉表的列维度）、groups、tableColumns（明细表与分组报表的列）。 | （按键对照） |
+| `palette` | `string` | 物料面板的标题，也是外框里这个区的名字。 | 物料 |
+| `properties` | `string` | 属性面板的标题，也是外框里这个区的名字。 | 属性 |
+| `issues` | `string` | 问题列表的标题，也是外框里这个区的名字。 | 问题 |
+| `datasetsHelp` | `string` | 数据集卡片的帮助。 | 报表用到的数据集与字段。把字段拖到卡片或字段栏上；选中一个，在属性里改标题、类型与公式。 |
+| `parametersHelp` | `string` | 报表参数卡片的帮助。 | 报表参数在报表上方填写，筛选与公式里按名字引用。 |
+| `paletteHelp` | `string` | 物料卡片的帮助。 | 图表、指标与表格。拖到看板上，或点一下放到第一个空位。 |
+| `wellsHelp` | `string` | 字段栏卡片的帮助。 | 选中卡片的维度、度量、系列与列。把字段拖进来，拖动换序，点叉移除。 |
+| `propertiesHelp` | `string` | 属性卡片的帮助。 | 选中对象的属性。选中多张卡片时只列它们共有的属性。 |
+| `issuesHelp` | `string` | 问题卡片的帮助。 | 报表的校验问题。点一条选中出问题的对象。 |
+| `selectionToolbar` | `string` | 选中卡片时浮在选中框上方那一条工具条的名字。 | 选中的卡片 |
+| `sizeUnit` | `string` | 尺寸徽标里卡片宽高的单位：看板按格计。 | 格 |
+| `importDataset` | `string` | 命令「导入数据集」的文字，也是这时导入对话框的标题。 | 导入数据集 |
+| `importParameters` | `string` | 命令「导入参数」的文字，也是这时导入对话框的标题。 | 导入参数 |
+| `importTemplate` | `string` | 命令「导入模板」的文字，也是导入后那一步撤销的说明；登记了导入器才有这条命令。 | 导入模板 |
+| `menuData` | `string` | 菜单栏上报表自己那张菜单「数据」的名字：导入数据集、字段、参数与模板在里面。 | 数据 |
+| `tourSteps` | `Readonly<Record<ReportTourStepKey, ReportTourStepText>>` | 新手引导里报表自己的几步，各一个标题与说明；键见 ReportTourStepKey。 | （按键对照） |
+| `helpNotes` | `readonly string[]` | 设置对话框「帮助」页的几段操作说明。 | （按键对照） |
+| `shortcutResize` | `string` | 快捷键表里 Shift 加方向键那一行：把选中的卡片改大或改小一格。 | 把选中的卡片改大或改小一格 |
+| `statusDocument` | `(datasets: number, cards: number \| undefined): string` | 状态栏左段没选中时：数据集数，主体是看板时再写卡片数（不是看板时 cards 为 undefined）。 | （按参数生成） |
+| `statusCell` | `(column: number, row: number, width: number, height: number): string` | 状态栏左段选中一张卡片时：它左上角所在的列与行（从 1 数起）和占的格数。 | （按参数生成） |
+| `statusZoom` | `string` | 状态栏右段缩放那一项的标签。 | 缩放 |
+| `paletteGroups` | `Readonly<Record<string, string>>` | 物料分组：charts、metrics、tables。 | （按键对照） |
+| `cardTypes` | `Readonly<Record<string, string>>` | 物料与卡片种类：chart.&lt;图表类型&gt;、metric、table.&lt;视图类型&gt;。 | （按键对照） |
+| `objectKinds` | `Readonly<Record<string, string>>` | 属性面板标题下的对象种类。 | （按键对照） |
+| `propertyGroups` | `Readonly<Record<string, string>>` | 属性分组名，键同 REPORT_PROPERTY_GROUPS。 | （按键对照） |
+| `propertyLabels` | `Readonly<Record<string, string>>` | 属性名：键为 formatJsonPath(path)，也可写 `<对象种类>:<路径>` 覆盖。 | （按键对照） |
+| `optionLabels` | `Readonly<Record<string, string>>` | 下拉选项：键为 `<路径>=<值>`，没有时再找 `<值>`。 | （按键对照） |
+| `selected` | `(count: number): string` | 多个对象选中时的标题。 | （按参数生成） |
+| `emptyDashboard` | `string` | 看板上还没有卡片时的提示。 | 把图表、指标或表格拖到这里 |
+| `links` | `string` | 字段栏里以选中卡片为源的联动：段名、新增按钮与一条联动的名字（源维度与目标卡片数）。 | 联动 |
+| `addLink` | `string` |  | 新增联动 |
+| `linkLabel` | `(dimension: string, targets: number): string` |  | （按参数生成） |
+| `wellsEmpty` | `string` | 字段栏没有编辑对象（看板上没有选中、或选中了多张卡片）时的提示。 | 选中一张卡片，在这里编辑它的字段 |
+| `emptyList` | `string` | 字段栏的空列表提示。 | 把字段拖到这里 |
+| `placeholder` | `string` | 没给取数回调时卡片上的占位说明。 | 给了取数回调后这里显示示例数据 |
+| `issue` | `(issue: ReportDesignerIssueDetails): string` | 问题说明。 | （按参数生成） |
+| `addDataset` | `string` | 数据面板的新增按钮。 | 新增数据集 |
+| `addField` | `string` |  | 新增字段 |
+| `addParameter` | `string` |  | 新增参数 |
+| `removeTitle` | `(name: string): string` | 删除会一并删掉别处时的确认框：标题、说明（各删几处）与确认按钮。 | （按参数生成） |
+| `removeCascade` | `(cascade: ReportDesignerCascade): string` |  | （按参数生成） |
+| `removeConfirm` | `string` |  | 删除 |
+| `historyStep` | `(step: ReportHistoryStepText): string` | 撤销栈里一步的说明：动作加对象名，如「删除卡片「销售额」」「删除 3 个卡片」。 | （按参数生成） |
+
+## 全部导出
+
+### card-icons
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `REPORT_CARD_TYPE_ICONS` | 常量 | 内置卡片种类的图标，图标集见 @xihan-ui/icons；扩展的卡片种类不在其中。 |
+
+### editor
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `readReportClipboard` | 函数 | 从剪贴板文本读出卡片与联动；不是报表的剪贴板、版本不支持或内容不合格时为 undefined。 |
+| `REPORT_CLIPBOARD_PRODUCT` | 常量 | 剪贴板包的产品名。 |
+| `REPORT_CLIPBOARD_VERSION` | 常量 | 剪贴板包的版本。 |
+| `ReportAddCardInit` | 类型 | 新增卡片的参数：id 缺省时按卡片种类分配，layout 只写大小时放到第一个空位。 |
+| `ReportAddExtensionCardInit` | 接口 | 待新增的扩展卡片：同 NewExtensionCard，id 可以不给。 |
+| `ReportClipboard` | 接口 | 剪贴板里的内容：卡片，以及源卡片与目标都在其中的联动。 |
+| `ReportDataRef` | 类型 | 数据面板里选中的对象：数据集、数据集的字段或报表参数。 |
+| `ReportItemRef` | 接口 | 选中的列表项：报表主体或卡片里某个列表的一项（列、分组、维度、度量、系列）。 |
+| `ReportSelection` | 接口 | 选择：看板上的卡片，以及可选的一个列表项或一条以选中卡片为源的联动；或者数据面板里的一个对象，这时不选卡片、列表项与联动。 |
+| `writeReportClipboard` | 函数 | 把卡片与联动写成剪贴板文本。 |
+
+### extensions
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `createReportDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名（含设置分区、引导步骤、物料来源与菜单栏的菜单）都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。 |
+| `REPORT_DATA_MENU` | 常量 | 菜单栏上报表自己的菜单「数据」的 id。 |
+| `REPORT_DESIGNER_EXTENSION` | 常量 | 设计器的内置扩展：内置命令、菜单栏的数据菜单、物料、页面结构与历史记录面板、新手引导的报表步骤。 |
+| `REPORT_DESIGNER_HELP_URL` | 常量 | 内置命令 help 打开的帮助页：报表文档站的设计器一页。 |
+| `REPORT_DESIGNER_PANELS` | 常量 | 设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.&lt;面板 id&gt;）与 commandLayout（panel:&lt;面板 id&gt;）时用。 |
+| `REPORT_IMPORT_TEMPLATE_COMMAND` | 常量 | 命令「导入模板」的 id：登记了导入器才进命令表，工具栏缺省排列的最前面多这一组，数据菜单的末尾也有它。 |
+| `REPORT_MENU_LAYOUT` | 常量 | 右键菜单的缺省排列：空白处的末尾是编辑 JSON。 |
+| `REPORT_SELECTION_LAYOUT` | 常量 | 选中工具条（命令落点 selection:&lt;主体&gt;）的缺省排列：创建副本、复制与删除。 |
+| `REPORT_TOOLBAR_LAYOUT` | 常量 | 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。 |
+| `ReportCardTemplate` | 类型 | 新卡片的模板：不写 id，新建时按种类分配；layout 只需写大小。 |
+| `ReportDesignerCommand` | 类型 | 设计器的命令。 |
+| `ReportDesignerContext` | 接口 | 命令、面板、物料与扩展装上时拿到的上下文。 |
+| `ReportDesignerExtension` | 接口 | 报表设计器层的扩展：运行时层的全部字段，加上属性编辑器、命令、面板、物料、物料来源、导入器与 setup。 |
+| `ReportDesignerImporter` | 类型 | 报表的导入器：命令「导入模板」（import-template）选中的文件交给它，换成一份整份的报表模板；给出 undefined 表示这次不载入。 |
+| `ReportDesignerModel` | 接口 | 一组设计器扩展合出的东西。 |
+| `ReportImportResult` | 接口 | 导入器给出的结果：一份整份的报表模板。 |
+| `reportMenubarLayout` | 函数 | 菜单栏的缺省排列：designer-shell 四张菜单的缺省排列，加上数据菜单；只留命令表里有的命令，没有导入器时数据菜单里不列导入模板，与工具栏一致。 |
+| `ReportMenuSubject` | 类型 | 右键菜单落在哪类对象上。 |
+| `ReportPaletteDrop` | 接口 | 物料来源的条目拖到看板上放下的落点：指针所在的格，x 是列、y 是行，都从 0 起。 |
+| `ReportPaletteGroup` | 接口 | 物料面板的一组。 |
+| `ReportPaletteItem` | 接口 | 物料面板里的一项：拖到看板上或激活时按模板新建卡片。 |
+| `ReportPropertyEditor` | 类型 | 属性编辑器。 |
+| `ReportSelectionSubject` | 类型 | 选中工具条落在哪类选中上：看板上的一张卡片，或几张卡片。 |
+| `reportToolbarLayout` | 函数 | 工具栏此刻的缺省排列：登记了导入器时在 REPORT_TOOLBAR_LAYOUT 前面多一组导入模板（REPORT_IMPORT_TEMPLATE_COMMAND）。 |
+
+### field-import
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `ReportDataImportKind` | 类型 | 导入对话框为谁打开：新建一个数据集、往一个数据集里加字段，或加报表参数。 |
+
+### report-designer
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `defineReportDesigner` | 函数 | 注册 &lt;xh-report-designer&gt; 与它用到的查看器、UI 元素与 designer-shell 零件；import 时不注册。 |
+| `REPORT_DESIGNER_TAG` | 常量 | 设计器的标签名。 |
+| `ReportDatasetEditing` | 类型 | 数据集能改到什么程度：none 只读；fields 能改字段的标题、类型与计算字段公式，增删报表参数；full 另能增删数据集与字段。 |
+| `ReportDesignerEventMap` | 接口 | 设计器派发的事件。 |
+| `ReportDesignerMode` | 类型 | 设计或预览。 |
+| `ReportSchemaChangeKind` | 类型 | schema-change 的来由。 |
+| `XhReportDesigner` | 类 | 报表设计器 &lt;xh-report-designer&gt;：编辑报表定义，画布与预览按 dataProvider 取数显示示例数据。 |
+
+### version
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `REPORT_VERSION` | 常量 | @xihan-report/designer 的版本号。 |
+
+---
+
+来源：https://report.docs.xihanfun.com/reference/extensions
+
+# 扩展
+
+<!-- 本页由 docs/scripts/gen-reference.mjs 从源码生成，不要手改；源码变了之后在 docs/ 运行 pnpm gen。 -->
+
+扩展按实例传入：查看器与设计器的 `extensions` 属性，以及 core 各入口的 `extensions` 选项。扩展分三层，逐层是超集：core 层只有纯数据与纯函数，运行时层加渲染、叠加层、导出与取数中间件，设计器层再加物料、命令、面板与属性编辑器。四款设计器共有的部分来自 `@xihan-ui/designer-kit` 与 `@xihan-ui/designer-shell`。
+
+## core 层
+
+### createReportModel() {#createreportmodel}
+
+```ts
+declare function createReportModel(extensions?: readonly ReportCoreExtension[]): ReportModel
+```
+
+合出报表模型：内置扩展 REPORT_CORE_EXTENSION 在前，extensions 按顺序在后。扩展 id、种类名、追加属性的路径、编辑方式等重名时抛 DesignerExtensionError（code 为 designer.extension-conflict）；追加的属性与内置的同路径也抛。种类名不合规时抛 TypeError。同一个数组只合一次：元素把同一份 extensions 交给各个 core 函数时不重复合并。
+
+### ReportCoreExtension {#reportcoreextension}
+
+报表 core 层的扩展。
+
+继承 `DesignerExtensionCore<ReportDocument, ReportRuleContext>`。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `cards?` | `Readonly<Record<string, ReportCardKind<never>>>` | 卡片种类：键是种类名，扩展登记的带点、以扩展 id 的末段开头。 |
+| `views?` | `Readonly<Record<string, ReportViewKind<never>>>` | 主体视图种类：键是种类名，规则同卡片。 |
+| `properties?` | `Readonly<Partial<Record<ReportPropertyTarget, readonly ReportPropertyDescriptor[]>>>` | 追加在内置之后的属性，path 相对那类对象本身。 |
+| `documentProperties?` | `readonly ReportPropertyDescriptor[]` | 文档级属性，path 相对文档本身，没选中任何对象时属性面板显示它们。 |
+
+| 方法 | 说明 |
+| --- | --- |
+| `issueText?(issue: ValidationIssue): string \| undefined` | 这个扩展自己的问题码的说明文字；返回 undefined 时交给查看器与设计器的文案。 |
+
+### DesignerExtensionCore {#designerextensioncore}
+
+`ReportCoreExtension` 继承的共有部分，出自 `@xihan-ui/designer-kit`，类型参数代入报表的。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `controls?` | `Readonly<Record<string, ControlKind>>` | 新的编辑方式，键是 control.kind，不能与内建的重名。 |
+| `id` | `string` | 全局唯一，用包名加功能名：@xihan-flow-pro/simulation。也是模板里扩展数据的键。 |
+| `rules?` | `readonly SchemaRule<ReportDocument, ReportRuleContext>[]` | 校验规则，问题与内置校验的一起进问题列表；问题码以 id 的末段加点开头。 |
+
+### ReportCardKind {#reportcardkind}
+
+一种卡片。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `data` | `ReportCardData` | 取数形状：query 带聚合查询，view 带一个明细表、分组报表或交叉表，none 不取数。 |
+
+| 方法 | 说明 |
+| --- | --- |
+| `validate?(card: Card, check: ReportKindCheck): readonly SchemaIssue[]` | 查种类自己的其余字段。扩展种类的问题码以扩展 id 的末段加点开头。 |
+| `compute?(card: Card, input: ReportKindInput): Value` | 把取数结果换成交给渲染的值；不给时值就是取数结果本身（query 形状是 QueryResult，view 形状是 ViewResult）。 |
+| `fillBindings?(card: Card, query: ReportQueryIds): readonly PropertyChange[]` | 补全种类自己的必填绑定（planFillBindings 调它，设计器在字段栏增删维度、度量之后调）：拿到卡片与查询里现有的维度、度量 id，返回要改的属性，路径从卡片算起。只对取数形状为 query 的卡片调用；不给时不补。 |
+
+### ReportViewKind {#reportviewkind}
+
+一种主体视图。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `data` | `ReportViewData` | 取数形状：扩展视图只能是 query 或 none。 |
+
+| 方法 | 说明 |
+| --- | --- |
+| `validate?(view: View, check: ReportKindCheck): readonly SchemaIssue[]` | 查种类自己的其余字段，规则同卡片种类。 |
+| `compute?(view: View, input: ReportKindInput): Value` | 把取数结果换成交给渲染的值，规则同卡片种类。 |
+
+### ReportCardData {#reportcarddata}
+
+卡片种类的取数形状：query 同图表与指标卡片（卡片上有 dataset、parameters 与 query），view 同表格卡片（带一个明细表、分组报表或交叉表），none 不取数。
+
+```ts
+type ReportCardData = 'query' | 'view' | 'none'
+```
+
+### ReportViewData {#reportviewdata}
+
+主体视图种类的取数形状：扩展视图只能是 query 或 none；table、group、crosstab、dashboard 是内置四种自己的形状。
+
+```ts
+type ReportViewData = 'query' | 'none' | 'table' | 'group' | 'crosstab' | 'dashboard'
+```
+
+### ReportKindInput {#reportkindinput}
+
+交给种类计算的取数结果：query 形状是查询结果，view 形状是视图结果，none 两者都没有。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `dataset` | `DatasetSchema \| undefined` | 取数的数据集；不取数时为 undefined。 |
+| `query?` | `QueryResult` | query 形状：跑好的聚合查询。 |
+| `view?` | `ViewResult` | view 形状：算好的明细表、分组报表或交叉表。 |
+
+### ReportKindCheck {#reportkindcheck}
+
+种类校验拿到的上下文：公共字段与取数部分 core 已经查过。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `path` | `JsonPath` | 对象在文档里的路径；返回的问题路径要以它开头。 |
+| `dimensions` | `ReadonlySet<string>` | query 形状时查询的维度 id；别的形状为空集。 |
+| `measures` | `ReadonlySet<string>` | query 形状时查询的度量 id；别的形状为空集。 |
+
+| 方法 | 说明 |
+| --- | --- |
+| `fieldType(name: string): FieldType \| undefined` | 取数的数据集里某个字段的类型（含计算字段）；不取数、数据集未知或没有这个字段时为 undefined。 |
+
+### ReportQueryIds {#reportqueryids}
+
+卡片查询里现有的维度与度量 id，按查询里的先后。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `dimensions` | `readonly string[]` | 维度 id。 |
+| `measures` | `readonly string[]` | 度量 id。 |
+
+### ReportPropertyTarget {#reportpropertytarget}
+
+属性追加到哪一类对象上：document 之外的键同属性面板的分区——dashboard、card:&lt;种类&gt;、chart:&lt;图表类型&gt;、series、metric、view:&lt;视图类型&gt;、column、group-level、dimension、measure、field、parameter、link。
+
+```ts
+type ReportPropertyTarget = | 'dashboard' | `card:${string}` | `chart:${string}` | 'series' | 'metric' | `view:${string}` | 'column' | 'group-level' | 'dimension' | 'measure' | 'field' | 'parameter' | 'link'
+```
+
+### ReportRuleContext {#reportrulecontext}
+
+规则拿到的上下文：合并后的报表模型。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `model` | `ReportModel` | 合并后的报表模型：校验规则可以按它查种类。 |
+
+### ReportModel {#reportmodel}
+
+一组扩展合出的报表模型。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `extensions` | `readonly ReportCoreExtension[]` | 内置扩展在前，传入的按顺序在后。 |
+| `cards` | `ReadonlyMap<string, ReportKindEntry<ReportCardKind<CardBase>>>` | 卡片种类名到登记项的对照，内置的在前。 |
+| `views` | `ReadonlyMap<string, ReportKindEntry<ReportViewKind<unknown>>>` | 视图种类名到登记项的对照，内置的在前。 |
+| `documentProperties` | `readonly ReportPropertyDescriptor[]` | 各扩展追加的文档级属性，按扩展顺序。 |
+| `controls` | `Readonly<Record<string, ControlKind>>` | 报表自己的编辑方式与各扩展登记的，键是 control.kind。 |
+
+| 方法 | 说明 |
+| --- | --- |
+| `properties(target: ReportPropertyTarget): readonly ReportPropertyDescriptor[]` | 扩展追加在某类对象上的属性，内置的不在其中。 |
+| `issueText(issue: ValidationIssue): string \| undefined` | 问题的说明文字：按扩展顺序取第一个给出的；都不给时为 undefined。 |
+
+### ReportKindEntry {#reportkindentry}
+
+合并后的一个种类：定义、登记它的扩展 id，以及是不是内置的。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `name` | `string` | 种类名。 |
+| `kind` | `Kind` | 种类的定义。 |
+| `owner` | `string` | 登记它的扩展 id。 |
+| `builtin` | `boolean` | 是不是内置的种类。 |
+
+## 运行时层
+
+### createReportRuntimeModel() {#createreportruntimemodel}
+
+```ts
+declare function createReportRuntimeModel(extensions?: readonly ReportRuntimeExtension[]): ReportRuntimeModel
+```
+
+合出运行时用的报表模型：core 的合并与查重照旧；渲染、导出器重名时抛 DesignerExtensionError。扩展登记的卡片与视图种类必须有渲染（同一个扩展或别的扩展给的都行），没有时抛 TypeError。同一个数组只合一次。
+
+### ReportRuntimeExtension {#reportruntimeextension}
+
+报表运行时层的扩展。
+
+继承 `ReportCoreExtension`。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `cardRenderers?` | `Readonly<Record<string, ReportCardRenderer>>` | 卡片的渲染，键是卡片种类名。 |
+| `viewRenderers?` | `Readonly<Record<string, ReportViewRenderer>>` | 作主体的扩展视图的渲染，键是视图种类名。 |
+| `overlays?` | `readonly ReportOverlay[]` | 看板的叠加层；同一层里按扩展顺序，后登记的在上。 |
+| `exporters?` | `readonly DesignerExporter<ReportExportContext>[]` | 导出成文件；内置的 xlsx 在最前。 |
+| `dataProvider?` | `ReportDataMiddleware` | 取数中间件，按扩展顺序一层层包在宿主的 dataProvider 外面，后登记的在最外。 |
+
+### ReportCardRenderer {#reportcardrenderer}
+
+卡片的渲染：把计算结果画进卡片的内容区。上一轮画过的元素还在 body 里，同种卡片可以复用它们只换数据。返回图表或表格时查看器给它接联动与下钻。
+
+```ts
+type ReportCardRenderer = (body: HTMLElement, result: CardResult, context: RenderContext) => ReportRendered | undefined
+```
+
+### ReportViewRenderer {#reportviewrenderer}
+
+作主体的扩展视图的渲染，规则同卡片。
+
+```ts
+type ReportViewRenderer = (container: HTMLElement, result: ExtensionViewResult, context: RenderContext) => ReportRendered | undefined
+```
+
+### ReportRendered {#reportrendered}
+
+渲染出的、能接联动与下钻的内容：图表或表格；别的内容为 undefined。
+
+```ts
+type ReportRendered = RenderedChart | RenderedTable
+```
+
+### RenderContext {#rendercontext}
+
+渲染上下文。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `translations` | `ReportViewerTranslations` | 查看器此刻生效的文案。 |
+
+| 方法 | 说明 |
+| --- | --- |
+| `text(value: unknown, format: FormatSpec \| undefined, type: FieldType \| undefined, missing?: string): string` | 值的显示文字：缺失值写成 missing（缺省空串）。 |
+| `member(value: unknown, format: FormatSpec \| undefined, type: FieldType \| undefined): string` | 维度成员的显示文字：缺失值写成语言包里的 missing。 |
+
+### ReportOverlay {#reportoverlay}
+
+叠加层：铺满看板的一层，画在各卡片之下（below）或之上（above）；只在主体是看板时画。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | `string` | 全局唯一，写作 `<扩展 id>.<名>`。 |
+| `layer` | `'below' \| 'above'` | 画在卡片之下（below）还是之上（above）。 |
+
+| 方法 | 说明 |
+| --- | --- |
+| `render(container: HTMLElement, scene: ReportScene, context: ReportOverlayContext): void` | 看板排好、卡片状态或看板大小变了时调用。container 铺满看板、随看板滚动，不接指针（要接指针的子节点自己写pointer-events）；看板骨架没重建时上一轮画的东西还在 container 里。 |
+
+### ReportScene {#reportscene}
+
+叠加层的场景：看板与它上面各卡片的布局和状态。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `dashboard` | `DashboardView` | 看板定义。 |
+| `width` | `number` | 看板的像素宽。 |
+| `height` | `number` | 看板的像素高。 |
+| `cards` | `readonly ReportSceneCard[]` | 各卡片，按卡片的先后。 |
+
+### ReportSceneCard {#reportscenecard}
+
+叠加层场景里的一张卡片。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `card` | `DashboardCard` | 卡片定义。 |
+| `layout` | `GridRect` | 网格上的位置与大小（格），已收进网格的列数。 |
+| `rect` | `{ readonly x: number, readonly y: number, readonly width: number, readonly height: number }` | 卡片外壳相对看板左上角的像素矩形。 |
+| `status` | `'loading' \| 'error' \| 'ready' \| 'placeholder'` | 卡片此刻的状态；placeholder 是设计器画布上还没绑数据、只画占位的卡片。 |
+| `result` | `CardResult \| undefined` | 算好的结果；status 不是 ready 时为 undefined。 |
+
+### ReportOverlayContext {#reportoverlaycontext}
+
+画叠加层时的上下文。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `mode` | `'viewer' \| 'designer'` | 画在查看器上还是设计器画布上。 |
+| `schema` | `ReportDocument` | 当前的报表定义。 |
+| `render` | `RenderContext` | 渲染上下文：文案与值的显示文字。 |
+
+### DesignerExporter {#designerexporter}
+
+导出器的形状，出自 `@xihan-ui/designer-kit`，上下文代入报表的 `ReportExportContext`。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `formats` | `readonly string[]` | 能导出的格式，如 svg、png、xlsx。 |
+| `id` | `string` | 全局唯一，写法同命令 id；不能与内置或别的扩展的导出器重名。 |
+| `label` | `string \| ((context: ReportExportContext) => string)` | 导出项的名称，列导出入口时显示；给函数时现取，随语言变。 |
+
+| 方法 | 说明 |
+| --- | --- |
+| `export(format: string, context: ReportExportContext): Promise<string \| Blob>` | 按格式导出，format 是 formats 里的一个；得到文件内容（Blob）或文本。 |
+
+### ReportExportContext {#reportexportcontext}
+
+导出时交给导出器的上下文。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `schema` | `ReportDocument` | 当前的报表定义。 |
+| `results` | `ReportResults` | 查看器此刻的计算结果，同 getResults()。 |
+| `translations` | `ReportViewerTranslations` | 查看器此刻生效的文案。 |
+| `timeZone` | `string` | 查看器计算用的时区。 |
+| `options` | `Readonly<Record<string, unknown>>` | 调用方给的选项，如文件里的表名。 |
+
+### ReportDataMiddleware {#reportdatamiddleware}
+
+取数中间件：拿到下一层的取数回调，返回包在它外面的一层。
+
+```ts
+type ReportDataMiddleware = (next: ReportDataProvider) => ReportDataProvider
+```
+
+### ReportRuntimeModel {#reportruntimemodel}
+
+运行时用的报表模型：core 的模型加上渲染、导出与取数中间件。
+
+继承 `ReportModel`。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `cardRenderers` | `ReadonlyMap<string, ReportCardRenderer>` | 卡片种类名到渲染的对照。 |
+| `viewRenderers` | `ReadonlyMap<string, ReportViewRenderer>` | 扩展视图种类名到渲染的对照。 |
+| `overlays` | `readonly ReportOverlay[]` | 按扩展顺序。 |
+| `exporters` | `readonly DesignerExporter<ReportExportContext>[]` | 内置在前，传入的按顺序在后。 |
+
+| 方法 | 说明 |
+| --- | --- |
+| `provider(base: ReportDataProvider): ReportDataProvider` | 把宿主的取数回调包上各扩展的中间件。 |
+
+## 设计器层
+
+### createReportDesignerModel() {#createreportdesignermodel}
+
+```ts
+declare function createReportDesignerModel(extensions: readonly ReportDesignerExtension[]): ReportDesignerModel
+```
+
+合出设计器用的模型；任何一处重名（含设置分区、引导步骤、物料来源与菜单栏的菜单）都抛 DesignerExtensionError，物料项指向没登记的组时抛 TypeError。同一个数组只合一次。
+
+### ReportDesignerExtension {#reportdesignerextension}
+
+设计器层的扩展：运行时层的全部，加上设计器零件的命令、面板、属性编辑器与 `setup`，以及报表的物料。下表列出它的全部成员，含继承来的。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `about?` | `readonly { readonly label: string; readonly value: string; }[]` | 「关于」页里的几行，如附加包的版本与授权；各款把它们接在自己那几行后面。 |
+| `cardRenderers?` | `Readonly<Record<string, ReportCardRenderer>>` | 卡片的渲染，键是卡片种类名。 |
+| `cards?` | `Readonly<Record<string, ReportCardKind<never, unknown>>>` | 卡片种类：键是种类名，扩展登记的带点、以扩展 id 的末段开头。 |
+| `commands?` | `readonly DesignerCommand<ReportDesignerContext>[]` | 命令：工具栏按钮、右键菜单项与快捷键共用；命令 id 与快捷键不能与内置或别的扩展的重名。 |
+| `controls?` | `Readonly<Record<string, ControlKind>>` | 新的编辑方式，键是 control.kind，不能与内建的重名。 |
+| `dataProvider?` | `ReportDataMiddleware` | 取数中间件，按扩展顺序一层层包在宿主的 dataProvider 外面，后登记的在最外。 |
+| `documentProperties?` | `readonly ReportPropertyDescriptor[]` | 文档级属性，path 相对文档本身，没选中任何对象时属性面板显示它们。 |
+| `editors?` | `Partial<PropertyEditorTable<DesignerPropertyEditor>>` | 属性编辑器，按扩展顺序压在设计器内建的之上。 |
+| `exporters?` | `readonly DesignerExporter<ReportExportContext>[]` | 导出成文件；内置的 xlsx 在最前。 |
+| `fieldSources?` | `readonly DesignerFieldSource[]` | 字段来源：导入字段的对话框里，排在内置的 JSON 样例与 JSON Schema 两页之后。 |
+| `id` | `string` | 全局唯一，用包名加功能名：@xihan-flow-pro/simulation。也是模板里扩展数据的键。 |
+| `importers?` | `readonly ReportDesignerImporter[]` | 导入器：命令「导入模板」选中的文件按扩展顺序问 accepts，第一个接下的导入，结果整份换上当前报表、记一步撤销。一个导入器都没有登记时没有这条命令。 |
+| `menubarMenus?` | `readonly DesignerMenubarMenu<ReportDesignerContext>[]` | 菜单栏上加的菜单：id 不能与内置的文件、编辑、视图、帮助或别的扩展的重名，见 collectMenubarMenus；命令经 placement 的 menubar:&lt;id&gt; 落进去。 |
+| `overlays?` | `readonly ReportOverlay[]` | 看板的叠加层；同一层里按扩展顺序，后登记的在上。 |
+| `palette?` | `readonly ReportPaletteItem[]` | 物料面板里的项。 |
+| `paletteGroups?` | `readonly ReportPaletteGroup[]` | 物料面板的组，排在内置的图表、指标、表格之后。 |
+| `paletteSources?` | `readonly DesignerPaletteSource<ReportDesignerContext, ReportPaletteDrop>[]` | 物料来源：往物料面板里加的几组，排在各款内置分组之后；id 不能重名，见 collectPaletteSources。At 是各款的落点信息。 |
+| `panels?` | `readonly DesignerPanel<ReportDesignerContext>[]` | 面板：各占外框的一个命名区，同一栏按扩展顺序上下排。 |
+| `properties?` | `Readonly<Partial<Record<ReportPropertyTarget, readonly ReportPropertyDescriptor[]>>>` | 追加在内置之后的属性，path 相对那类对象本身。 |
+| `rules?` | `readonly SchemaRule<ReportDocument, ReportRuleContext>[]` | 校验规则，问题与内置校验的一起进问题列表；问题码以 id 的末段加点开头。 |
+| `settings?` | `readonly DesignerSettingsSection[]` | 设置分区：放进设置对话框，分区 id 不能与内置的 general 或别的扩展的重名，见 collectSettingsSections。 |
+| `tourSteps?` | `readonly DesignerTourStep<ReportDesignerContext>[]` | 新手引导的步骤：与 designer-shell 的通用步骤、各款的步骤一起按 order 排；id 不能重名，见 collectTourSteps。 |
+| `viewRenderers?` | `Readonly<Record<string, ReportViewRenderer>>` | 作主体的扩展视图的渲染，键是视图种类名。 |
+| `views?` | `Readonly<Record<string, ReportViewKind<never, unknown>>>` | 主体视图种类：键是种类名，规则同卡片。 |
+
+| 方法 | 说明 |
+| --- | --- |
+| `issueText?(issue: ValidationIssue): string \| undefined` | 这个扩展自己的问题码的说明文字；返回 undefined 时交给查看器与设计器的文案。 |
+| `setup?(context: ReportDesignerContext): void \| (() => void)` | 装上时调用，返回卸下时的清理。 |
+
+### ReportDesignerCommand {#reportdesignercommand}
+
+设计器的命令：`@xihan-ui/designer-kit` 的 `DesignerCommand`，上下文是 `ReportDesignerContext`。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `alternateShortcuts?` | `readonly (readonly string[])[]` | 另外几组也能触发这条命令的快捷键，写法同 shortcut，如重做在 Mod+Shift+Z 之外再认 ['Ctrl', 'Y']。与 shortcut 一样查重、一样由 commandForShortcut 命中；提示里只显示 shortcut，快捷键表与 aria-keyshortcuts 全部列出（见 commandShortcuts）。 |
+| `icon?` | `IconRecord` | 按钮与菜单项上的图标，图标集见 @xihan-ui/icons；工具栏按图标显示时，没有图标的命令退回显示短文字。 |
+| `id` | `string` | 全局唯一；扩展的命令用扩展 id 加点加名字，如 @xihan-flow-pro/simulation.run。 |
+| `label` | `string \| ((context: ReportDesignerContext) => string)` | 按钮与菜单项上的文字；给函数时每次刷新现取，随语言变。 |
+| `placement?` | `readonly DesignerCommandPlacement[]` | 缺省排列里出现在哪些位置；不给即只经快捷键或 commandLayout 出现。 |
+| `shortcut?` | `readonly string[]` | 快捷键，写法同 xh-kbd 的 keys：['Mod', 'Shift', 'P']，Mod 在 macOS 上是 ⌘，其余平台是 Ctrl。 |
+| `shortLabel?` | `string \| ((context: ReportDesignerContext) => string)` | 按钮上看得见的短文字：工具栏只显示图标时没有图标的按钮上写它；不给用 label。名字（读屏与提示）仍取 label，所以短文字要出现在 label 里（不分大小写），开发期不在时报一条告警。 |
+| `tone?` | `Tone` | 语气：按钮与菜单项按这族色显示，破坏性命令写 danger。不给即不带语气。 |
+
+| 方法 | 说明 |
+| --- | --- |
+| `checked?(context: ReportDesignerContext): boolean` | 给了就是开关式命令，按钮与菜单项显示选中状态。 |
+| `enabled?(context: ReportDesignerContext): boolean` | 不给即总是可用。 |
+| `menu?(context: ReportDesignerContext): readonly DesignerCommandMenuEntry[]` | 菜单命令：每次刷新时现算菜单的各项。 |
+| `panel?(context: ReportDesignerContext): DesignerCommandPanel<ReportDesignerContext>` | 弹层命令：每次打开时建出放进弹层的面板。 |
+| `run?(context: ReportDesignerContext): void` | 执行命令；按钮、菜单项与快捷键都只在命令此刻可用时调用它。弹层命令与菜单命令可以不给：工具栏上点它们是打开弹层或菜单，不调 run；给了 run，快捷键按下时调它（通常调工具栏的 open 打开同一份）。 |
+| `select?(value: string, context: ReportDesignerContext): void` | 菜单命令的条目被选中时调用，value 是条目的 value；写成命令 id 的项选中时执行那条命令，不调它。 |
+| `visible?(context: ReportDesignerContext): boolean` | 不给即总是存在；返回 false 时这条命令此刻不存在：工具栏、菜单栏、右键菜单与菜单命令里都不列它，快捷键不触发，执行也不跑（如只在开发者模式下才有的调试入口）。 |
+
+### ReportDesignerContext {#reportdesignercontext}
+
+命令、面板、物料与扩展装上时拿到的上下文。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `designer` | `XhReportDesigner` | 所在的设计器元素。 |
+| `translations` | `ReportDesignerTranslations` | 此刻生效的设计器文案。 |
+| `commands` | `DesignerCommandsTranslations` | 四款设计器共用的命令文案，取 designer-shell 语言包的 xh-designer-commands。 |
+| `historyTranslations` | `DesignerHistoryTranslations` | 历史记录的文案，取 designer-shell 语言包的 xh-designer-history；撤销、重做与清空历史的确认框与播报用。 |
+| `history` | `DesignerHistoryCommandTarget \| undefined` | 撤销历史；还没有报表时为 undefined。内置的撤销、重做与清空历史命令经它读写。 |
+| `dialogs` | `Pick<DialogService, 'confirm'>` | 确认框；内置的清空历史命令清空前用它。 |
+| `settings` | `DesignerSettings` | 此刻生效的设置：键是「分区 id.条目 id」，各分区没写的条目取了缺省值。 |
+| `frame` | `XhDesignerFrameElement \| undefined` | 设计器的外框；还没建出来时为 undefined。内置的「面板」命令经它开关面板。 |
+
+### ReportMenuSubject {#reportmenusubject}
+
+右键菜单落在哪类对象上。
+
+```ts
+type ReportMenuSubject = 'card' | 'blank'
+```
+
+### ReportSelectionSubject {#reportselectionsubject}
+
+选中工具条落在哪类选中上：看板上的一张卡片，或几张卡片。
+
+```ts
+type ReportSelectionSubject = 'card' | 'multiple'
+```
+
+### ReportPaletteGroup {#reportpalettegroup}
+
+物料面板的一组。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | `string` | 全局唯一；扩展的写扩展 id 末段加点加名字。 |
+| `label` | `string \| ((context: ReportDesignerContext) => string)` | 组名，可以按此刻的文案生成。 |
+
+### ReportPaletteItem {#reportpaletteitem}
+
+物料面板里的一项：拖到看板上或激活时按模板新建卡片。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | `string` | 全局唯一；扩展的写扩展 id 末段加点加名字，如 gantt.timeline。 |
+| `group` | `string` | 所在的组：内置的 charts、metrics、tables，或某个扩展登记的组。 |
+| `label` | `string \| ((context: ReportDesignerContext) => string)` | 物料名，可以按此刻的文案生成。 |
+| `icon?` | `IconRecord` | 物料名前的图标；内置的取卡片种类的图标。 |
+
+| 方法 | 说明 |
+| --- | --- |
+| `template(dataset: string): ReportCardTemplate` | 新卡片；dataset 是报表的第一个数据集，没有数据集时为空串。 |
+
+### ReportCardTemplate {#reportcardtemplate}
+
+新卡片的模板：不写 id，新建时按种类分配；layout 只需写大小。
+
+```ts
+type ReportCardTemplate = ReportAddCardInit & { readonly id?: never }
+```
+
+### REPORT_TOOLBAR_LAYOUT {#report_toolbar_layout}
+
+工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。设置与帮助在菜单栏里，末组只留面板；登记了导入器时的变化见 reportToolbarLayout。
+
+```ts
+const REPORT_TOOLBAR_LAYOUT = [
+  ['undo', 'redo'],
+  ['cut', 'copy', 'paste', 'duplicate', 'delete'],
+  ['pan-tool', 'zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual'],
+  ['design', 'preview'],
+  ['panels'],
+]
+```
+
+### reportToolbarLayout() {#reporttoolbarlayout}
+
+```ts
+declare function reportToolbarLayout(hasImporters: boolean): (readonly string[])[]
+```
+
+工具栏此刻的缺省排列：登记了导入器时在 REPORT_TOOLBAR_LAYOUT 前面多一组导入模板（REPORT_IMPORT_TEMPLATE_COMMAND）。
+
+### REPORT_DATA_MENU {#report_data_menu}
+
+菜单栏上报表自己的菜单「数据」的 id。
+
+```ts
+const REPORT_DATA_MENU = 'data'
+```
+
+### reportMenubarLayout() {#reportmenubarlayout}
+
+```ts
+declare function reportMenubarLayout(commands: DesignerCommandTable<ReportDesignerContext>): Record<string, string[][]>
+```
+
+菜单栏的缺省排列：designer-shell 四张菜单的缺省排列，加上数据菜单；只留命令表里有的命令，没有导入器时数据菜单里不列导入模板，与工具栏一致。
+
+### REPORT_MENU_LAYOUT {#report_menu_layout}
+
+右键菜单的缺省排列：空白处的末尾是编辑 JSON。
+
+```ts
+const REPORT_MENU_LAYOUT = {
+  card: [['cut', 'copy', 'paste', 'duplicate'], ['delete']],
+  blank: [['paste'], ['select-all'], ['zoom-to-fit'], ['edit-json']],
+}
+```
+
+### REPORT_SELECTION_LAYOUT {#report_selection_layout}
+
+选中工具条（命令落点 selection:&lt;主体&gt;）的缺省排列：创建副本、复制与删除。
+
+```ts
+const REPORT_SELECTION_LAYOUT = {
+  card: [['duplicate', 'copy', 'delete']],
+  multiple: [['duplicate', 'copy', 'delete']],
+}
+```
+
+### ReportDesignerModel {#reportdesignermodel}
+
+一组设计器扩展合出的东西。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `list` | `readonly ReportDesignerExtension[]` | 设计器内置扩展在前、传入的在后；校验、计算与查看器都拿这一份。 |
+| `extensions` | `readonly ReportDesignerExtension[]` | 再加上 core 与 runtime 层内置扩展的全部扩展，面板与命令按它的顺序。 |
+| `runtime` | `ReportRuntimeModel` | 运行时层的模型：种类、渲染、导出器与取数中间件。 |
+| `commands` | `DesignerCommandTable<ReportDesignerContext>` | 命令 id 到命令的对照：内置的在前，扩展的按登记顺序；没有导入器时不含导入模板。 |
+| `paletteGroups` | `readonly ReportPaletteGroup[]` | 物料面板的组，内置的在前。 |
+| `palette` | `ReadonlyMap<string, ReportPaletteItem>` | 物料项 id 到物料项的对照。 |
+| `settings` | `readonly DesignerSettingsSection[]` | 各扩展登记的设置分区，按登记顺序；分区 id 不与基础分区或彼此重名。 |
+| `tourSteps` | `readonly DesignerTourStep<ReportDesignerContext>[]` | 新手引导里报表与各扩展的步骤，按登记顺序；id 不重名。 |
+| `importers` | `readonly ReportDesignerImporter[]` | 各扩展的导入器，按扩展顺序；没有时命令表里没有导入模板。 |
+| `paletteSources` | `readonly DesignerPaletteSource<ReportDesignerContext, ReportPaletteDrop>[]` | 各扩展的物料来源，按 order 排；分组接在内置物料组后面。 |
+| `menubarMenus` | `readonly DesignerMenubarMenu<ReportDesignerContext>[]` | 菜单栏上的菜单：designer-shell 内置的文件、编辑、视图、帮助在前，报表的数据菜单与各扩展登记的在后。 |
+
+---
+
+来源：https://report.docs.xihanfun.com/reference/issues
+
+# 问题码
+
+<!-- 本页由 docs/scripts/gen-reference.mjs 从源码生成，不要手改；源码变了之后在 docs/ 运行 pnpm gen。 -->
+
+校验问题由 `validateDocument`、查看器的 `issues` 与设计器的问题列表给出，参数取值的问题由 `resolveParameters` 与查看器给出。问题不带文案，只有问题码、路径与参数；下表的说明来自中文语言包 `reportZhCN`，其中的 {名} 是参数，实际文案只含问题给出的参数。
+
+报表的问题都是错误级：有问题的报表定义查看器不取数，显示「报表定义有问题」；参数取值有问题时显示「报表参数缺少或取值不合格」。
+
+## 通用问题码
+
+来自 `@xihan-ui/designer-kit/schema` 的 `CommonIssueCode`，按类型读取与属性检查时报出。
+
+| 问题码 | 说明 | 参数 |
+| --- | --- | --- |
+| `required` | 必须填写 | — |
+| `invalid-type` | 类型不对，应为{expected} | `expected` |
+| `invalid-value` | 取值无效，应有 {min}～{max} 项 | `min`、`max` |
+| `out-of-range` | 超出取值范围，应不小于 {min} 且大于 {exclusiveMin} 且不大于 {max} | `min`、`exclusiveMin`、`max` |
+| `not-integer` | 应为整数 | — |
+| `invalid-option` | 不是可选的值 | — |
+| `invalid-color` | 不是有效的颜色 | — |
+| `empty` | 不能为空 | — |
+| `unknown-key` | 不认识的「{key}」 | `key` |
+| `duplicate-key` | 名字「{key}」重复 | `key` |
+| `duplicate-id` | 标识「{id}」重复 | `id` |
+| `duplicate-value` | 选项的值重复 | — |
+| `unknown-control` | 未知的编辑方式 | — |
+
+## 报表的问题码
+
+报表自己的校验问题码，按字母序；通用问题码见 @xihan-ui/designer-kit/schema 的 CommonIssueCode。报表的校验问题都是错误级。
+
+| 问题码 | 说明 | 参数 |
+| --- | --- | --- |
+| `aggregate-type-mismatch` | 「{aggregate}」只能用于数值字段，这个字段是{type} | `aggregate`、`type` |
+| `bucket-type-mismatch` | 日期粒度只能用于日期字段，这个字段是{type} | `type` |
+| `chart-reference-role` | 「{key}」应是度量 | `key`、`expected` |
+| `format-invalid` | 格式不合格 | — |
+| `formula-cycle` | 公式互相引用成环：{names} | `names` |
+| `formula-invalid` | 公式无法解析 | — |
+| `formula-unknown-reference` | 公式引用了不存在的「{name}」 | `name` |
+| `layout-out-of-bounds` | 卡片超出了 {columns} 列的网格 | `columns` |
+| `layout-overlap` | 与卡片「{card}」重叠 | `card` |
+| `link-target-type-mismatch` | 源维度按日期粒度取值，目标字段也应是日期，这个字段是{type} | `type` |
+| `measure-definition` | 度量要么写聚合方式，要么写公式，二者取一 | — |
+| `operand-required` | 缺少比较值 | — |
+| `operand-shape` | 「{operator}」只要一个值 | `operator` |
+| `operand-type-mismatch` | 比较值应为{expected} | `expected` |
+| `operator-type-mismatch` | 「{operator}」不适用于{type}字段 | `operator`、`type` |
+| `reserved-name` | 「{key}」以 $ 开头，这类名字留给公式里的报表参数 | `key` |
+| `unknown-card` | 找不到卡片「{card}」 | `card` |
+| `unknown-dataset` | 找不到数据集「{dataset}」 | `dataset` |
+| `unknown-dataset-parameter` | 数据集没有参数「{parameter}」 | `parameter` |
+| `unknown-dimension` | 找不到维度「{key}」 | `key` |
+| `unknown-field` | 找不到字段「{field}」 | `field` |
+| `unknown-kind` | 种类「{kind}」没有登记，装上登记它的扩展后才能显示 | `kind` |
+| `unknown-measure` | 找不到度量「{key}」 | `key` |
+| `unknown-parameter` | 找不到参数「{parameter}」 | `parameter` |
+| `unknown-series` | 找不到系列「{series}」 | `series` |
+| `unsupported-schema-version` | 不支持报表版本 {version} | `version` |
+
+## 参数取值的问题
+
+参数取值的问题码。
+
+| 问题码 | 说明 | 参数 |
+| --- | --- | --- |
+| `parameter-required` | 必须给这个参数取值 | — |
+| `parameter-type-mismatch` | 参数的取值类型不对 | — |
+| `parameter-not-multiple` | 这个参数只能取一个值 | — |
+| `parameter-option-mismatch` | 取值不在候选项里 | — |
+| `unknown-parameter` | 找不到参数「{parameter}」 | `parameter` |
+
+## 扩展的问题码
+
+扩展自己的问题码写作扩展 id 的末段、一个点、码，如 `gantt.no-dates`；说明由扩展登记的 `issueText` 给出，设计器问题列表照样显示。
+
+## 计算错误
+
+计算错误：message 即错误码，定位与取值放在 params 里。
+
+`ReportComputeError` 的码：`aggregated-input-unsupported`、`formula-compile-failed`、`formula-cycle`、`formula-engine-missing`、`formula-evaluation-failed`、`invalid-date-value`、`invalid-filter-operand`、`invalid-time-zone`、`missing-data`、`unknown-card`、`unknown-dimension`、`unknown-kind`、`unknown-sort-key`。
+
+---
+
+来源：https://report.docs.xihanfun.com/reference/properties
+
+# 属性
+
+<!-- 本页由 docs/scripts/gen-reference.mjs 从源码生成，不要手改；源码变了之后在 docs/ 运行 pnpm gen。 -->
+
+设计器的属性面板按下面的描述编辑报表里的对象。属性路径相对所在对象，嵌套属性用点连接；「名称」是属性面板里的中文名，「分组」是属性面板里的分区。
+
+分组的先后：`basic` 基本、`data` 数据、`display` 显示、`axis` 坐标轴、`style` 样式、`interaction` 交互、`totals` 汇总、`sparkline` 迷你图。扩展可以给已有对象追加属性，路径不能与这里的重复。
+
+## 报表 {#document}
+
+没有选中任何对象时，属性面板编辑报表本身。路径相对 [ReportDocument](./schema#reportdocument)。
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `title` | 标题 | 基本 | 文本 | 可省 |
+| `description` | 说明 | 基本 | 多行文本 | 可省 |
+
+## 看板 {#dashboard}
+
+主体是看板、没有选中卡片时编辑看板。路径相对 [DashboardView](./schema#dashboardview)。
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `grid.columns` | 列数 | 基本 | 整数，≥ 1 | 是 |
+| `grid.rowHeight` | 行高 | 基本 | 数值（px），> 0 | 是 |
+
+## 卡片 {#card}
+
+卡片自身的属性。图表与指标卡片带查询，还有取数属性；表格卡片的取数属性在它的视图上，见[视图](#view)。
+
+### 图表与指标卡片 {#card-query}
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `title` | 标题 | 基本 | 文本 | 可省 |
+| `description` | 说明 | 基本 | 多行文本 | 可省 |
+| `dataset` | 数据集 | 数据 | 报表里的数据集 id | 是 |
+| `parameters` | 参数绑定 | 数据 | 数据集参数名到[操作数](./schema#operand)的对照，见 [DataBinding](./schema#databinding) | 可省 |
+| `query.filter` | 筛选 | 数据 | [筛选条件树](./schema#filtergroup) | 可省 |
+| `query.limit` | 行数上限 | 数据 | 整数，≥ 1 | 可省 |
+
+### 表格卡片 {#card-table}
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `title` | 标题 | 基本 | 文本 | 可省 |
+| `description` | 说明 | 基本 | 多行文本 | 可省 |
+
+## 图表 {#chart}
+
+图表卡片的图表配置，路径相对 [ChartSpec](./schema#chartspec)。柱线图的系列另见[系列](#series)。
+
+### 柱线图 `cartesian` {#chart-cartesian}
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `splitBy` | 拆分系列 | 数据 | 所在查询的维度 id | 可省 |
+| `orientation` | 方向 | 显示 | `vertical` 竖向、`horizontal` 横向 | 可省 |
+| `totals` | 显示合计 | 显示 | 布尔 | 可省 |
+| `palette` | 色板 | 样式 | `red`、`orange`、`amber`、`yellow`、`lime`、`green`、`teal`、`cyan`、`blue`、`indigo`、`purple`、`pink`、`gray` | 可省 |
+| `renderer` | 渲染方式 | 样式 | `svg`、`canvas`、`auto` 自动 | 可省 |
+| `xAxis.title` | 横轴标题 | 坐标轴 | 文本 | 可省 |
+| `xAxis.scale` | 横轴刻度 | 坐标轴 | `band`、`point`、`linear` 直线、`log`、`sqrt`、`pow`、`symlog`、`time`、`utc` | 可省 |
+| `xAxis.format` | 横轴格式 | 坐标轴 | [值格式](./schema#formatspec) | 可省 |
+| `xAxis.grid` | 横轴网格线 | 坐标轴 | 布尔 | 可省 |
+| `xAxis.zero` | 横轴含零 | 坐标轴 | 布尔 | 可省 |
+| `xAxis.nice` | 横轴取整 | 坐标轴 | 布尔 | 可省 |
+| `xAxis.reverse` | 横轴反向 | 坐标轴 | 布尔 | 可省 |
+| `xAxis.ticks` | 横轴刻度数 | 坐标轴 | 整数，≥ 1 | 可省 |
+| `xAxis.labelOverflow` | 横轴标签过长时 | 坐标轴 | `auto` 自动、`rotate`、`truncate`、`wrap` | 可省 |
+| `yAxis.title` | 纵轴标题 | 坐标轴 | 文本 | 可省 |
+| `yAxis.scale` | 纵轴刻度 | 坐标轴 | `band`、`point`、`linear` 直线、`log`、`sqrt`、`pow`、`symlog`、`time`、`utc` | 可省 |
+| `yAxis.format` | 纵轴格式 | 坐标轴 | [值格式](./schema#formatspec) | 可省 |
+| `yAxis.grid` | 纵轴网格线 | 坐标轴 | 布尔 | 可省 |
+| `yAxis.zero` | 纵轴含零 | 坐标轴 | 布尔 | 可省 |
+| `yAxis.nice` | 纵轴取整 | 坐标轴 | 布尔 | 可省 |
+| `yAxis.reverse` | 纵轴反向 | 坐标轴 | 布尔 | 可省 |
+| `yAxis.ticks` | 纵轴刻度数 | 坐标轴 | 整数，≥ 1 | 可省 |
+| `yAxis.labelOverflow` | 纵轴标签过长时 | 坐标轴 | `auto` 自动、`rotate`、`truncate`、`wrap` | 可省 |
+| `trigger` | 提示框触发 | 交互 | `axis` 整列、`item` 单个数据点 | 可省 |
+| `tooltipOrder` | 提示框排序 | 交互 | `series` 按系列、`descending` 降序、`ascending` 升序 | 可省 |
+| `zoom` | 缩放 | 交互 | `none` 无、`x`、`y`、`xy` | 可省 |
+| `brush` | 刷选 | 交互 | `none` 无、`x`、`y`、`xy` | 可省 |
+| `annotations` | 标注 | 显示 | [CartesianAnnotationSpec](./schema#cartesianannotationspec) 的数组 | 可省 |
+
+### 饼图 `pie` {#chart-pie}
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `nameField` | 名称维度 | 数据 | 所在查询的维度 id | 是 |
+| `valueField` | 数值度量 | 数据 | 所在查询的度量 id | 是 |
+| `variant` | 形态 | 显示 | `pie` 饼图、`donut` 环形图 | 可省 |
+| `rose` | 玫瑰图 | 显示 | 布尔 | 可省 |
+| `sweep` | 扇区范围 | 显示 | `full` 整圆、`half` 半圆 | 可省 |
+| `sort` | 排序 | 显示 | `none` 无、`descending` 降序 | 可省 |
+| `maxSlices` | 最多扇区数 | 显示 | 整数，≥ 1 | 可省 |
+| `labels` | 标签 | 显示 | `none` 无、`inside` 内侧、`outside` 外侧 | 可省 |
+| `labelContent` | 标签内容 | 显示 | `name-share` 名称与占比、`name-value` 名称与数值、`name` 名称、`share` 占比、`value` 数值 | 可省 |
+| `format` | 格式 | 显示 | [值格式](./schema#formatspec)，限数值、百分比 | 可省 |
+
+### 漏斗图 `funnel` {#chart-funnel}
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `nameField` | 名称维度 | 数据 | 所在查询的维度 id | 是 |
+| `valueField` | 数值度量 | 数据 | 所在查询的度量 id | 是 |
+| `shape` | 形状 | 显示 | `trapezoid` 梯形、`bar` 柱 | 可省 |
+| `align` | 对齐 | 显示 | `center` 居中、`start` 开头 | 可省 |
+| `direction` | 方向 | 显示 | `down` 向下、`up` 向上 | 可省 |
+| `conversion` | 转化率 | 显示 | `previous` 相对上一阶段、`first` 相对第一阶段、`none` 无 | 可省 |
+| `labels` | 标签 | 显示 | `inside` 内侧、`outside` 外侧 | 可省 |
+| `palette` | 色板 | 样式 | `red`、`orange`、`amber`、`yellow`、`lime`、`green`、`teal`、`cyan`、`blue`、`indigo`、`purple`、`pink`、`gray` | 可省 |
+| `format` | 格式 | 显示 | [值格式](./schema#formatspec)，限数值、百分比 | 可省 |
+
+### 雷达图 `radar` {#chart-radar}
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `nameField` | 名称维度 | 数据 | 所在查询的维度 id | 是 |
+| `indicators` | 指标 | 数据 | [RadarIndicatorSpec](./schema#radarindicatorspec) 的数组 | 是 |
+| `shape` | 形状 | 显示 | `polygon` 多边形、`circle` 圆形 | 可省 |
+| `area` | 面积 | 显示 | 布尔 | 可省 |
+| `scale` | 刻度 | 显示 | `shared` 共用刻度、`independent` 各自刻度 | 可省 |
+| `curve` | 曲线 | 显示 | `linear` 直线、`catmull-rom` | 可省 |
+| `rings` | 环数 | 显示 | 整数，≥ 2，≤ 10 | 可省 |
+| `ringLabels` | 环标签 | 显示 | 布尔 | 可省 |
+| `format` | 格式 | 显示 | [值格式](./schema#formatspec)，限数值、百分比 | 可省 |
+
+### 桑基图 `sankey` {#chart-sankey}
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `sourceField` | 源维度 | 数据 | 所在查询的维度 id | 是 |
+| `targetField` | 目标维度 | 数据 | 所在查询的维度 id | 是 |
+| `valueField` | 数值度量 | 数据 | 所在查询的度量 id | 是 |
+| `orientation` | 方向 | 显示 | `horizontal` 横向、`vertical` 竖向 | 可省 |
+| `nodeAlign` | 节点对齐 | 显示 | `justify`、`start` 开头、`end` 末端、`center` 居中 | 可省 |
+| `linkColor` | 连线颜色 | 样式 | `neutral` 中性、`source`、`target`、`gradient` | 可省 |
+| `nodeSort` | 节点排序 | 显示 | `auto` 自动、`input` | 可省 |
+| `format` | 格式 | 显示 | [值格式](./schema#formatspec)，限数值、百分比 | 可省 |
+
+### 热力图 `heatmap` {#chart-heatmap}
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `variant` | 形态 | 数据 | `calendar` 日历、`month` 月、`matrix` 矩阵 | 是 |
+| `valueField` | 数值度量 | 数据 | 所在查询的度量 id | 是 |
+| `dateField` | 日期维度 | 数据 | 所在查询的维度 id；「形态」为 `calendar`、`month` 之一时显示 | 是 |
+| `startDate` | 开始日期 | 数据 | 文本，写作 `YYYY-MM-DD`；「形态」为 `calendar`、`month` 之一时显示 | 可省 |
+| `endDate` | 结束日期 | 数据 | 文本，写作 `YYYY-MM-DD`；「形态」为 `calendar`、`month` 之一时显示 | 可省 |
+| `firstDayOfWeek` | 每周第一天 | 显示 | 整数，≥ 0，≤ 6；「形态」为 `calendar`、`month` 之一时显示 | 可省 |
+| `rowField` | 行维度 | 数据 | 所在查询的维度 id；「形态」为 `matrix`时显示 | 是 |
+| `columnField` | 列维度 | 数据 | 所在查询的维度 id；「形态」为 `matrix`时显示 | 是 |
+| `levels` | 层级 | 显示 | 整数，≥ 1 | 可省 |
+| `thresholds` | 分档阈值 | 显示 | 数值的数组，由小到大 | 可省 |
+| `scale` | 刻度 | 显示 | `sequential` 单向色阶、`diverging` 发散色阶 | 可省 |
+| `midpoint` | 中点 | 显示 | 数值 | 可省 |
+| `continuous` | 连续色阶 | 显示 | 布尔 | 可省 |
+| `tone` | 语气 | 样式 | `brand` 品牌、`neutral` 中性、`success` 成功、`warning` 警告、`danger` 危险、`info` 信息 | 可省 |
+| `palette` | 色板 | 样式 | `red`、`orange`、`amber`、`yellow`、`lime`、`green`、`teal`、`cyan`、`blue`、`indigo`、`purple`、`pink`、`gray` | 可省 |
+| `size` | 尺寸 | 样式 | `sm` 小、`md` 中、`lg` 大 | 可省 |
+
+### 层级图 `hierarchy` {#chart-hierarchy}
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `levels` | 层级 | 数据 | 维度 id 的数组，由上到下 | 是 |
+| `valueField` | 数值度量 | 数据 | 所在查询的度量 id | 是 |
+| `layout` | 布局 | 显示 | `treemap` 矩形树图、`sunburst` 旭日图、`icicle` 冰柱图、`pack` 圆堆图 | 可省 |
+| `tile` | 切分方式 | 显示 | `squarify`、`binary`、`slice-dice` | 可省 |
+| `depth` | 展开层数 | 显示 | 整数，≥ 1 | 可省 |
+| `colorBy` | 着色依据 | 样式 | `branch`、`value` 数值、`uniform` | 可省 |
+| `palette` | 色板 | 样式 | `red`、`orange`、`amber`、`yellow`、`lime`、`green`、`teal`、`cyan`、`blue`、`indigo`、`purple`、`pink`、`gray` | 可省 |
+| `orientation` | 方向 | 显示 | `vertical` 竖向、`horizontal` 横向 | 可省 |
+| `format` | 格式 | 显示 | [值格式](./schema#formatspec)，限数值、百分比 | 可省 |
+
+### 系列 {#series}
+
+柱线图的一条系列，路径相对 [CartesianSeriesSpec](./schema#cartesianseriesspec)。
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `mark` | 标记 | 基本 | `bar` 柱、`line` 线、`scatter` 散点 | 是 |
+| `name` | 名称 | 基本 | 文本 | 可省 |
+| `x` | 横坐标 | 数据 | 所在查询的维度 id；「标记」为 `bar`、`line` 之一时显示 | 是 |
+| `x` | 横坐标 | 数据 | 所在查询的维度或度量 id；「标记」为 `scatter`时显示 | 是 |
+| `y` | 纵坐标 | 数据 | 所在查询的度量 id | 是 |
+| `size` | 气泡大小 | 数据 | 所在查询的度量 id；「标记」为 `scatter`时显示 | 可省 |
+| `color` | 颜色度量 | 数据 | 所在查询的度量 id；「标记」为 `scatter`时显示 | 可省 |
+| `stack` | 堆叠组 | 显示 | 文本；「标记」为 `bar`、`line` 之一时显示 | 可省 |
+| `shape` | 形状 | 显示 | `bar` 柱、`lollipop` 棒棒糖；「标记」为 `bar`时显示 | 可省 |
+| `stackOffset` | 堆叠方式 | 显示 | `none` 无、`expand` 百分比堆叠、`diverging` 发散色阶；「标记」为 `bar`时显示 | 可省 |
+| `labels` | 标签 | 显示 | `none` 无、`inside` 内侧、`end` 末端；「标记」为 `bar`时显示 | 可省 |
+| `curve` | 曲线 | 显示 | `linear` 直线、`monotone` 平滑、`step` 阶梯、`step-before`、`step-after`；「标记」为 `line`时显示 | 可省 |
+| `area` | 面积 | 显示 | 布尔；「标记」为 `line`时显示 | 可省 |
+| `stackOffset` | 堆叠方式 | 显示 | `none` 无、`expand` 百分比堆叠、`silhouette`、`wiggle`；「标记」为 `line`时显示 | 可省 |
+| `symbols` | 数据点 | 显示 | `auto` 自动、`always` 总是显示、`none` 无；「标记」为 `line`时显示 | 可省 |
+| `connectNulls` | 连接空值 | 显示 | 布尔；「标记」为 `line`时显示 | 可省 |
+| `labels` | 标签 | 显示 | `none` 无、`end` 末端；「标记」为 `line`时显示 | 可省 |
+| `endLabel` | 末端标签 | 显示 | 布尔；「标记」为 `line`时显示 | 可省 |
+| `symbol` | 点形状 | 显示 | `circle` 圆形、`square`、`diamond`、`triangle`、`triangleDown`、`cross`、`star`、`wye`；「标记」为 `scatter`时显示 | 可省 |
+| `jitter` | 抖动 | 显示 | 数值，≥ 0，≤ 1；「标记」为 `scatter`时显示 | 可省 |
+| `slot` | 色槽 | 样式 | 整数，≥ 1，≤ 8 | 可省 |
+| `tone` | 语气 | 样式 | `brand` 品牌、`neutral` 中性、`success` 成功、`warning` 警告、`danger` 危险、`info` 信息 | 可省 |
+
+## 指标 {#metric}
+
+指标卡片的指标配置，路径相对 [MetricSpec](./schema#metricspec)。
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `value` | 数值 | 数据 | 所在查询的度量 id | 是 |
+| `baseline` | 基准值 | 数据 | 所在查询的度量 id | 可省 |
+| `prefix` | 前缀 | 显示 | 文本 | 可省 |
+| `suffix` | 后缀 | 显示 | 文本 | 可省 |
+| `format` | 格式 | 显示 | [值格式](./schema#formatspec)，限数值、百分比 | 可省 |
+| `size` | 尺寸 | 样式 | `sm` 小、`md` 中、`lg` 大 | 可省 |
+| `tone` | 语气 | 样式 | `brand` 品牌、`neutral` 中性、`success` 成功、`warning` 警告、`danger` 危险、`info` 信息 | 可省 |
+| `sparkline.x` | 迷你图横坐标 | 迷你图 | 所在查询的维度 id；写了`sparkline`时显示 | 是 |
+| `sparkline.y` | 迷你图数值 | 迷你图 | 所在查询的度量 id；写了`sparkline`时显示 | 是 |
+| `sparkline.variant` | 迷你图形态 | 迷你图 | `line` 线、`area`、`bar` 柱、`win-loss`；写了`sparkline`时显示 | 可省 |
+| `sparkline.curve` | 迷你图曲线 | 迷你图 | `linear` 直线、`monotone` 平滑；写了`sparkline`时显示 | 可省 |
+| `sparkline.markers` | 迷你图标记 | 迷你图 | `none` 无、`last` 最后、`extremes`；写了`sparkline`时显示 | 可省 |
+| `sparkline.tone` | 迷你图语气 | 迷你图 | `brand` 品牌、`neutral` 中性、`success` 成功、`warning` 警告、`danger` 危险、`info` 信息；写了`sparkline`时显示 | 可省 |
+
+## 视图 {#view}
+
+报表主体或表格卡片的视图，路径相对视图本身。
+
+### 明细表 `table` {#view-table}
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `dataset` | 数据集 | 数据 | 报表里的数据集 id | 是 |
+| `parameters` | 参数绑定 | 数据 | 数据集参数名到[操作数](./schema#operand)的对照，见 [DataBinding](./schema#databinding) | 可省 |
+| `filter` | 筛选 | 数据 | [筛选条件树](./schema#filtergroup) | 可省 |
+| `sort` | 排序 | 数据 | [RowSortRule](./schema#rowsortrule) 的数组 | 可省 |
+| `limit` | 行数上限 | 数据 | 整数，≥ 1 | 可省 |
+
+### 分组报表 `group` {#view-group}
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `dataset` | 数据集 | 数据 | 报表里的数据集 id | 是 |
+| `parameters` | 参数绑定 | 数据 | 数据集参数名到[操作数](./schema#operand)的对照，见 [DataBinding](./schema#databinding) | 可省 |
+| `filter` | 筛选 | 数据 | [筛选条件树](./schema#filtergroup) | 可省 |
+| `sort` | 排序 | 数据 | [RowSortRule](./schema#rowsortrule) 的数组 | 可省 |
+| `detail` | 列出明细 | 显示 | 布尔 | 可省 |
+| `grandTotal` | 总计 | 汇总 | 布尔 | 可省 |
+
+### 交叉表 `crosstab` {#view-crosstab}
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `dataset` | 数据集 | 数据 | 报表里的数据集 id | 是 |
+| `parameters` | 参数绑定 | 数据 | 数据集参数名到[操作数](./schema#operand)的对照，见 [DataBinding](./schema#databinding) | 可省 |
+| `filter` | 筛选 | 数据 | [筛选条件树](./schema#filtergroup) | 可省 |
+| `measuresOn` | 度量排在 | 显示 | `columns` 列方向、`rows` 行方向 | 可省 |
+| `rowTotals.subtotals` | 行小计 | 汇总 | 布尔 | 可省 |
+| `rowTotals.grandTotal` | 行总计 | 汇总 | 布尔 | 可省 |
+| `columnTotals.subtotals` | 列小计 | 汇总 | 布尔 | 可省 |
+| `columnTotals.grandTotal` | 列总计 | 汇总 | 布尔 | 可省 |
+
+## 字段栏里的项 {#items}
+
+在字段栏里选中一项时编辑它。
+
+### 列 {#column}
+
+明细表与分组报表的一列，路径相对 [TableColumn](./schema#tablecolumn)。
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `field` | 字段 | 数据 | 所在数据集的字段名 | 是 |
+| `title` | 标题 | 基本 | 文本 | 可省 |
+| `format` | 格式 | 显示 | [值格式](./schema#formatspec) | 可省 |
+| `width` | 列宽 | 显示 | 数值（px），> 0 | 可省 |
+| `align` | 对齐 | 显示 | `start` 开头、`center` 居中、`end` 末端 | 可省 |
+| `sticky` | 冻结 | 显示 | `start` 开头、`end` 末端 | 可省 |
+| `summary.aggregate` | 汇总方式 | 汇总 | `sum` 求和、`avg` 平均、`count` 计数、`min` 最小、`max` 最大、`distinctCount` 去重计数；没写「汇总公式」时显示 | 可省 |
+| `summary.formula` | 汇总公式 | 汇总 | 文本；没写「汇总方式」时显示 | 可省 |
+
+### 分组 {#group-level}
+
+分组报表的一级分组，路径相对 [GroupLevel](./schema#grouplevel)。
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `field` | 字段 | 数据 | 所在数据集的字段名 | 是 |
+| `bucket` | 日期粒度 | 数据 | `year` 年、`quarter` 季度、`month` 月、`week` 周、`day` 日、`hour` 小时 | 可省 |
+| `title` | 标题 | 基本 | 文本 | 可省 |
+| `format` | 格式 | 显示 | [值格式](./schema#formatspec) | 可省 |
+| `sort.by` | 排序依据 | 数据 | 所在查询的维度或度量 id | 可省 |
+| `sort.direction` | 排序方向 | 数据 | `asc` 升序、`desc` 降序 | 可省 |
+| `sort.nulls` | 空值位置 | 数据 | `first` 最前、`last` 最后 | 可省 |
+| `header` | 组头 | 显示 | 布尔 | 可省 |
+| `subtotal` | 组小计 | 汇总 | 布尔 | 可省 |
+
+### 维度 {#dimension}
+
+查询或交叉表的一个维度，路径相对 [Dimension](./schema#dimension)。
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `field` | 字段 | 数据 | 所在数据集的字段名 | 是 |
+| `bucket` | 日期粒度 | 数据 | `year` 年、`quarter` 季度、`month` 月、`week` 周、`day` 日、`hour` 小时 | 可省 |
+| `title` | 标题 | 基本 | 文本 | 可省 |
+| `format` | 格式 | 显示 | [值格式](./schema#formatspec) | 可省 |
+| `sort.by` | 排序依据 | 数据 | 所在查询的维度或度量 id | 可省 |
+| `sort.direction` | 排序方向 | 数据 | `asc` 升序、`desc` 降序 | 可省 |
+| `sort.nulls` | 空值位置 | 数据 | `first` 最前、`last` 最后 | 可省 |
+
+### 度量 {#measure}
+
+查询或交叉表的一个度量，路径相对 [Measure](./schema#measure)。
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `title` | 标题 | 基本 | 文本 | 可省 |
+| `aggregate` | 聚合 | 数据 | `sum` 求和、`avg` 平均、`count` 计数、`min` 最小、`max` 最大、`distinctCount` 去重计数；没写「公式」时显示 | 是 |
+| `field` | 字段 | 数据 | 所在数据集的字段名；没写「公式」时显示 | 可省 |
+| `formula` | 公式 | 数据 | 文本；没写「聚合」时显示 | 是 |
+| `format` | 格式 | 显示 | [值格式](./schema#formatspec) | 可省 |
+
+## 数据 {#data}
+
+在数据面板里选中字段或参数时编辑它。
+
+### 字段 {#field}
+
+数据集的一个字段，路径相对 [DatasetField](./schema#datasetfield)。
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `name` | 名称 | 基本 | 文本 | 是 |
+| `type` | 类型 | 基本 | `string` 文本、`number` 数值、`boolean` 布尔、`date` 日期、`datetime` 日期时间 | 是 |
+| `title` | 标题 | 基本 | 文本 | 可省 |
+| `formula` | 公式 | 数据 | 文本 | 可省 |
+
+### 参数 {#parameter}
+
+报表的一个参数，路径相对 [ReportParameter](./schema#reportparameter)。
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `name` | 名称 | 基本 | 文本 | 是 |
+| `type` | 类型 | 基本 | `string` 文本、`number` 数值、`boolean` 布尔、`date` 日期、`datetime` 日期时间 | 是 |
+| `title` | 标题 | 基本 | 文本 | 可省 |
+| `required` | 必填 | 数据 | 布尔 | 可省 |
+| `multiple` | 多选 | 数据 | 布尔 | 可省 |
+| `defaultValue` | 缺省值 | 数据 | 按参数的类型与是否多选取值 | 可省 |
+| `options` | 候选项 | 数据 | [ParameterOption](./schema#parameteroption) 的数组，在设计器里是逐行编辑的选项表（值、文字与禁用），值格是文本框，值不能重复；「类型」为 `string`时显示 | 可省 |
+| `options` | 候选项 | 数据 | [ParameterOption](./schema#parameteroption) 的数组，在设计器里是逐行编辑的选项表（值、文字与禁用），值格是数字框，写数值，值不能重复；「类型」为 `number`时显示 | 可省 |
+| `options` | 候选项 | 数据 | [ParameterOption](./schema#parameteroption) 的数组，在设计器里是逐行编辑的选项表（值、文字与禁用），固定 `true`、`false` 两行，值格只读，不能新增、删除与换序；「类型」为 `boolean`时显示 | 可省 |
+| `options` | 候选项 | 数据 | [ParameterOption](./schema#parameteroption) 的数组，在设计器里是逐行编辑的选项表（值、文字与禁用），值格是日期框，写 `YYYY-MM-DD`，值不能重复；「类型」为 `date`时显示 | 可省 |
+| `options` | 候选项 | 数据 | [ParameterOption](./schema#parameteroption) 的数组，在设计器里是逐行编辑的选项表（值、文字与禁用），值格是日期框，写到分钟（如 `2026-10-19T08:30`），值不能重复；「类型」为 `datetime`时显示 | 可省 |
+
+## 联动 {#link}
+
+看板的一条联动，路径相对 [DashboardLink](./schema#dashboardlink)。
+
+| 属性 | 名称 | 分组 | 取值 | 必填 |
+| --- | --- | --- | --- | --- |
+| `card` | 源卡片 | 数据 | 看板上的卡片 id | 是 |
+| `dimension` | 源维度 | 数据 | 源卡片上能发出取值的维度 id | 是 |
+| `targets` | 目标 | 数据 | [LinkTarget](./schema#linktarget) 的数组 | 是 |
+
+---
+
+来源：https://report.docs.xihanfun.com/reference/schema
+
+# 报表定义类型
+
+<!-- 本页由 docs/scripts/gen-reference.mjs 从源码生成，不要手改；源码变了之后在 docs/ 运行 pnpm gen。 -->
+
+报表定义 `ReportDocument` 的全部类型，按 `@xihan-report/core` 的源码列出。当前 schema 版本 `REPORT_SCHEMA_VERSION` 为 `1`。
+
+报表定义是纯 JSON：数据集只描述字段与参数，不含数据；数据由取数回调按请求交回。各对象都可以带 `extensions`，放扩展自己的数据，见[扩展数据](#reportextensible)。「中文名」是设计器属性面板里的叫法，详见[属性](./properties)。
+
+## 报表与参数
+
+### ParameterOption {#parameteroption}
+
+参数的一个候选项。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `value` | <code><a href="#scalarvalue">ScalarValue</a></code> | 是 | 数值 | 取值，类型与参数一致：date 写 YYYY-MM-DD，datetime 写不带时区的 YYYY-MM-DDTHH:mm[:ss]。 |
+| `label` | <code>string</code> | 可省 | — | 显示的文字；不写按取值显示。 |
+| `disabled` | <code>boolean</code> | 可省 | — | 在参数栏里列出但不能选；宿主或缺省值给了这个取值照样认。 |
+
+### ReportParameter {#reportparameter}
+
+报表参数：报表使用者填写，经绑定传给数据集参数或筛选条件。
+
+继承 <code><a href="#reportextensible">ReportExtensible</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `name` | <code>string</code> | 是 | 名称 | 参数名，在报表内唯一。 |
+| `type` | <code><a href="#fieldtype">FieldType</a></code> | 是 | 类型 |  |
+| `title` | <code>string</code> | 可省 | 标题 |  |
+| `required` | <code>boolean</code> | 可省 | 必填 | 必须给值。 |
+| `multiple` | <code>boolean</code> | 可省 | 多选 | 接受多个值。 |
+| `defaultValue` | <code><a href="#parametervalue">ParameterValue</a></code> | 可省 | 缺省值 | 缺省值。 |
+| `options` | <code>readonly <a href="#parameteroption">ParameterOption</a>&#91;&#93;</code> | 可省 | 候选项 | 固定的候选项。 |
+
+### ReportDocument {#reportdocument}
+
+报表文档：纯 JSON。
+
+继承 <code><a href="#reportextensible">ReportExtensible</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `schemaVersion` | <code>typeof REPORT_SCHEMA_VERSION</code> | 是 | — | 报表定义的版本，写 REPORT_SCHEMA_VERSION。 |
+| `id` | <code>string</code> | 是 | — | 报表身份。 |
+| `title` | <code>string</code> | 可省 | 标题 |  |
+| `description` | <code>string</code> | 可省 | 说明 |  |
+| `parameters` | <code>readonly <a href="#reportparameter">ReportParameter</a>&#91;&#93;</code> | 可省 | 参数绑定 |  |
+| `datasets` | <code>readonly <a href="#datasetschema">DatasetSchema</a>&#91;&#93;</code> | 是 | — | 报表用到的数据集：只描述字段与参数，数据由取数回调交回。 |
+| `body` | <code><a href="#reportbody">ReportBody</a></code> | 是 | — | 报表的主体：明细表、分组报表、交叉表、看板，或扩展登记的视图。 |
+
+## 数据集与取数
+
+### DatasetField {#datasetfield}
+
+数据集里的一个字段。写了 formula 的是计算字段，以同一行的字段与报表参数（$名字）为变量逐行求值，不由使用方提供。
+
+继承 <code><a href="#reportextensible">ReportExtensible</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `name` | <code>string</code> | 是 | 名称 | 字段名：数据行里的键，在数据集内唯一；不以 $ 开头。 |
+| `type` | <code><a href="#fieldtype">FieldType</a></code> | 是 | 类型 |  |
+| `title` | <code>string</code> | 可省 | 标题 | 显示的标题，缺省同 name。 |
+| `formula` | <code>string</code> | 可省 | 公式 | 计算字段的表达式；求值能力由 ExpressionEngine 提供。 |
+
+### DatasetParameter {#datasetparameter}
+
+数据集接受的一个参数：取数时由使用方的数据源解释。
+
+继承 <code><a href="#reportextensible">ReportExtensible</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `name` | <code>string</code> | 是 | 名称 | 参数名，在数据集内唯一。 |
+| `type` | <code><a href="#fieldtype">FieldType</a></code> | 是 | 类型 |  |
+| `title` | <code>string</code> | 可省 | 标题 |  |
+| `required` | <code>boolean</code> | 可省 | 必填 | 取数时必须给值。 |
+| `multiple` | <code>boolean</code> | 可省 | 多选 | 接受多个值。 |
+
+### DatasetSchema {#datasetschema}
+
+报表引用的一个数据集。
+
+继承 <code><a href="#reportextensible">ReportExtensible</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | <code>string</code> | 是 | — | 数据集身份，在报表内唯一，也是取数请求里的 dataset。 |
+| `title` | <code>string</code> | 可省 | 标题 |  |
+| `fields` | <code>readonly <a href="#datasetfield">DatasetField</a>&#91;&#93;</code> | 是 | — | 数据集的字段。 |
+| `parameters` | <code>readonly <a href="#datasetparameter">DatasetParameter</a>&#91;&#93;</code> | 可省 | 参数绑定 |  |
+
+### DatasetQueryDimension {#datasetquerydimension}
+
+取数请求里的一个维度：按 field 分组，写了 bucket 时按日期粒度取键。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | <code>string</code> | 是 | — | 维度 id：交回的聚合行里以它为键。 |
+| `field` | <code>string</code> | 是 | 字段 |  |
+| `bucket` | <code><a href="#datebucket">DateBucket</a></code> | 可省 | 日期粒度 |  |
+
+### DatasetQueryMeasure {#datasetquerymeasure}
+
+取数请求里的一个度量：对 field 做 aggregate；count 不写 field 时数行。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | <code>string</code> | 是 | — | 度量 id：交回的聚合行里以它为键。 |
+| `field` | <code>string</code> | 可省 | 字段 |  |
+| `aggregate` | <code><a href="#aggregatekind">AggregateKind</a></code> | 是 | 聚合 |  |
+
+### DatasetQuery {#datasetquery}
+
+视图需要的聚合：使用方可以照此在后端聚合，返回 aggregated 数据。已聚合数据的每行以维度 id 与度量 id 为键。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `dimensions` | <code>readonly <a href="#datasetquerydimension">DatasetQueryDimension</a>&#91;&#93;</code> | 是 | — | 按哪些维度分组。 |
+| `measures` | <code>readonly <a href="#datasetquerymeasure">DatasetQueryMeasure</a>&#91;&#93;</code> | 是 | — | 每组要算的度量。 |
+| `rollups` | <code>readonly (readonly string&#91;&#93;)&#91;&#93;</code> | 是 | — | 不可累加的度量（avg、distinctCount）要单独给出的汇总分组：每项是一组维度 id，空数组是总计。没有不可累加的度量时为空。 |
+
+### DatasetRequest {#datasetrequest}
+
+取数请求：core 按视图与参数取值算出，使用方据此取数。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `dataset` | <code>string</code> | 是 | 数据集 | 数据集 id。 |
+| `parameters` | <code><a href="#parametervalues">ParameterValues</a></code> | 是 | 参数绑定 | 数据集参数的取值：已按绑定解析，未给值的参数不出现。 |
+| `filter` | <code><a href="#filtergroup">FilterGroup</a> &#124; null</code> | 是 | 筛选 | 已代入参数的筛选；引用了计算字段时为 null，由 core 在取回的行上筛选。 |
+| `sort` | <code>readonly <a href="#rowsortrule">RowSortRule</a>&#91;&#93; &#124; null</code> | 是 | 排序 | 明细视图的排序；聚合视图为 null。 |
+| `limit` | <code>number &#124; null</code> | 是 | 行数上限 | 明细视图的行数上限；没有上限为 null。 |
+| `query` | <code><a href="#datasetquery">DatasetQuery</a> &#124; null</code> | 是 | — | 视图需要的聚合；明细视图或引用了计算字段时为 null，此时只能返回明细行。 |
+
+### DatasetRows {#datasetrows}
+
+明细行：core 负责计算字段、筛选、分组与聚合。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `kind` | <code>'rows'</code> | 是 | — | 交回明细行。 |
+| `rows` | <code>readonly <a href="#datarow">DataRow</a>&#91;&#93;</code> | 是 | — | 明细行：以字段名为键；core 在这些行上筛选、聚合与计算。 |
+
+### DatasetRollup {#datasetrollup}
+
+一条汇总行：按 dimensions 分组的汇总值，键同已聚合行。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `dimensions` | <code>readonly string&#91;&#93;</code> | 是 | — | 分组的维度 id；空数组是总计。 |
+| `row` | <code><a href="#datarow">DataRow</a></code> | 是 | — | 这一组的汇总值：以度量 id 为键。 |
+
+### DatasetAggregated {#datasetaggregated}
+
+已聚合数据：使用方按请求里的 query 在后端聚合并筛选过。rows 以维度 id 与度量 id 为键；不可累加度量的汇总值由 rollups 给出。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `kind` | <code>'aggregated'</code> | 是 | — | 交回按请求聚合好的行。 |
+| `rows` | <code>readonly <a href="#datarow">DataRow</a>&#91;&#93;</code> | 是 | — | 每组一行：以维度 id 与度量 id 为键。 |
+| `rollups` | <code>readonly <a href="#datasetrollup">DatasetRollup</a>&#91;&#93;</code> | 可省 | — | 请求的 rollups 里每个分组的汇总行；请求里 rollups 为空时不写。 |
+
+### DatasetData {#datasetdata}
+
+使用方交回的数据。
+
+取其一：<code><a href="#datasetrows">DatasetRows</a></code>、<code><a href="#datasetaggregated">DatasetAggregated</a></code>。
+
+## 视图与看板
+
+### DataBinding {#databinding}
+
+视图取数的数据集与参数绑定。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `dataset` | <code>string</code> | 是 | 数据集 | 数据集 id。 |
+| `parameters` | <code>Readonly&lt;Record&lt;string, <a href="#operand">Operand</a>&gt;&gt;</code> | 可省 | 参数绑定 | 数据集参数名到操作数：字面值或报表参数。 |
+
+### ColumnSummary {#columnsummary}
+
+汇总：对列的字段做聚合，或以其它列的汇总值与报表参数（$名字）为变量求公式。
+
+类型：<code>{ readonly aggregate: <a href="#aggregatekind">AggregateKind</a> } &#124; { readonly formula: string }</code>
+
+### TableColumn {#tablecolumn}
+
+表格的一列。
+
+继承 <code><a href="#reportextensible">ReportExtensible</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | <code>string</code> | 是 | — | 列身份，在视图内唯一。 |
+| `field` | <code>string</code> | 是 | 字段 | 数据集字段名。 |
+| `title` | <code>string</code> | 可省 | 标题 |  |
+| `format` | <code><a href="#formatspec">FormatSpec</a></code> | 可省 | 格式 |  |
+| `width` | <code>number</code> | 可省 | 列宽 | 列宽（px）。 |
+| `align` | <code>'start' &#124; 'center' &#124; 'end'</code> | 可省 | 对齐 |  |
+| `sticky` | <code>'start' &#124; 'end'</code> | 可省 | 冻结 | 横向滚动时固定在行首侧或行尾侧。 |
+| `summary` | <code><a href="#columnsummary">ColumnSummary</a></code> | 可省 | — | 汇总：分组报表的组小计与总计、明细表的合计行。 |
+
+### TableView {#tableview}
+
+明细表：逐行列出数据。
+
+继承 <code><a href="#databinding">DataBinding</a></code>、<code><a href="#reportextensible">ReportExtensible</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `type` | <code>'table'</code> | 是 | 类型 |  |
+| `columns` | <code>readonly <a href="#tablecolumn">TableColumn</a>&#91;&#93;</code> | 是 | — | 各列，从左到右。 |
+| `filter` | <code><a href="#filtergroup">FilterGroup</a></code> | 可省 | 筛选 |  |
+| `sort` | <code>readonly <a href="#rowsortrule">RowSortRule</a>&#91;&#93;</code> | 可省 | 排序 |  |
+| `limit` | <code>number</code> | 可省 | 行数上限 | 行数上限，在排序之后截取。 |
+
+### GroupLevel {#grouplevel}
+
+分组报表的一级分组。
+
+继承 <code><a href="#reportextensible">ReportExtensible</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | <code>string</code> | 是 | — | 分组身份，在视图内唯一。 |
+| `field` | <code>string</code> | 是 | 字段 | 数据集字段名。 |
+| `bucket` | <code><a href="#datebucket">DateBucket</a></code> | 可省 | 日期粒度 |  |
+| `title` | <code>string</code> | 可省 | 标题 |  |
+| `format` | <code><a href="#formatspec">FormatSpec</a></code> | 可省 | 格式 |  |
+| `sort` | <code><a href="#axissort">AxisSort</a></code> | 可省 | 排序 | 组的次序：by 写带汇总的列 id 时按该列的组小计排；缺省按键升序。 |
+| `header` | <code>boolean</code> | 可省 | 组头 | 显示组头，缺省 true。 |
+| `subtotal` | <code>boolean</code> | 可省 | 组小计 | 显示组小计，缺省 true。 |
+
+### GroupView {#groupview}
+
+分组报表：多级分组，组内列出明细，组尾写小计，末尾写总计。
+
+继承 <code><a href="#databinding">DataBinding</a></code>、<code><a href="#reportextensible">ReportExtensible</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `type` | <code>'group'</code> | 是 | 类型 |  |
+| `groups` | <code>readonly <a href="#grouplevel">GroupLevel</a>&#91;&#93;</code> | 是 | — | 各级分组，由外到内。 |
+| `columns` | <code>readonly <a href="#tablecolumn">TableColumn</a>&#91;&#93;</code> | 是 | — | 明细行与组小计的各列，从左到右。 |
+| `filter` | <code><a href="#filtergroup">FilterGroup</a></code> | 可省 | 筛选 |  |
+| `sort` | <code>readonly <a href="#rowsortrule">RowSortRule</a>&#91;&#93;</code> | 可省 | 排序 | 组内明细行的次序。 |
+| `detail` | <code>boolean</code> | 可省 | 列出明细 | 列出明细行，缺省 true；false 时只有组头与小计。 |
+| `grandTotal` | <code>boolean</code> | 可省 | 总计 | 写总计，缺省 true。 |
+
+### CrosstabTotals {#crosstabtotals}
+
+交叉表一条轴上的汇总。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `subtotals` | <code>boolean</code> | 可省 | — | 除最内层外，每层维度的成员之后写小计，缺省 false。 |
+| `grandTotal` | <code>boolean</code> | 可省 | 总计 | 轴的末尾写总计，缺省 true。 |
+
+### CrosstabView {#crosstabview}
+
+交叉表：行维度与列维度交叉，格子里写度量。
+
+继承 <code><a href="#databinding">DataBinding</a></code>、<code><a href="#reportextensible">ReportExtensible</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `type` | <code>'crosstab'</code> | 是 | 类型 |  |
+| `rows` | <code>readonly <a href="#dimension">Dimension</a>&#91;&#93;</code> | 是 | — | 行维度，由外到内。 |
+| `columns` | <code>readonly <a href="#dimension">Dimension</a>&#91;&#93;</code> | 是 | — | 列维度，由外到内。 |
+| `measures` | <code>readonly <a href="#measure">Measure</a>&#91;&#93;</code> | 是 | — | 每个格子里的度量。 |
+| `filter` | <code><a href="#filtergroup">FilterGroup</a></code> | 可省 | 筛选 |  |
+| `rowTotals` | <code><a href="#crosstabtotals">CrosstabTotals</a></code> | 可省 | — | 行方向（行维度）的小计与总计。 |
+| `columnTotals` | <code><a href="#crosstabtotals">CrosstabTotals</a></code> | 可省 | — | 列方向（列维度）的小计与总计。 |
+| `measuresOn` | <code>'columns' &#124; 'rows'</code> | 可省 | 度量排在 | 多个度量排在列方向还是行方向，缺省 columns。 |
+
+### DashboardGrid {#dashboardgrid}
+
+看板网格。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `columns` | <code>number</code> | 是 | — | 列数。 |
+| `rowHeight` | <code>number</code> | 是 | — | 一行的高度（px）。 |
+
+### CardLayout {#cardlayout}
+
+卡片在网格上的位置与大小，单位是格。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `x` | <code>number</code> | 是 | 横坐标 |  |
+| `y` | <code>number</code> | 是 | 纵坐标 |  |
+| `w` | <code>number</code> | 是 | — | 宽，单位是格。 |
+| `h` | <code>number</code> | 是 | — | 高，单位是行。 |
+
+### CardBase {#cardbase}
+
+卡片的共有属性。
+
+继承 <code><a href="#reportextensible">ReportExtensible</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | <code>string</code> | 是 | — | 卡片身份，在看板内唯一。 |
+| `title` | <code>string</code> | 可省 | 标题 |  |
+| `description` | <code>string</code> | 可省 | 说明 |  |
+| `layout` | <code><a href="#cardlayout">CardLayout</a></code> | 是 | 布局 |  |
+
+### ChartCard {#chartcard}
+
+图表卡片。
+
+继承 <code><a href="#cardbase">CardBase</a></code>、<code><a href="#databinding">DataBinding</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `kind` | <code>'chart'</code> | 是 | — | 图表卡片。 |
+| `query` | <code><a href="#reportquery">ReportQuery</a></code> | 是 | — | 取数的聚合查询：图表的维度与度量都引用它的 id。 |
+| `chart` | <code><a href="#chartspec">ChartSpec</a></code> | 是 | — | 图表配置。 |
+
+### MetricCard {#metriccard}
+
+指标卡片。
+
+继承 <code><a href="#cardbase">CardBase</a></code>、<code><a href="#databinding">DataBinding</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `kind` | <code>'metric'</code> | 是 | — | 指标卡片。 |
+| `query` | <code><a href="#reportquery">ReportQuery</a></code> | 是 | — | 取数的聚合查询：指标取它的总计，迷你图取它的分组。 |
+| `metric` | <code><a href="#metricspec">MetricSpec</a></code> | 是 | — | 指标配置。 |
+
+### TableCard {#tablecard}
+
+表格卡片：内嵌一个明细表、分组报表或交叉表。
+
+继承 <code><a href="#cardbase">CardBase</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `kind` | <code>'table'</code> | 是 | — | 表格卡片。 |
+| `view` | <code><a href="#tableview">TableView</a> &#124; <a href="#groupview">GroupView</a> &#124; <a href="#crosstabview">CrosstabView</a></code> | 是 | — | 卡片里的明细表、分组报表或交叉表，带自己的数据集与筛选。 |
+
+### ExtensionCard {#extensioncard}
+
+扩展登记的卡片：kind 是带点的种类名。取数部分按种类声明的形状写：同图表卡片的 dataset、parameters 与 query，或同表格卡片的 view，或不取数；其余字段归种类自己。
+
+继承 <code><a href="#cardbase">CardBase</a></code>、<code>Partial&lt;<a href="#databinding">DataBinding</a>&gt;</code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `kind` | <code><a href="#reportextensionkind">ReportExtensionKind</a></code> | 是 | — | 扩展登记的种类名。 |
+| `query` | <code><a href="#reportquery">ReportQuery</a></code> | 可省 | — | 取数形状为 query 的种类：聚合查询。 |
+| `view` | <code><a href="#dataview">DataView</a></code> | 可省 | — | 取数形状为 view 的种类：明细表、分组报表或交叉表。 |
+| `[key: string]` | <code>unknown</code> | 是 | — | 种类自己的其余字段，由种类的 validate 校验。 |
+
+### DashboardCard {#dashboardcard}
+
+看板上的一张卡片：图表、指标、表格，或扩展登记的种类。
+
+取其一：<code><a href="#chartcard">ChartCard</a></code>、<code><a href="#metriccard">MetricCard</a></code>、<code><a href="#tablecard">TableCard</a></code>、<code><a href="#extensioncard">ExtensionCard</a></code>。
+
+### LinkTarget {#linktarget}
+
+联动的一个目标：在目标卡片上按字段筛选。
+
+继承 <code><a href="#reportextensible">ReportExtensible</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `card` | <code>string</code> | 是 | 源卡片 | 目标卡片 id。 |
+| `field` | <code>string</code> | 是 | 字段 | 目标卡片数据集的字段名。 |
+
+### DashboardLink {#dashboardlink}
+
+筛选联动：在源卡片上选中的取值，成为目标卡片在对应字段上的 in 条件。源维度带日期粒度时，目标字段按同一粒度取键再比较。
+
+继承 <code><a href="#reportextensible">ReportExtensible</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | <code>string</code> | 是 | — | 联动身份，在看板内唯一。 |
+| `card` | <code>string</code> | 是 | 源卡片 | 源卡片 id。 |
+| `dimension` | <code>string</code> | 是 | 源维度 | 源卡片上发出取值的维度：图表与指标卡片是查询的维度 id，分组报表是分组 id，交叉表是行或列维度 id，明细表是列 id。 |
+| `targets` | <code>readonly <a href="#linktarget">LinkTarget</a>&#91;&#93;</code> | 是 | 目标 |  |
+
+### DashboardView {#dashboardview}
+
+看板：网格上排列的卡片。
+
+继承 <code><a href="#reportextensible">ReportExtensible</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `type` | <code>'dashboard'</code> | 是 | 类型 |  |
+| `grid` | <code><a href="#dashboardgrid">DashboardGrid</a></code> | 是 | — | 网格的列数与行高。 |
+| `cards` | <code>readonly <a href="#dashboardcard">DashboardCard</a>&#91;&#93;</code> | 是 | — | 看板上的卡片，位置与大小写在各自的 layout 上。 |
+| `links` | <code>readonly <a href="#dashboardlink">DashboardLink</a>&#91;&#93;</code> | 可省 | — | 卡片之间的筛选联动。 |
+
+### ExtensionView {#extensionview}
+
+扩展登记的主体视图：type 是带点的种类名。取数部分按种类声明的形状写：同图表卡片的 dataset、parameters 与 query，或不取数；其余字段归种类自己。
+
+继承 <code>Partial&lt;<a href="#databinding">DataBinding</a>&gt;</code>、<code><a href="#reportextensible">ReportExtensible</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `type` | <code><a href="#reportextensionkind">ReportExtensionKind</a></code> | 是 | 类型 |  |
+| `query` | <code><a href="#reportquery">ReportQuery</a></code> | 可省 | — | 取数形状为 query 的种类：聚合查询。 |
+| `[key: string]` | <code>unknown</code> | 是 | — | 种类自己的其余字段，由种类的 validate 校验。 |
+
+### ReportBody {#reportbody}
+
+报表的主体。
+
+取其一：<code><a href="#tableview">TableView</a></code>、<code><a href="#groupview">GroupView</a></code>、<code><a href="#crosstabview">CrosstabView</a></code>、<code><a href="#dashboardview">DashboardView</a></code>、<code><a href="#extensionview">ExtensionView</a></code>。
+
+### DataView {#dataview}
+
+可以直接取数计算的视图。
+
+取其一：<code><a href="#tableview">TableView</a></code>、<code><a href="#groupview">GroupView</a></code>、<code><a href="#crosstabview">CrosstabView</a></code>。
+
+## 查询
+
+### AggregateKind {#aggregatekind}
+
+转导出自 `@xihan-ui/viz`。取值见常量 `AGGREGATE_KINDS`：
+
+| 取值 | 中文名 |
+| --- | --- |
+| `sum` | 求和 |
+| `avg` | 平均 |
+| `count` | 计数 |
+| `min` | 最小 |
+| `max` | 最大 |
+| `distinctCount` | 去重计数 |
+
+### DateBucket {#datebucket}
+
+日期粒度：把日期取成分组键。year → 2026，quarter → 2026-Q4，month → 2026-10，week → 2026-W42（ISO 周），day → 2026-10-16，hour → 2026-10-16T08。
+
+取值见常量 `DATE_BUCKETS`：
+
+| 取值 | 中文名 |
+| --- | --- |
+| `year` | 年 |
+| `quarter` | 季度 |
+| `month` | 月 |
+| `week` | 周 |
+| `day` | 日 |
+| `hour` | 小时 |
+
+### AxisSort {#axissort}
+
+成员的次序：按键，或按某个度量在该成员上的汇总值。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `by` | <code>string</code> | 可省 | — | 度量 id（分组报表里是带汇总的列 id）；不写按键。 |
+| `direction` | <code><a href="#sortdirection">SortDirection</a></code> | 可省 | 方向 | 缺省 asc。 |
+| `nulls` | <code><a href="#nullsposition">NullsPosition</a></code> | 可省 | — | 缺省 last。 |
+
+### Dimension {#dimension}
+
+维度：按字段分组。
+
+继承 <code><a href="#reportextensible">ReportExtensible</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | <code>string</code> | 是 | — | 维度身份：查询结果里的键，与同一查询的度量 id 共用命名空间。 |
+| `field` | <code>string</code> | 是 | 字段 | 数据集字段名。 |
+| `bucket` | <code><a href="#datebucket">DateBucket</a></code> | 可省 | 日期粒度 | 日期粒度。 |
+| `title` | <code>string</code> | 可省 | 标题 |  |
+| `format` | <code><a href="#formatspec">FormatSpec</a></code> | 可省 | 格式 |  |
+| `sort` | <code><a href="#axissort">AxisSort</a></code> | 可省 | 排序 | 成员次序，缺省按键升序。 |
+
+### MeasureBase {#measurebase}
+
+共有的度量属性。
+
+继承 <code><a href="#reportextensible">ReportExtensible</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | <code>string</code> | 是 | — | 度量身份：查询结果里的键，与同一查询的维度 id 共用命名空间。 |
+| `title` | <code>string</code> | 可省 | 标题 |  |
+| `format` | <code><a href="#formatspec">FormatSpec</a></code> | 可省 | 格式 |  |
+
+### AggregateMeasure {#aggregatemeasure}
+
+聚合度量：对字段做聚合；count 不写 field 时数行。
+
+继承 <code><a href="#measurebase">MeasureBase</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `aggregate` | <code><a href="#aggregatekind">AggregateKind</a></code> | 是 | 聚合 |  |
+| `field` | <code>string</code> | 可省 | 字段 |  |
+
+### FormulaMeasure {#formulameasure}
+
+公式度量：在聚合之后，以同一查询其它度量的值与报表参数（$名字）为变量求值。
+
+继承 <code><a href="#measurebase">MeasureBase</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `formula` | <code>string</code> | 是 | 公式 |  |
+
+### Measure {#measure}
+
+度量：聚合度量或公式度量。
+
+取其一：<code><a href="#aggregatemeasure">AggregateMeasure</a></code>、<code><a href="#formulameasure">FormulaMeasure</a></code>。
+
+### QuerySortRule {#querysortrule}
+
+查询结果行的一条排序规则。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `key` | <code>string</code> | 是 | — | 维度 id 或度量 id。 |
+| `direction` | <code><a href="#sortdirection">SortDirection</a></code> | 可省 | 方向 | 缺省 asc。 |
+| `nulls` | <code><a href="#nullsposition">NullsPosition</a></code> | 可省 | — | 缺省 last。 |
+
+### ReportQuery {#reportquery}
+
+聚合查询：按维度分组、计算度量，结果每个维度组合一行。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `dimensions` | <code>readonly <a href="#dimension">Dimension</a>&#91;&#93;</code> | 是 | — | 按哪些维度分组；不写维度时结果只有总计。 |
+| `measures` | <code>readonly <a href="#measure">Measure</a>&#91;&#93;</code> | 是 | — | 每组要算的度量。 |
+| `filter` | <code><a href="#filtergroup">FilterGroup</a></code> | 可省 | 筛选 |  |
+| `sort` | <code>readonly <a href="#querysortrule">QuerySortRule</a>&#91;&#93;</code> | 可省 | 排序 | 结果行的次序；不写按维度依次升序。 |
+| `limit` | <code>number</code> | 可省 | 行数上限 | 结果行数上限，在排序之后截取。 |
+
+## 筛选与排序
+
+### ParameterRef {#parameterref}
+
+引用一个报表参数的值。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `parameter` | <code>string</code> | 是 | — | 报表参数名：取数时换成参数的取值。 |
+
+### Operand {#operand}
+
+操作数：字面值、字面值数组，或报表参数。
+
+类型：<code><a href="#scalarvalue">ScalarValue</a> &#124; readonly <a href="#scalarvalue">ScalarValue</a>&#91;&#93; &#124; <a href="#parameterref">ParameterRef</a></code>
+
+### FilterOperator {#filteroperator}
+
+转导出自 `@xihan-ui/viz`。取值见常量 `FILTER_OPERATORS`：
+
+| 取值 | 中文名 |
+| --- | --- |
+| `eq` | — |
+| `neq` | — |
+| `gt` | — |
+| `gte` | — |
+| `lt` | — |
+| `lte` | — |
+| `between` | — |
+| `in` | — |
+| `notIn` | — |
+| `contains` | — |
+| `notContains` | — |
+| `startsWith` | — |
+| `endsWith` | — |
+| `isEmpty` | — |
+| `isNotEmpty` | — |
+
+### NullsPosition {#nullsposition}
+
+转导出自 `@xihan-ui/viz`。取值见常量 `NULLS_POSITIONS`：
+
+| 取值 | 中文名 |
+| --- | --- |
+| `first` | 最前 |
+| `last` | 最后 |
+
+### SortDirection {#sortdirection}
+
+转导出自 `@xihan-ui/viz`。取值见常量 `SORT_DIRECTIONS`：
+
+| 取值 | 中文名 |
+| --- | --- |
+| `asc` | 升序 |
+| `desc` | 降序 |
+
+### FilterCondition {#filtercondition}
+
+一个筛选条件。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | <code>string</code> | 是 | — | 条件身份，在所在筛选树内唯一。 |
+| `field` | <code>string</code> | 是 | 字段 | 数据集字段名。 |
+| `bucket` | <code><a href="#datebucket">DateBucket</a></code> | 可省 | 日期粒度 | 先把字段值按日期粒度取键再比较。 |
+| `operator` | <code><a href="#filteroperator">FilterOperator</a></code> | 是 | — | 运算符，见 FilterOperator；isEmpty、isNotEmpty 不要操作数，between 要两个值，in、notIn 要一组值。 |
+| `value` | <code><a href="#operand">Operand</a></code> | 可省 | 数值 | 操作数；isEmpty / isNotEmpty 不写。 |
+| `ignoreCase` | <code>boolean</code> | 可省 | — | 字符串运算符忽略大小写。 |
+
+### FilterGroup {#filtergroup}
+
+条件组：and 全部满足，or 任一满足。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `logic` | <code>'and' &#124; 'or'</code> | 是 | — | and 是全部满足，or 是任一满足。 |
+| `conditions` | <code>readonly <a href="#filternode">FilterNode</a>&#91;&#93;</code> | 是 | — | 条件与子组；组里的条件都不参与（空数组，或操作数都为空）时整组不筛选。 |
+
+### FilterSubgroup {#filtersubgroup}
+
+嵌套在条件组里的子组。
+
+继承 <code><a href="#filtergroup">FilterGroup</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | <code>string</code> | 是 | — | 子组身份，在所在筛选树内唯一。 |
+
+### FilterNode {#filternode}
+
+条件组里的一项：条件或子组。
+
+取其一：<code><a href="#filtercondition">FilterCondition</a></code>、<code><a href="#filtersubgroup">FilterSubgroup</a></code>。
+
+### RowSortRule {#rowsortrule}
+
+明细行的一条排序规则。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `field` | <code>string</code> | 是 | 字段 | 数据集字段名。 |
+| `direction` | <code><a href="#sortdirection">SortDirection</a></code> | 可省 | 方向 | 缺省 asc。 |
+| `nulls` | <code><a href="#nullsposition">NullsPosition</a></code> | 可省 | — | 缺省 last。 |
+
+## 图表
+
+### ChartTone {#charttone}
+
+语气：XiHan.UI 的 Tone。
+
+类型：<code>Tone</code>
+
+### ChartPalette {#chartpalette}
+
+顺序色阶的色板，与 XiHan.UI 的 ChartPalette 一致。
+
+类型：<code>'red' &#124; 'orange' &#124; 'amber' &#124; 'yellow' &#124; 'lime' &#124; 'green' &#124; 'teal' &#124; 'cyan' &#124; 'blue' &#124; 'indigo' &#124; 'purple' &#124; 'pink' &#124; 'gray'</code>
+
+### ChartSymbol {#chartsymbol}
+
+散点形状：XiHan.UI 图表引擎的 SymbolName。
+
+类型：<code>SymbolName</code>
+
+### ChartSize {#chartsize}
+
+尺寸档。
+
+类型：<code>'sm' &#124; 'md' &#124; 'lg'</code>
+
+### CartesianSeriesSpecBase {#cartesianseriesspecbase}
+
+笛卡尔图系列的共有属性。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | <code>string</code> | 是 | — | 系列身份，在图内唯一。 |
+| `name` | <code>string</code> | 可省 | 名称 | 图例与提示框里的名字，缺省取度量标题。 |
+| `slot` | <code>number</code> | 可省 | 色槽 | 固定色槽 1–8。 |
+| `tone` | <code><a href="#charttone">ChartTone</a></code> | 可省 | 语气 | 语义系列的语气。 |
+
+### CartesianBarSeriesSpec {#cartesianbarseriesspec}
+
+柱系列。
+
+继承 <code><a href="#cartesianseriesspecbase">CartesianSeriesSpecBase</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `mark` | <code>'bar'</code> | 是 | 标记 |  |
+| `x` | <code>string</code> | 是 | 横坐标 | 自变量：维度 id。 |
+| `y` | <code>string &#124; readonly &#91;string, string&#93;</code> | 是 | 纵坐标 | 数值：度量 id；写成 [下, 上] 是浮动柱。 |
+| `shape` | <code>'bar' &#124; 'lollipop'</code> | 可省 | 形状 |  |
+| `stack` | <code>string</code> | 可省 | 堆叠组 |  |
+| `stackOffset` | <code>'none' &#124; 'expand' &#124; 'diverging'</code> | 可省 | 堆叠方式 |  |
+| `labels` | <code>'none' &#124; 'inside' &#124; 'end'</code> | 可省 | 标签 |  |
+
+### CartesianLineSeriesSpec {#cartesianlineseriesspec}
+
+折线系列。
+
+继承 <code><a href="#cartesianseriesspecbase">CartesianSeriesSpecBase</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `mark` | <code>'line'</code> | 是 | 标记 |  |
+| `x` | <code>string</code> | 是 | 横坐标 | 自变量：维度 id。 |
+| `y` | <code>string &#124; readonly &#91;string, string&#93;</code> | 是 | 纵坐标 | 数值：度量 id；写成 [下, 上] 是区间带。 |
+| `curve` | <code>'linear' &#124; 'monotone' &#124; 'step' &#124; 'step-before' &#124; 'step-after'</code> | 可省 | 曲线 |  |
+| `area` | <code>boolean</code> | 可省 | 面积 |  |
+| `stack` | <code>string</code> | 可省 | 堆叠组 |  |
+| `stackOffset` | <code>'none' &#124; 'expand' &#124; 'silhouette' &#124; 'wiggle'</code> | 可省 | 堆叠方式 |  |
+| `symbols` | <code>'auto' &#124; 'always' &#124; 'none'</code> | 可省 | 数据点 |  |
+| `connectNulls` | <code>boolean</code> | 可省 | 连接空值 |  |
+| `labels` | <code>'none' &#124; 'end'</code> | 可省 | 标签 |  |
+| `endLabel` | <code>boolean</code> | 可省 | 末端标签 |  |
+
+### CartesianScatterSeriesSpec {#cartesianscatterseriesspec}
+
+散点系列：每个维度组合一个点。
+
+继承 <code><a href="#cartesianseriesspecbase">CartesianSeriesSpecBase</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `mark` | <code>'scatter'</code> | 是 | 标记 |  |
+| `x` | <code>string</code> | 是 | 横坐标 | 横坐标：维度 id 或度量 id。 |
+| `y` | <code>string</code> | 是 | 纵坐标 | 纵坐标：度量 id。 |
+| `size` | <code>string</code> | 可省 | 尺寸 | 气泡大小：度量 id。 |
+| `symbol` | <code><a href="#chartsymbol">ChartSymbol</a></code> | 可省 | 点形状 |  |
+| `jitter` | <code>number</code> | 可省 | 抖动 |  |
+| `color` | <code>string</code> | 可省 | 颜色度量 | 按值着色：度量 id。 |
+
+### CartesianSeriesSpec {#cartesianseriesspec}
+
+柱线图的一条系列：柱、折线或散点。
+
+取其一：<code><a href="#cartesianbarseriesspec">CartesianBarSeriesSpec</a></code>、<code><a href="#cartesianlineseriesspec">CartesianLineSeriesSpec</a></code>、<code><a href="#cartesianscatterseriesspec">CartesianScatterSeriesSpec</a></code>。
+
+### CartesianAxisSpec {#cartesianaxisspec}
+
+坐标轴；时间值写 ISO 8601 字符串。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `scale` | <code>'band' &#124; 'point' &#124; 'linear' &#124; 'log' &#124; 'sqrt' &#124; 'pow' &#124; 'symlog' &#124; 'time' &#124; 'utc'</code> | 可省 | 刻度 | 比例尺；不写按数据推断：带柱或非数值的自变量用 band，日期用 time，数值用 linear。 |
+| `domain` | <code>readonly (string &#124; number)&#91;&#93;</code> | 可省 | — | 类目轴的显式顺序。 |
+| `min` | <code>number &#124; string</code> | 可省 | — | 下界；时间轴写 ISO 8601 字符串。 |
+| `max` | <code>number &#124; string</code> | 可省 | — | 上界；时间轴写 ISO 8601 字符串。 |
+| `nice` | <code>boolean</code> | 可省 | — | 两端取整到刻度上，数值轴缺省为真。 |
+| `zero` | <code>boolean</code> | 可省 | — | 数值轴包含 0；有柱系列时总是包含。 |
+| `ticks` | <code>number</code> | 可省 | — | 刻度数量提示。 |
+| `format` | <code><a href="#formatspec">FormatSpec</a></code> | 可省 | 格式 | 刻度标签的格式。 |
+| `title` | <code>string</code> | 可省 | 标题 | 轴标题。 |
+| `grid` | <code>boolean</code> | 可省 | — | 画网格线；不写时数值轴画、类目轴不画。 |
+| `labelOverflow` | <code>'auto' &#124; 'rotate' &#124; 'truncate' &#124; 'wrap'</code> | 可省 | — | 刻度标签放不下时：自动、旋转、截断或折行。 |
+| `reverse` | <code>boolean</code> | 可省 | — | 反向。 |
+| `exponent` | <code>number</code> | 可省 | — | pow 轴的指数，正数，缺省 1。 |
+| `constant` | <code>number</code> | 可省 | — | symlog 轴 sign(x) · log1p(\|x\| / c) 里的 c，正数，缺省 1；越小越接近对数，越大越接近线性。 |
+| `timeZone` | <code>string</code> | 可省 | — | 时间轴按哪个时区（IANA 名）排刻度、写标签；不写时 time 轴按运行环境所在时区，utc 轴按 UTC。 |
+| `minSize` | <code>number</code> | 可省 | — | 这根轴（刻度、标签与标题）至少占的厚度（px）：上下叠放的几张图写同一个值，绘图区的左边就对齐。 |
+| `ordinal` | <code>boolean</code> | 可省 | — | 只用于横轴：数据点等距排列，跳过没有数据的时段；比例尺须为 time、utc 或 linear。 |
+| `fit` | <code>'all' &#124; 'window'</code> | 可省 | — | 只用于纵轴：定义域按全部数据（all，缺省）还是只按缩放窗口里露出的数据（window）算。 |
+
+### CartesianAnnotationSpec {#cartesianannotationspec}
+
+注释；axis 的 x 是自变量轴，y 是数值轴。series 写系列 id。
+
+类型：<code>&#124; { readonly kind: 'line', readonly axis: 'x' &#124; 'y', readonly value: number &#124; string, readonly label?: string } &#124; { readonly kind: 'band', readonly axis: 'x' &#124; 'y', readonly from: number &#124; string, readonly to: number &#124; string, readonly label?: string } &#124; { readonly kind: 'point', readonly series: string, readonly at: 'max' &#124; 'min' &#124; 'last' &#124; { readonly x: number &#124; string }, readonly label?: string } &#124; { readonly kind: 'average', readonly series: string, readonly label?: string } &#124; { readonly kind: 'trend', readonly series: string, readonly method: 'linear' &#124; 'moving-average', readonly window?: number, readonly label?: string }</code>
+
+### CartesianChartSpec {#cartesianchartspec}
+
+笛卡尔图：柱、折线、面积、散点。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `type` | <code>'cartesian'</code> | 是 | 类型 |  |
+| `series` | <code>readonly <a href="#cartesianseriesspec">CartesianSeriesSpec</a>&#91;&#93;</code> | 是 | — | 各系列：柱、折线与散点可以混排。 |
+| `splitBy` | <code>string</code> | 可省 | 拆分系列 | 拆分维度：每个系列按这个维度的每个成员各展开一条。 |
+| `orientation` | <code>'vertical' &#124; 'horizontal'</code> | 可省 | 方向 |  |
+| `xAxis` | <code><a href="#cartesianaxisspec">CartesianAxisSpec</a></code> | 可省 | — | 横轴（自变量轴）；orientation 为 horizontal 时画在左侧。 |
+| `yAxis` | <code><a href="#cartesianaxisspec">CartesianAxisSpec</a></code> | 可省 | — | 纵轴（数值轴）。 |
+| `renderer` | <code>'svg' &#124; 'canvas' &#124; 'auto'</code> | 可省 | 渲染方式 |  |
+| `trigger` | <code>'axis' &#124; 'item'</code> | 可省 | 提示框触发 |  |
+| `totals` | <code>boolean</code> | 可省 | 显示合计 |  |
+| `tooltipOrder` | <code>'series' &#124; 'descending' &#124; 'ascending'</code> | 可省 | 提示框排序 |  |
+| `palette` | <code><a href="#chartpalette">ChartPalette</a></code> | 可省 | 色板 |  |
+| `annotations` | <code>readonly <a href="#cartesianannotationspec">CartesianAnnotationSpec</a>&#91;&#93;</code> | 可省 | 标注 |  |
+| `zoom` | <code>'none' &#124; 'x' &#124; 'y' &#124; 'xy'</code> | 可省 | 缩放 |  |
+| `brush` | <code>'none' &#124; 'x' &#124; 'y' &#124; 'xy'</code> | 可省 | 刷选 |  |
+
+### PieChartSpec {#piechartspec}
+
+饼图：每个维度成员一个扇区。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `type` | <code>'pie'</code> | 是 | 类型 |  |
+| `nameField` | <code>string</code> | 是 | 名称维度 | 扇区名：维度 id。 |
+| `valueField` | <code>string</code> | 是 | 数值度量 | 数值：度量 id。 |
+| `variant` | <code>'pie' &#124; 'donut'</code> | 可省 | 形态 |  |
+| `rose` | <code>boolean</code> | 可省 | 玫瑰图 |  |
+| `sweep` | <code>'full' &#124; 'half'</code> | 可省 | 扇区范围 |  |
+| `sort` | <code>'none' &#124; 'descending'</code> | 可省 | 排序 |  |
+| `maxSlices` | <code>number</code> | 可省 | 最多扇区数 |  |
+| `labels` | <code>'none' &#124; 'inside' &#124; 'outside'</code> | 可省 | 标签 |  |
+| `labelContent` | <code>'name-share' &#124; 'name-value' &#124; 'name' &#124; 'share' &#124; 'value'</code> | 可省 | 标签内容 |  |
+| `format` | <code><a href="#numericformatspec">NumericFormatSpec</a></code> | 可省 | 格式 |  |
+
+### FunnelChartSpec {#funnelchartspec}
+
+漏斗图：每个维度成员一个阶段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `type` | <code>'funnel'</code> | 是 | 类型 |  |
+| `nameField` | <code>string</code> | 是 | 名称维度 | 阶段名：维度 id。 |
+| `valueField` | <code>string</code> | 是 | 数值度量 | 数值：度量 id。 |
+| `shape` | <code>'trapezoid' &#124; 'bar'</code> | 可省 | 形状 |  |
+| `align` | <code>'center' &#124; 'start'</code> | 可省 | 对齐 |  |
+| `direction` | <code>'down' &#124; 'up'</code> | 可省 | 方向 |  |
+| `conversion` | <code>'previous' &#124; 'first' &#124; 'none'</code> | 可省 | 转化率 |  |
+| `labels` | <code>'inside' &#124; 'outside'</code> | 可省 | 标签 |  |
+| `palette` | <code><a href="#chartpalette">ChartPalette</a></code> | 可省 | 色板 |  |
+| `format` | <code><a href="#numericformatspec">NumericFormatSpec</a></code> | 可省 | 格式 |  |
+
+### RadarIndicatorSpec {#radarindicatorspec}
+
+雷达图的一个指标。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `key` | <code>string</code> | 是 | — | 度量 id。 |
+| `label` | <code>string</code> | 可省 | — | 轴上的名字；不写取度量的标题。 |
+| `min` | <code>number</code> | 可省 | — | 这根轴的下界；不写按数据算。 |
+| `max` | <code>number</code> | 可省 | — | 这根轴的上界；不写按数据算。 |
+
+### RadarChartSpec {#radarchartspec}
+
+雷达图：每个维度成员一个实体，每个指标一根轴。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `type` | <code>'radar'</code> | 是 | 类型 |  |
+| `nameField` | <code>string</code> | 是 | 名称维度 | 实体名：维度 id。 |
+| `indicators` | <code>readonly <a href="#radarindicatorspec">RadarIndicatorSpec</a>&#91;&#93;</code> | 是 | 指标 |  |
+| `shape` | <code>'polygon' &#124; 'circle'</code> | 可省 | 形状 |  |
+| `area` | <code>boolean</code> | 可省 | 面积 |  |
+| `scale` | <code>'shared' &#124; 'independent'</code> | 可省 | 刻度 |  |
+| `curve` | <code>'linear' &#124; 'catmull-rom'</code> | 可省 | 曲线 |  |
+| `rings` | <code>number</code> | 可省 | 环数 |  |
+| `ringLabels` | <code>boolean</code> | 可省 | 环标签 |  |
+| `format` | <code><a href="#numericformatspec">NumericFormatSpec</a></code> | 可省 | 格式 |  |
+
+### SankeyChartSpec {#sankeychartspec}
+
+桑基图：每个维度组合一条流带。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `type` | <code>'sankey'</code> | 是 | 类型 |  |
+| `sourceField` | <code>string</code> | 是 | 源维度 | 源节点：维度 id。 |
+| `targetField` | <code>string</code> | 是 | 目标维度 | 目标节点：维度 id。 |
+| `valueField` | <code>string</code> | 是 | 数值度量 | 流量：度量 id。 |
+| `orientation` | <code>'horizontal' &#124; 'vertical'</code> | 可省 | 方向 |  |
+| `nodeAlign` | <code>'justify' &#124; 'start' &#124; 'end' &#124; 'center'</code> | 可省 | 节点对齐 |  |
+| `linkColor` | <code>'neutral' &#124; 'source' &#124; 'target' &#124; 'gradient'</code> | 可省 | 连线颜色 |  |
+| `nodeSort` | <code>'auto' &#124; 'input'</code> | 可省 | 节点排序 |  |
+| `format` | <code><a href="#numericformatspec">NumericFormatSpec</a></code> | 可省 | 格式 |  |
+
+### HeatmapChartSpecBase {#heatmapchartspecbase}
+
+热力图共有的属性。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `type` | <code>'heatmap'</code> | 是 | 类型 |  |
+| `valueField` | <code>string</code> | 是 | 数值度量 | 数值：度量 id。 |
+| `levels` | <code>number</code> | 可省 | 层级 |  |
+| `thresholds` | <code>readonly number&#91;&#93;</code> | 可省 | 分档阈值 |  |
+| `scale` | <code>'sequential' &#124; 'diverging'</code> | 可省 | 刻度 |  |
+| `midpoint` | <code>number</code> | 可省 | 中点 |  |
+| `continuous` | <code>boolean</code> | 可省 | 连续色阶 |  |
+| `tone` | <code><a href="#charttone">ChartTone</a></code> | 可省 | 语气 |  |
+| `palette` | <code><a href="#chartpalette">ChartPalette</a></code> | 可省 | 色板 |  |
+| `size` | <code><a href="#chartsize">ChartSize</a></code> | 可省 | 尺寸 |  |
+
+### HeatmapDateChartSpec {#heatmapdatechartspec}
+
+日期热力图：calendar 连续周列，month 按自然月分块。
+
+继承 <code><a href="#heatmapchartspecbase">HeatmapChartSpecBase</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `variant` | <code>'calendar' &#124; 'month'</code> | 是 | 形态 |  |
+| `dateField` | <code>string</code> | 是 | 日期维度 | 日期：维度 id，键为 YYYY-MM-DD。 |
+| `startDate` | <code>string</code> | 可省 | 开始日期 | 区间起点（含），YYYY-MM-DD；不写取数据里最早的日期。 |
+| `endDate` | <code>string</code> | 可省 | 结束日期 | 区间终点（含），YYYY-MM-DD；不写取数据里最晚的日期。 |
+| `firstDayOfWeek` | <code>number</code> | 可省 | 每周第一天 | 周首日，0 = 星期日。 |
+
+### HeatmapMatrixChartSpec {#heatmapmatrixchartspec}
+
+矩阵热力图：行列各是一个维度。
+
+继承 <code><a href="#heatmapchartspecbase">HeatmapChartSpecBase</a></code> 的字段。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `variant` | <code>'matrix'</code> | 是 | 形态 |  |
+| `rowField` | <code>string</code> | 是 | 行维度 | 行：维度 id。 |
+| `columnField` | <code>string</code> | 是 | 列维度 | 列：维度 id。 |
+
+### HeatmapChartSpec {#heatmapchartspec}
+
+热力图：日历（含按月）或矩阵。
+
+取其一：<code><a href="#heatmapdatechartspec">HeatmapDateChartSpec</a></code>、<code><a href="#heatmapmatrixchartspec">HeatmapMatrixChartSpec</a></code>。
+
+### HierarchyChartSpec {#hierarchychartspec}
+
+层级图：维度依次是由上到下的层。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `type` | <code>'hierarchy'</code> | 是 | 类型 |  |
+| `levels` | <code>readonly string&#91;&#93;</code> | 是 | 层级 | 各层：维度 id，由上到下。 |
+| `valueField` | <code>string</code> | 是 | 数值度量 | 数值：度量 id。 |
+| `layout` | <code>'treemap' &#124; 'sunburst' &#124; 'icicle' &#124; 'pack'</code> | 可省 | 布局 |  |
+| `tile` | <code>'squarify' &#124; 'binary' &#124; 'slice-dice'</code> | 可省 | 切分方式 |  |
+| `depth` | <code>number</code> | 可省 | 展开层数 |  |
+| `colorBy` | <code>'branch' &#124; 'value' &#124; 'uniform'</code> | 可省 | 着色依据 |  |
+| `palette` | <code><a href="#chartpalette">ChartPalette</a></code> | 可省 | 色板 |  |
+| `orientation` | <code>'vertical' &#124; 'horizontal'</code> | 可省 | 方向 |  |
+| `format` | <code><a href="#numericformatspec">NumericFormatSpec</a></code> | 可省 | 格式 |  |
+
+### ChartSpec {#chartspec}
+
+图表配置，按 type 分。
+
+取其一：<code><a href="#cartesianchartspec">CartesianChartSpec</a></code>、<code><a href="#piechartspec">PieChartSpec</a></code>、<code><a href="#funnelchartspec">FunnelChartSpec</a></code>、<code><a href="#radarchartspec">RadarChartSpec</a></code>、<code><a href="#sankeychartspec">SankeyChartSpec</a></code>、<code><a href="#heatmapchartspec">HeatmapChartSpec</a></code>、<code><a href="#hierarchychartspec">HierarchyChartSpec</a></code>。
+
+### SparklineSpec {#sparklinespec}
+
+迷你图：指标卡片里的走势。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `x` | <code>string</code> | 是 | 横坐标 | 横坐标：维度 id。 |
+| `y` | <code>string</code> | 是 | 纵坐标 | 数值：度量 id。 |
+| `variant` | <code>'line' &#124; 'area' &#124; 'bar' &#124; 'win-loss'</code> | 可省 | 形态 |  |
+| `curve` | <code>'linear' &#124; 'monotone'</code> | 可省 | 曲线 |  |
+| `markers` | <code>'none' &#124; 'last' &#124; 'extremes'</code> | 可省 | — | 标出哪些点：不标、末点或最高最低点。 |
+| `band` | <code>readonly &#91;number, number&#93;</code> | 可省 | — | 参考带 [下界, 上界]。 |
+| `reference` | <code>number &#124; 'mean' &#124; 'median'</code> | 可省 | — | 参考线：固定值，或按数据算出的均值 / 中位数。 |
+| `tone` | <code><a href="#charttone">ChartTone</a></code> | 可省 | 语气 |  |
+
+### MetricSpec {#metricspec}
+
+指标卡片：一个汇总值，可带对比与走势。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `value` | <code>string</code> | 是 | 数值 | 显示的值：度量 id，取查询的总计。 |
+| `baseline` | <code>string</code> | 可省 | 基准值 | 对比基准：度量 id，取查询的总计；与 value 比出涨跌。 |
+| `prefix` | <code>string</code> | 可省 | 前缀 |  |
+| `suffix` | <code>string</code> | 可省 | 后缀 |  |
+| `format` | <code><a href="#numericformatspec">NumericFormatSpec</a></code> | 可省 | 格式 |  |
+| `size` | <code><a href="#chartsize">ChartSize</a></code> | 可省 | 尺寸 |  |
+| `tone` | <code><a href="#charttone">ChartTone</a></code> | 可省 | 语气 |  |
+| `sparkline` | <code><a href="#sparklinespec">SparklineSpec</a></code> | 可省 | — | 迷你图；不写不画。 |
+
+## 取值
+
+### ScalarValue {#scalarvalue}
+
+JSON 标量：模板里能写下的单个值。
+
+类型：<code>JsonPrimitive</code>
+
+### JsonValue {#jsonvalue}
+
+转导出自 `@xihan-ui/core/json`。
+
+### DataRow {#datarow}
+
+一行数据：字段名到值。core 只读不写。
+
+类型：<code>Readonly&lt;Record&lt;string, unknown&gt;&gt;</code>
+
+### ParameterValue {#parametervalue}
+
+参数的取值：单值，或多选参数的值数组。
+
+类型：<code><a href="#scalarvalue">ScalarValue</a> &#124; readonly <a href="#scalarvalue">ScalarValue</a>&#91;&#93;</code>
+
+### ParameterValues {#parametervalues}
+
+一组参数取值：参数名到值。
+
+类型：<code>Readonly&lt;Record&lt;string, <a href="#parametervalue">ParameterValue</a>&gt;&gt;</code>
+
+### FieldType {#fieldtype}
+
+字段类型。date 是日期（YYYY-MM-DD），datetime 是日期时间；两者的值可以是 ISO 8601 字符串、毫秒时间戳或 Date。
+
+取值见常量 `FIELD_TYPES`：
+
+| 取值 | 中文名 |
+| --- | --- |
+| `string` | 文本 |
+| `number` | 数值 |
+| `boolean` | 布尔 |
+| `date` | 日期 |
+| `datetime` | 日期时间 |
+
+## 值格式
+
+### DateFormatSpec {#dateformatspec}
+
+转导出自 `@xihan-ui/expression`。
+
+### FormatRounding {#formatrounding}
+
+转导出自 `@xihan-ui/expression`。
+
+### FormatSpec {#formatspec}
+
+转导出自 `@xihan-ui/expression`。
+
+### NumberFormatSpec {#numberformatspec}
+
+转导出自 `@xihan-ui/expression`。
+
+### PercentFormatSpec {#percentformatspec}
+
+转导出自 `@xihan-ui/expression`。
+
+### RmbUpperFormatSpec {#rmbupperformatspec}
+
+转导出自 `@xihan-ui/expression`。
+
+### NumericFormatSpec {#numericformatspec}
+
+图表数值用的格式说明：数字或百分比。
+
+取其一：<code><a href="#numberformatspec">NumberFormatSpec</a></code>、<code><a href="#percentformatspec">PercentFormatSpec</a></code>。
+
+## 扩展数据
+
+### ReportExtensionKind {#reportextensionkind}
+
+扩展登记的卡片与视图种类名：扩展 id 的末段、一个点、名字，如 gantt.timeline。内置种类不带点。
+
+类型：<code>`${string}.${string}`</code>
+
+### ReportExtensionData {#reportextensiondata}
+
+对象上各扩展自己的数据：键是扩展 id，值归那个扩展；校验只查它与每一块都是对象，里面不看。
+
+类型：<code>Readonly&lt;Record&lt;string, JsonObject&gt;&gt;</code>
+
+### ReportExtensible {#reportextensible}
+
+能带扩展数据的对象：文档、数据集、字段、参数、视图、卡片、各列表项与联动。
+
+| 字段 | 类型 | 必填 | 中文名 | 说明 |
+| --- | --- | --- | --- | --- |
+| `extensions` | <code><a href="#reportextensiondata">ReportExtensionData</a></code> | 可省 | — | 各扩展自己的数据：键是扩展 id，值是 JSON 对象；编辑与剪贴板原样带过去。 |
+
+---
+
+来源：https://report.docs.xihanfun.com/reference/viewer
+
+# 查看器
+
+<!-- 本页由 docs/scripts/gen-reference.mjs 从源码生成，不要手改；源码变了之后在 docs/ 运行 pnpm gen。 -->
+
+`@xihan-report/runtime` 的公开接口：查看器元素与相关类型。样式在 `@xihan-report/runtime/style.css`。
+
+## `<xh-report-viewer>`
+
+注册 &lt;xh-report-viewer&gt; 与它排出的 UI 元素（按需注册），宿主不必再全量注册 UI 元素。
+
+### 属性
+
+| 属性 | attribute | 类型 | 说明 |
+| --- | --- | --- | --- |
+| `schema` | — | `ReportDocument \| undefined` | 报表定义。 |
+| `dataProvider` | — | `ReportDataProvider \| undefined` | 取数回调。 |
+| `expressionEngine` | — | `ExpressionEngine \| undefined` | 表达式引擎：计算字段与公式度量要用。 |
+| `extensions` | — | `readonly ReportRuntimeExtension[] \| undefined` | 卡片与视图种类、渲染、叠加层、导出与取数中间件的扩展；赋值时当场合并查重，冲突时退回原值再抛。 |
+| `formatter` | — | `ReportFormatter \| undefined` | 值的显示文字；缺省按格式说明调 formatValue。 |
+| `parameters` | — | `ParameterValues \| undefined` | 报表参数的取值；不给时用各参数的缺省值。 |
+| `selections` | — | `LinkSelections \| undefined` | 看板联动的选中值；给了就是受控。 |
+| `locale` | `locale` | `string \| undefined` | BCP 47 语言标记；缺省取全局配置。 |
+| `timeZone` | `time-zone` | `string \| undefined` | IANA 时区；缺省取运行环境所在的时区。 |
+| `translations` | — | `Partial<ReportViewerTranslations> \| undefined` | 元素自己的文案，压在全局配置之上。 |
+| `hideParameters` | `hide-parameters` | `boolean \| undefined` | 不显示参数栏；缺省显示。attribute 写 "false" 是显示，其余写法是不显示。 |
+
+### 存取器
+
+| 属性 | 读写 | 类型 | 说明 |
+| --- | --- | --- | --- |
+| `issues` | 只读 | `readonly ReportViewerIssue[]` | 最近一次校验报表定义与检查参数得到的问题。 |
+| `loading` | 只读 | `boolean` | 是否还有未完成的取数。 |
+
+### 方法
+
+| 方法 | 说明 |
+| --- | --- |
+| `getResults(): ReportResults` | 此刻的计算结果，只读快照：主体视图或看板上已算好的卡片，以及当时的参数与联动。 |
+| `refresh(options?: { readonly cards?: readonly string[] }): Promise<void>` | 重新取数并计算；看板可以只刷新部分卡片。 |
+| `clearSelections(): void` | 清除看板联动的选中值。 |
+| `export(format: string, options?: Readonly<Record<string, unknown>>): Promise<Blob \| string>` | 导出成文件：交给登记了这种格式的第一个导出器（内置的 xlsx 在最前，扩展可以加别的格式），options 原样交给它。内置的 xlsx 把当前的计算结果写成工作簿：表格主体导出一张表（表名取 options.name，缺省取报表标题），看板按已算好的表格卡片各导一张（表名取卡片标题），写出部分按需加载，还没有可导出的结果时抛 RangeError。没有导出器认这种格式时抛 RangeError。 |
+
+### 事件
+
+事件都是冒泡的 `CustomEvent`。
+
+| 事件 | detail | 说明 |
+| --- | --- | --- |
+| `issues-change` | `{ issues: readonly ReportViewerIssue[] }` | 报表定义的校验问题或参数的检查问题变了。 |
+| `load-error` | `{ card: string \| null, error: unknown }` | 取数或计算出错：card 是出错的卡片，报表主体出错时为 null。 |
+| `loading-change` | `{ loading: boolean }` | 开始或结束取数。 |
+| `selections-change` | `{ value: LinkSelections }` | 看板联动的选中值变了：value 是联动 id 到选中取值的对照；受控时宿主要把它写回 selections。 |
+| `parameters-change` | `{ value: ParameterValues }` | 参数栏改了参数：value 是新的参数取值，清空的参数写 null。 |
+| `datum-press` | `{ card: string, link: string \| null, value: unknown, chart: unknown }` | 转发图表卡片的 datum-press：link 与 value 是这次点按对应的联动与源维度上的取值，与联动无关时为 null。 |
+| `action` | `{ card: string \| null, link: string \| null, value: unknown } & TableCellRef` | 表格的行主操作（点一格，或焦点行上按 Enter），用来下钻：card 是看板里的表格卡片，报表主体是表格时为 null；kind、column、values 说明点中的那一格（见 TableCellRef）。表格卡片作联动源时，link 与 value 是这次点按对应的联动与源维度上的取值，与联动无关时为 null。 |
+
+## 函数
+
+### defineReportViewer() {#definereportviewer}
+
+```ts
+declare function defineReportViewer(): void
+```
+
+注册 &lt;xh-report-viewer&gt; 与它排出的 UI 元素（按需注册），宿主不必再全量注册 UI 元素。
+
+## 取数
+
+### ReportDataProvider {#reportdataprovider}
+
+使用方的取数回调：按 core 算出的请求取数，交回明细行或已聚合行。
+
+```ts
+type ReportDataProvider = (request: DatasetRequest, context: ReportDataContext) => Promise<DatasetData>
+```
+
+### ReportDataContext {#reportdatacontext}
+
+取数时附带的上下文：参数或联动变化、元素卸载时 signal 被取消。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `signal` | `AbortSignal` | 取消信号：这一轮取数作废时触发，取数回调应随之中止请求。 |
+
+## 结果与事件
+
+### ReportResults {#reportresults}
+
+查看器此刻的计算结果，只读快照。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `parameters` | `ParameterValues` | 这一轮取数用到的报表参数取值。 |
+| `selections` | `LinkSelections` | 看板联动的选中值。 |
+| `body` | `ViewResult \| ExtensionViewResult \| undefined` | 主体视图的结果；主体是看板或还没算好时为 undefined。 |
+| `cards` | `readonly { readonly result: CardResult, readonly filters: readonly FilterCondition[] }[]` | 看板上已算好的卡片，按卡片的先后；filters 是它当时收到的联动筛选。 |
+
+### ReportViewerIssue {#reportviewerissue}
+
+查看器报出的问题：报表定义的校验问题与参数的检查问题，都带上 severity。
+
+```ts
+type ReportViewerIssue = SchemaIssue<ValidationIssueCode | ParameterIssueCode>
+```
+
+### TableCellRef {#tablecellref}
+
+表格里被行主操作点中的那一格在报表里的含义。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `kind` | `'detail' \| 'group' \| 'subtotal'` | 行的种类：明细行（交叉表是成员行）、组头、小计；总计在表尾，不报行主操作。 |
+| `column` | `string \| null` | 点中那一格所在的报表列：明细表与分组报表是列 id 或分组 id，交叉表的值格是度量 id、行表头格是行维度 id；焦点行上按 Enter 时为 null。 |
+| `values` | `Readonly<Record<string, unknown>>` | 这一行（与点中那一列）在各维度上的取值，键与看板联动的 dimension 同一套写法：明细表是列 id，分组报表是分组 id（明细行另带各列 id），交叉表是行、列维度 id。 |
+
+### ChartPress {#chartpress}
+
+UI 图表派发的 datum-press 明细里查看器用到的字段：图表家族带 seriesId 与 datum，热力图带 date 或 row、column。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `key` | `unknown` | 点中的数据点在图表里的键。 |
+| `seriesId?` | `string` | 点中的系列。 |
+| `datum?` | `Readonly<Record<string, unknown>>` | 点中的数据行。 |
+| `date?` | `string` | 日历热力图点中的日期，YYYY-MM-DD。 |
+| `row?` | `string` | 矩阵热力图点中的行。 |
+| `column?` | `string` | 矩阵热力图点中的列。 |
+
+## 显示文字
+
+### ReportFormatter {#reportformatter}
+
+把一个值写成显示文字；缺失值由查看器先行处理，不会传进来。
+
+```ts
+type ReportFormatter = (value: unknown, format: FormatSpec | undefined, context: ReportFormatContext) => string
+```
+
+### ReportFormatContext {#reportformatcontext}
+
+格式化时的上下文。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `locale` | `string \| undefined` | BCP 47 语言标记；没有时按运行环境。 |
+| `timeZone` | `string` | IANA 时区：日期按它的墙上时间写。 |
+| `type` | `FieldType \| undefined` | 值所在字段的类型；度量、按粒度取键的维度等没有字段类型时为 undefined。 |
+
+### ReportViewerTranslations {#reportviewertranslations}
+
+查看器的内建文案。
+
+文案键是 `xh-report-viewer`，中文在 `@xihan-report/runtime/locale` 的 `reportZhCN` 里。
+
+| 键 | 类型 | 说明 | 中文 |
+| --- | --- | --- | --- |
+| `label` | `string` | 查看器的可及名。 | 报表 |
+| `loading` | `string` |  | 正在加载… |
+| `empty` | `string` | 没有数据时的提示。 | 没有数据 |
+| `error` | `string` | 取数或计算失败时的提示。 | 数据加载失败 |
+| `invalid` | `string` | 报表定义有问题、不能显示时的提示。 | 报表定义有问题，无法显示 |
+| `parametersInvalid` | `string` | 报表参数缺少或取值不合格时的提示。 | 报表参数缺少或取值不合格 |
+| `total` | `string` | 总计行、总计列的标签。 | 总计 |
+| `subtotal` | `string` | 小计行、小计列的标签。 | 小计 |
+| `missing` | `string` | 缺失值成员的显示文字。 | （空） |
+| `parameters` | `string` | 参数栏的可及名。 | 报表参数 |
+| `clearSelections` | `string` | 清除联动选中的按钮。 | 清除联动 |
+| `exportXlsx` | `string` | 内置 xlsx 导出器的名字。 | Excel 工作簿 |
+
+## 全部导出
+
+### designer-translations
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `DEFAULT_REPORT_DESIGNER_TRANSLATIONS` | 常量 | 内建英文文案。 |
+| `ReportDesignerCascade` | 接口 | 删除数据面板对象时一并删掉的别处的数目。 |
+| `ReportDesignerIssueDetails` | 接口 | 问题文案的入参：校验问题的码与参数。 |
+| `ReportDesignerTranslations` | 接口 | 设计器的内建文案。 |
+| `ReportHistoryStepText` | 接口 | 撤销栈里一步的说明素材：对象种类已按语言取好。 |
+| `ReportTourStepKey` | 类型 | 新手引导里报表自己的几步：数据面板、「数据」菜单、字段栏、卡片、联动与预览。 |
+| `ReportTourStepText` | 接口 | 引导一步的标题与说明。 |
+
+### extensions
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `createReportRuntimeModel` | 函数 | 合出运行时用的报表模型：core 的合并与查重照旧；渲染、导出器重名时抛 DesignerExtensionError。 |
+| `REPORT_RUNTIME_EXTENSION` | 常量 | 运行时内置扩展：三种内置卡片的渲染与 xlsx 导出。 |
+| `REPORT_RUNTIME_EXTENSION_ID` | 常量 | 运行时内置扩展的 id。 |
+| `ReportCardRenderer` | 类型 | 卡片的渲染：把计算结果画进卡片的内容区。 |
+| `ReportDataMiddleware` | 类型 | 取数中间件：拿到下一层的取数回调，返回包在它外面的一层。 |
+| `ReportExportContext` | 接口 | 导出时交给导出器的上下文。 |
+| `ReportOverlay` | 接口 | 叠加层：铺满看板的一层，画在各卡片之下（below）或之上（above）；只在主体是看板时画。 |
+| `ReportOverlayContext` | 接口 | 画叠加层时的上下文。 |
+| `ReportRendered` | 类型 | 渲染出的、能接联动与下钻的内容：图表或表格；别的内容为 undefined。 |
+| `ReportResults` | 接口 | 查看器此刻的计算结果，只读快照。 |
+| `ReportRuntimeExtension` | 接口 | 报表运行时层的扩展。 |
+| `ReportRuntimeModel` | 接口 | 运行时用的报表模型：core 的模型加上渲染、导出与取数中间件。 |
+| `ReportScene` | 接口 | 叠加层的场景：看板与它上面各卡片的布局和状态。 |
+| `ReportSceneCard` | 接口 | 叠加层场景里的一张卡片。 |
+| `ReportViewRenderer` | 类型 | 作主体的扩展视图的渲染，规则同卡片。 |
+
+### translations
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `DEFAULT_REPORT_VIEWER_TRANSLATIONS` | 常量 | 内建英文文案。 |
+| `ReportViewerTranslations` | 接口 | 查看器的内建文案。 |
+
+### viewer/charts
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `RenderedChart` | 接口 | 渲染好的图表卡片。 |
+
+### viewer/context
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `RenderContext` | 接口 | 渲染上下文。 |
+
+### viewer/format
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `defaultFormatter` | 常量 | 缺省格式化器：有格式说明时用 formatValue（它拒绝的值退回原样文字）；date / datetime 字段写成 timeZone 里的墙上时间（YYYY-MM-DD 或 YYYY-MM-DD HH:mm:ss）；数值按 locale 写千分位；其余写成文本。 |
+| `ReportFormatContext` | 接口 | 格式化时的上下文。 |
+| `ReportFormatter` | 类型 | 把一个值写成显示文字；缺失值由查看器先行处理，不会传进来。 |
+
+### viewer/report-viewer
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `defineReportViewer` | 函数 | 注册 &lt;xh-report-viewer&gt; 与它排出的 UI 元素（按需注册），宿主不必再全量注册 UI 元素。 |
+| `REPORT_VIEWER_TAG` | 常量 | 查看器的标签名。 |
+| `ReportDataContext` | 接口 | 取数时附带的上下文：参数或联动变化、元素卸载时 signal 被取消。 |
+| `ReportDataProvider` | 类型 | 使用方的取数回调：按 core 算出的请求取数，交回明细行或已聚合行。 |
+| `ReportViewerEventMap` | 接口 | 查看器派发的事件。 |
+| `ReportViewerIssue` | 类型 | 查看器报出的问题：报表定义的校验问题与参数的检查问题，都带上 severity。 |
+| `XhReportViewer` | 类 | 报表查看器 &lt;xh-report-viewer&gt;：按报表定义、参数与联动取数，算出并绘出报表主体或看板。 |
+
+### viewer/table
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `RenderedTable` | 接口 | 渲染好的表格：按 xh-table 行主操作报出的行 id 与列 id 查出点中的那一格。 |
+| `TableCellRef` | 接口 | 表格里被行主操作点中的那一格在报表里的含义。 |
+
+## `@xihan-report/runtime/locale` 的导出
+
+### locale
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `reportDeDE` | 常量 | 报表的德语文案：查看器、设计器与 designer-shell 零件。 |
+| `reportEnUS` | 常量 | 报表的英文文案：查看器、设计器与 designer-shell 零件。 |
+| `reportEsES` | 常量 | 报表的西班牙语文案：查看器、设计器与 designer-shell 零件。 |
+| `reportFrFR` | 常量 | 报表的法语文案：查看器、设计器与 designer-shell 零件。 |
+| `reportJaJP` | 常量 | 报表的日语文案：查看器、设计器与 designer-shell 零件。 |
+| `reportKoKR` | 常量 | 报表的韩语文案：查看器、设计器与 designer-shell 零件。 |
+| `reportPtBR` | 常量 | 报表的巴西葡萄牙语文案：查看器、设计器与 designer-shell 零件。 |
+| `reportRuRU` | 常量 | 报表的俄语文案：查看器、设计器与 designer-shell 零件。 |
+| `reportZhCN` | 常量 | 报表的简体中文文案：查看器、设计器与 designer-shell 零件。 |
+| `reportZhTW` | 常量 | 报表的繁体中文文案：查看器、设计器与 designer-shell 零件。 |
+
+## `@xihan-report/runtime/xlsx` 的导出
+
+### xlsx/report
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `crosstabSheet` | 函数 | 交叉表排成工作表：左上角是表头区，上方是列轴的多层表头，左侧是行轴的多层表头，相同的上层成员合并单元格，小计与总计的标签向内合并；多个度量按 measuresOn 排在最内一层，没有列维度时列轴只有度量一层。 |
+| `groupSheet` | 函数 | 分组报表排成工作表：前几列是各级分组，之后是视图的列。 |
+| `SheetOptions` | 接口 | 生成工作表的选项。 |
+| `tableSheet` | 函数 | 明细表排成工作表：首行是列标题，之后每行一条明细，有汇总时末行写合计（首列没有汇总时写合计标签）；冻结首行。 |
+| `XlsxTranslations` | 类型 | 工作表里的内建文字：查看器语言包里的总计与小计，两边共用一份。 |

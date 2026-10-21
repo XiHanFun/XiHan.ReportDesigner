@@ -1,0 +1,57 @@
+来源：https://report.docs.xihanfun.com/guide/pivot
+
+# 透视与交叉表
+
+要看「哪个区域、哪个品类在哪个季度卖了多少」这种两个方向交叉的汇总，用交叉表 `crosstab`：行上一组维度、列上一组维度，每个格子是这一行与这一列交叉处的度量。它可以作报表主体，也可以放进看板的表格卡片。
+
+
+```ts
+body: {
+  type: 'crosstab',
+  dataset: 'sales',
+  rows: [
+    { id: 'region', field: 'region', title: '区域', sort: { by: 'amount', direction: 'desc' } },
+    { id: 'category', field: 'category', title: '品类' },
+  ],
+  columns: [{ id: 'quarter', field: 'date', bucket: 'quarter', title: '季度' }],
+  measures: [
+    { id: 'amount', field: 'amount', aggregate: 'sum', title: '销售额', format: money },
+    { id: 'quantity', field: 'quantity', aggregate: 'sum', title: '销量' },
+    { id: 'price', formula: 'amount / quantity', title: '平均单价', format: money },
+  ],
+  rowTotals: { subtotals: true },
+},
+```
+
+## 行与列
+
+`rows` 与 `columns` 各是一组维度，由外到内逐层展开；写法与查询的维度一样，日期字段可以按 `bucket` 取粒度，上面的列是按季度。
+
+成员缺省按键升序。维度的 `sort.by` 写一个度量 id 时，按该成员在另一条轴总计上的值排，上面的区域按全年销售额从高到低。
+
+## 度量
+
+`measures` 是每个格子里的值，写聚合方式或公式。公式度量在每个格子的聚合值上求值，所以上面的平均单价是这一格的销售额除以这一格的销量，小计与总计上也一样，不是把各格的单价加起来。
+
+几个度量缺省并排在列方向上；`measuresOn: 'rows'` 改排在行方向。
+
+## 小计与总计
+
+`rowTotals` 管行方向，`columnTotals` 管列方向：
+
+| 字段 | 缺省 | 作用 |
+| --- | --- | --- |
+| `subtotals` | `false` | 除最内层外，每层维度的成员之后写一行（或一列）小计 |
+| `grandTotal` | `true` | 轴的末尾写总计 |
+
+`avg`、`distinctCount` 这类不能由下层累加出来的度量，小计与总计都按这一组的明细重新算。取数回调交回已聚合的行时，请求里会列出要单独给出的汇总分组，见取数请求的 `rollups`。
+
+## 分组报表还是交叉表
+
+| | 分组报表 `group` | 交叉表 `crosstab` |
+| --- | --- | --- |
+| 方向 | 只在行方向分组 | 行、列两个方向交叉 |
+| 明细 | 组内列出明细行，组尾写小计 | 每格只有聚合值，不列明细 |
+| 适合 | 要逐笔核对的清单 | 对比不同维度组合的汇总 |
+
+两种都能导出成 Excel 工作簿，分组的层级、小计与总计照样保留。

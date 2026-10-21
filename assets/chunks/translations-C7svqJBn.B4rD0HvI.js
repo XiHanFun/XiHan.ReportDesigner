@@ -1,0 +1,1 @@
+var e={label:`Report`,loading:`Loading…`,empty:`No data`,error:`Failed to load data`,invalid:`This report definition has problems and cannot be shown`,parametersInvalid:`Some report parameters are missing or invalid`,total:`Total`,subtotal:`Subtotal`,missing:`(Blank)`,parameters:`Report parameters`,clearSelections:`Clear selections`,exportXlsx:`Excel workbook`};export{e as t};

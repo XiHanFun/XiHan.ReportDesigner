@@ -1,0 +1,69 @@
+来源：https://report.docs.xihanfun.com/guide/export
+
+# 导出
+
+查看器的 `export(format, options?)` 把此刻的计算结果写成文件，交回 `Blob` 或字符串。内置的是 Excel 工作簿 `xlsx`；扩展可以登记别的格式。导出用的就是屏幕上这一份结果：当时的参数、联动选中与卡片筛选都已经算在里面，不会再取一次数。
+
+```ts
+const button = document.createElement('button')
+button.type = 'button'
+button.textContent = '导出 Excel'
+button.addEventListener('click', async () => {
+  const blob = await viewer.export('xlsx', { name: '销售汇总' }) as Blob
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = '分区域销售汇总.xlsx'
+  link.click()
+  URL.revokeObjectURL(link.href)
+})
+```
+
+
+## 导出了什么
+
+| 报表主体 | 工作簿 |
+| --- | --- |
+| 明细表、分组报表、交叉表 | 一张表，表名取 `options.name`，缺省取报表标题 |
+| 看板 | 每张已算好的表格卡片一张表，表名取卡片标题，重名时加序号；图表与指标卡片不导出 |
+
+- 明细表：首行是列标题，之后每行一条明细，有汇总时末行写合计。
+- 分组报表：前几列是各级分组，组头写组的键、组尾写小计，末尾写总计；不列明细时每组一行。
+- 交叉表：上方是列方向的多层表头、左侧是行方向的多层表头，相同的上层成员合并单元格，小计与总计照屏幕上的位置写。
+- 表头冻结；列宽按报表里写的列宽换算；数值按值格式换成 Excel 的数字格式，表达不了的写成格式化好的文本；日期写成日期单元格。
+
+还没有可导出的表格（比如看板里只有图表）时，`export('xlsx')` 以 `RangeError` 拒绝；没有导出器认这种格式时同样以 `RangeError` 拒绝。写出工作簿的代码在第一次导出时才加载，不导出的页面不会下载它。
+
+## 自己组织工作簿
+
+要把几张报表放进同一个工作簿、或自己决定表名，用 `@xihan-report/runtime/xlsx` 把视图的计算结果排成工作表，再交给 `@xihan-ui/xlsx` 写出：
+
+```ts
+import { crosstabSheet, groupSheet, tableSheet } from '@xihan-report/runtime/xlsx'
+import { writeXlsx, xlsxBlob } from '@xihan-ui/xlsx'
+
+function sheetOf(view: ViewResult, name: string): XlsxSheet {
+  const options = { dataset: view.dataset, name, timeZone: 'Asia/Shanghai' }
+  if (view.type === 'table')
+    return tableSheet(view.view, view.result, options)
+  if (view.type === 'group')
+    return groupSheet(view.view, view.result, options)
+  return crosstabSheet(view.view, view.result, options)
+}
+
+/** 每项是一个查看器与它那张表的表名。 */
+export async function exportWorkbook(entries: readonly (readonly [XhReportViewer, string])[]): Promise<Blob> {
+  const sheets: XlsxSheet[] = []
+  for (const [viewer, name] of entries) {
+    const body = viewer.getResults().body
+    if (body && 'type' in body)
+      sheets.push(sheetOf(body, name))
+  }
+  return xlsxBlob(await writeXlsx({ sheets }))
+}
+```
+
+`tableSheet`、`groupSheet`、`crosstabSheet` 与内置导出排出的工作表完全一样；`getResults()` 给出每个查看器此刻的计算结果。
+
+## 别的格式
+
+导出器是[扩展](./extensions)的一部分：扩展登记 `exporters`，写明能导出的格式与导出函数，`export(format)` 交给登记了这种格式的第一个导出器，内置的 `xlsx` 在最前。导出器拿到的上下文里有报表定义、`getResults()` 的结果、文案、时区与调用方给的 `options`。
