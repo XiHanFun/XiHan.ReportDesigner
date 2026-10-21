@@ -1,0 +1,4 @@
+# Claude Code 的本机文件：worktree、个人设置与预览配置
+.claude/worktrees/
+.claude/settings.local.json
+.claude/launch.json

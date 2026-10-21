@@ -1,0 +1,7 @@
+interface:
+  display_name: "XiHan.ReportDesigner 设计器开发"
+  short_description: "报表定义、查看器与设计器元素、扩展点与语言包的开发规范"
+  default_prompt: "使用 $xihan-report-designer-development 规划并实现这项报表设计器改动。"
+
+policy:
+  allow_implicit_invocation: true

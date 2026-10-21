@@ -1,0 +1,7 @@
+interface:
+  display_name: "XiHan.ReportDesigner 取数与计算"
+  short_description: "报表的数据集、参数、计算、透视与导出的开发与排查"
+  default_prompt: "使用 $xihan-report-compute 排查这份报表的取数与计算结果。"
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,7 @@
+interface:
+  display_name: "XiHan.ReportDesigner 文档站"
+  short_description: "报表文档站的页面、示例、参考页与 LLMs 资产"
+  default_prompt: "使用 $xihan-report-docs-site 修改文档站并跑完文档门禁。"
+
+policy:
+  allow_implicit_invocation: true

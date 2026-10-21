@@ -1,0 +1,7 @@
+interface:
+  display_name: "XiHan.ReportDesigner 版本发布"
+  short_description: "报表仓定版本、续 rc、打标签发 npm 与发后核对"
+  default_prompt: "使用 $xihan-report-version-release 检查当前分支是否可以准备下一个版本。"
+
+policy:
+  allow_implicit_invocation: true
