@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 开发预览页：@xihan-report/* 直接指向各包源码，改了源码即时生效，不必先构建；@xihan-ui/* 经 overrides 读同级 XiHan.UI 的产物。
+// 开发预览页：@xihan-report/* 直接指向各包源码，改了源码即时生效，不必先构建；@xihan-ui/* 用 npm 上的正式包。
 
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
