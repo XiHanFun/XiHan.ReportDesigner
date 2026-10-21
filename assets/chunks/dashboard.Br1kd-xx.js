@@ -1,0 +1,1 @@
+import"./theme.h8JZdgXN.js";import{Dr as e,i as t}from"./sales.CS-raAGl.js";import{n,t as r}from"./dashboard.D5hTurPT.js";/* empty css               */t();function i(t){let i=document.createElement(`xh-report-viewer`);return i.expressionEngine=e(),i.dataProvider=async()=>({kind:`rows`,rows:r}),i.schema=n,t.append(i),()=>t.replaceChildren()}export{i as mount};
