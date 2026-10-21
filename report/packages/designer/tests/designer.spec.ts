@@ -1992,6 +1992,33 @@ describe('<xh-report-designer>：缩放', () => {
     expect(cards(designer).find(item => item.id === 'b')!.layout).toEqual({ x: 7, y: 0, w: 5, h: 4 })
   })
 
+  it('卡片在不动的指针下挪走（拖动松手、方向键挪动、撤销）后不留悬停框，只剩与卡片对齐的选中框；再移动指针时重画', async () => {
+    const designer = await mount()
+    placeGrid(designer)
+    const overlay = designer.querySelector('xh-designer-transform')!
+    const hoverOver = (id: string): void => void card(designer, id).dispatchEvent(new MouseEvent('pointermove', { bubbles: true }))
+    const boxes = (): unknown[] => [overlay.hover, overlay.items!.map(item => [item.id, item.rect])]
+    designer.select({ cards: ['a'] })
+    await designer.updateComplete
+    hoverOver('b')
+    expect(overlay.hover).toEqual({ x: 800, y: 0, width: 400, height: 80 })
+    transform(designer, 'start', 'move', 'a', { x: 400, y: 0, width: 400, height: 80 })
+    transform(designer, 'move', 'move', 'a', { x: 10, y: 170, width: 400, height: 80 })
+    transform(designer, 'end', 'move', 'a', { x: 10, y: 170, width: 400, height: 80 })
+    await designer.updateComplete
+    expect(boxes()).toEqual([undefined, [['a', { x: 400, y: 0, width: 400, height: 80 }]]])
+    hoverOver('b')
+    key(designer, 'ArrowRight')
+    await designer.updateComplete
+    expect(overlay.hover).toBeUndefined()
+    hoverOver('b')
+    designer.undo()
+    await designer.updateComplete
+    expect(overlay.hover).toBeUndefined()
+    hoverOver('b')
+    expect(overlay.hover).toEqual({ x: 800, y: 0, width: 400, height: 80 })
+  })
+
   it('缩放之后覆盖层的视口带上倍数，选中框、悬停框与框选都按实际尺寸下的画布像素', async () => {
     const designer = await mount()
     designer.setViewport({ x: 0, y: 0, zoom: 0.5 })

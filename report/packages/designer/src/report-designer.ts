@@ -1072,6 +1072,8 @@ export class XhReportDesigner extends XhReactiveElement {
    */
   #onDocument(cause: HistoryChangeKind, document: ReportDocument, operations: readonly ReportOperation[]): void {
     const history = this.#editor!.history
+    // 卡片可能已经从指针下挪走：拿掉悬停框，下次移动指针时按指针下的卡片重画
+    this.#hoverId = undefined
     if (this.schema === document)
       this.#renderCanvas()
     else
@@ -1918,6 +1920,7 @@ export class XhReportDesigner extends XhReactiveElement {
     if (phase === 'start') {
       this.#gesture?.layout.cancel()
       this.#gesture = { layout: editor.startLayout(), cells: new Map() }
+      this.#hoverId = undefined
       return
     }
     const gesture = this.#gesture
