@@ -45,8 +45,8 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0
       '@xihanfun/vitepress-theme':
-        specifier: ^1.2.0
-        version: 1.2.0(vitepress@2.0.0-alpha.20(@types/node@24.19.2)(change-case@5.4.4)(postcss@8.5.30)(typescript@6.0.3)(yaml@2.9.1))(vue@3.5.44(typescript@6.0.3))
+        specifier: ^1.2.1
+        version: 1.2.1(vitepress@2.0.0-alpha.20(@types/node@24.19.2)(change-case@5.4.4)(postcss@8.5.30)(typescript@6.0.3)(yaml@2.9.1))(vue@3.5.44(typescript@6.0.3))
       vitepress:
         specifier: 2.0.0-alpha.20
         version: 2.0.0-alpha.20(@types/node@24.19.2)(change-case@5.4.4)(postcss@8.5.30)(typescript@6.0.3)(yaml@2.9.1)
@@ -738,8 +738,8 @@ packages:
     resolution: {integrity: sha512-m0637aMt8GDPGTRvpDe2fbSHeKPt1Ny222BH/8PianiaQov8FQ/s9WV66W9ePdkE6fe+uxAAHZH13zMi+9CywQ==}
     engines: {node: '>=18'}
 
-  '@xihanfun/vitepress-theme@1.2.0':
-    resolution: {integrity: sha512-uHwxusySwxcJG4vWa0xCoCJIhw84TyDLzrsKAU1oTH0y4OfLKwMpeKp/Rb8SEq05yv08aXSZqAXcaD8oASh6gA==}
+  '@xihanfun/vitepress-theme@1.2.1':
+    resolution: {integrity: sha512-iHYz5iN2VwNDpu83FWiyq5S0lbdl1byUtDy2AD15Q0XFOIhijHV+vgUZPzQX5slWBhsR1wQdr3sQgDIuPJhOpw==}
     peerDependencies:
       vitepress: ^2.0.0-alpha.20
       vue: ^3.5.0
@@ -2634,7 +2634,7 @@ snapshots:
 
   '@xihan-ui/xlsx@5.0.0': {}
 
-  '@xihanfun/vitepress-theme@1.2.0(vitepress@2.0.0-alpha.20(@types/node@24.19.2)(change-case@5.4.4)(postcss@8.5.30)(typescript@6.0.3)(yaml@2.9.1))(vue@3.5.44(typescript@6.0.3))':
+  '@xihanfun/vitepress-theme@1.2.1(vitepress@2.0.0-alpha.20(@types/node@24.19.2)(change-case@5.4.4)(postcss@8.5.30)(typescript@6.0.3)(yaml@2.9.1))(vue@3.5.44(typescript@6.0.3))':
     dependencies:
       vitepress: 2.0.0-alpha.20(@types/node@24.19.2)(change-case@5.4.4)(postcss@8.5.30)(typescript@6.0.3)(yaml@2.9.1)
       vue: 3.5.44(typescript@6.0.3)
