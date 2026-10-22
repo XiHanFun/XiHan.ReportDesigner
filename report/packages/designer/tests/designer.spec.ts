@@ -1917,13 +1917,14 @@ describe('<xh-report-designer>：缩放', () => {
   })
 
   it('打开时按实际大小：缩放 100%，看板左上角在可见区里；内容比可见区高、尺寸变了或换一份报表都不自动适合窗口', async () => {
-    const observers: (() => void)[] = []
+    const observers: ((entries: readonly ResizeObserverEntry[]) => void)[] = []
     vi.stubGlobal('ResizeObserver', class {
-      constructor(callback: () => void) {
+      constructor(callback: (entries: readonly ResizeObserverEntry[]) => void) {
         observers.push(callback)
       }
 
       observe(): void {}
+      unobserve(): void {}
       disconnect(): void {}
     })
     const designer = await mount()
@@ -1931,23 +1932,24 @@ describe('<xh-report-designer>：缩放', () => {
     const content = designer.querySelector<HTMLElement>('[data-part="surface"] > [data-part="content"]')!
     Object.defineProperty(scroller, 'clientHeight', { configurable: true, get: () => 500 })
     Object.defineProperty(content, 'offsetHeight', { configurable: true, get: () => 2000 })
-    observers.forEach(callback => callback())
+    observers.forEach(callback => callback([]))
     const zoomStatus = designer.querySelector('[slot="status-end"]')!.textContent
     expect([zoom(designer), scroller.scrollLeft, scroller.scrollTop, zoomStatus]).toEqual([1, 0, 0, expect.stringContaining('100%')])
     designer.schema = { ...board, id: 'other' }
     await designer.updateComplete
-    observers.forEach(callback => callback())
+    observers.forEach(callback => callback([]))
     expect(zoom(designer)).toBe(1)
   })
 
   it('适合窗口：内容的高度落进可见区、不放大到实际尺寸以上，滚回左上角；此后尺寸变了重新适配，直到改了缩放或在画布上按下指针', async () => {
-    const observers: (() => void)[] = []
+    const observers: ((entries: readonly ResizeObserverEntry[]) => void)[] = []
     vi.stubGlobal('ResizeObserver', class {
-      constructor(callback: () => void) {
+      constructor(callback: (entries: readonly ResizeObserverEntry[]) => void) {
         observers.push(callback)
       }
 
       observe(): void {}
+      unobserve(): void {}
       disconnect(): void {}
     })
     const designer = await mount()
@@ -1956,7 +1958,7 @@ describe('<xh-report-designer>：缩放', () => {
     let height = 1000
     Object.defineProperty(scroller, 'clientHeight', { configurable: true, get: () => 500 })
     Object.defineProperty(content, 'offsetHeight', { configurable: true, get: () => height })
-    const resized = (): void => observers.forEach(callback => callback())
+    const resized = (): void => observers.forEach(callback => callback([]))
     scroller.scrollTop = 120
     toolbarButton(designer, 'zoom-to-fit').click()
     expect([zoom(designer), scroller.scrollTop]).toEqual([0.5, 0])
