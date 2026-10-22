@@ -124,6 +124,8 @@ export interface ReportDesignerEventMap {
   'issues-change': CustomEvent<{ issues: readonly ValidationIssue[] }>
   /** 在画布上按了 Ctrl+S（macOS 上 ⌘S），或点了「文件」菜单的「保存」（命令 save）；保存由宿主做，存好后调 markSaved()。 */
   'save': CustomEvent<Record<string, never>>
+  /** 按了菜单栏最右端的关闭钮（closable 开着时）。设计器自己不做别的，关掉或回到列表、有未保存的改动时先问，都由宿主做。 */
+  'close': CustomEvent<Record<string, never>>
   /** 在设计与预览之间切换了。 */
   'mode-change': CustomEvent<{ mode: ReportDesignerMode }>
   /** 双击了一张卡片。 */
@@ -296,6 +298,7 @@ export class XhReportDesigner extends XhReactiveElement {
     readonly: { converter: BOOLEAN_CONVERTER },
     mode: { attribute: 'mode' },
     autoTour: { attribute: 'auto-tour', converter: BOOLEAN_CONVERTER },
+    closable: { converter: BOOLEAN_CONVERTER },
     defaultLayout: { attribute: false },
     datasetEditing: { attribute: 'dataset-editing' },
     settings: { attribute: false },
@@ -335,6 +338,8 @@ export class XhReportDesigner extends XhReactiveElement {
    * 写 false 关掉，start-tour 命令、帮助页的「开始引导」与 startTour() 照样能开始。同名 attribute auto-tour，写 "false" 是关。
    */
   declare autoTour: boolean | undefined
+  /** 在菜单栏最右端显示关闭钮，按下派发 close；缺省不显示。同名 attribute closable，写 "false" 是不显示。 */
+  declare closable: boolean | undefined
   /**
    * 面板布局的缺省：设置里还没有 layout.panels 时用它，「恢复默认布局」也回到它；不给时各面板停在登记的位置，全部显示。
    * 面板 id 见 REPORT_DESIGNER_PANELS，另有扩展登记的面板。用户挪了面板、改了显隐或大小，
@@ -1303,6 +1308,11 @@ export class XhReportDesigner extends XhReactiveElement {
     const parameterActions = createPanelActions<ReportDesignerContext>(doc, 'parameters')
     const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [menubar.element, toolbar, data.datasets, data.parameters, palette, workspace, wells.element, properties.element, issues.element, issueSummary, datasetActions.element, parameterActions.element]) as XhDesignerFrameElement
     frame.addEventListener('layout-change', this.#onLayoutChange)
+    // 菜单栏的关闭钮：外框的 close 不冒到宿主，由设计器元素自己派发
+    frame.addEventListener('close', (event) => {
+      event.stopPropagation()
+      emitEvent(this, 'close', {})
+    })
     // 换了画布工具（拖动工具命令、写 canvasTool 或 Esc 退出）时重画，工具栏上拖动钮的按下态跟着变
     frame.addEventListener('canvas-tool-change', () => this.requestUpdate())
     const selectionStatus = createStatusItem(doc, { value: '' })
@@ -1546,6 +1556,7 @@ export class XhReportDesigner extends XhReactiveElement {
     frame.layout = this.#storedLayout()
     frame.defaultLayout = this.defaultLayout
     frame.layoutPolicy = this.#frameLayoutPolicy()
+    frame.closable = this.closable === true
   }
 
   /** 设计态画画布；预览态把当前报表交给查看器，画布不取数。 */

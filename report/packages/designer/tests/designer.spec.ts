@@ -939,6 +939,29 @@ describe('<xh-report-designer>：编辑', () => {
     expect([saved.closest('[data-region]'), connected.closest('[data-region]')]).toEqual([null, null])
   })
 
+  it('closable 开着时菜单栏最右端显示关闭钮，按下由设计器派发一次 close，外框的 close 不再冒到宿主；缺省不显示', async () => {
+    const designer = await mount()
+    const frame = designer.querySelector('xh-designer-frame')!
+    const button = (): HTMLButtonElement => frame.querySelector<HTMLButtonElement>('[data-part="menubar-close"]')!
+    await frame.updateComplete
+    expect([frame.closable, button().hidden]).toEqual([false, true])
+    designer.setAttribute('closable', '')
+    await designer.updateComplete
+    await frame.updateComplete
+    expect([designer.closable, frame.closable, button().hidden, button().closest('[data-region]')?.getAttribute('data-region')]).toEqual([true, true, false, 'menubar'])
+    const closes = events(designer, 'close')
+    const targets: EventTarget[] = []
+    const listen = (event: Event): void => void targets.push(event.target!)
+    document.addEventListener('close', listen)
+    button().click()
+    document.removeEventListener('close', listen)
+    expect([closes, targets]).toEqual([[{}], [designer]])
+    designer.closable = false
+    await designer.updateComplete
+    await frame.updateComplete
+    expect([frame.closable, button().hidden]).toEqual([false, true])
+  })
+
   it('画布有焦点时按 F10 把焦点交给菜单栏，再按 F10 回到画布', async () => {
     const designer = await mount()
     await designer.querySelector('xh-designer-frame')!.updateComplete
