@@ -48,7 +48,7 @@ XiHan.ReportDesigner 是框架无关的报表设计器，以原生 Web Component
 ├─ docs/                          # 产品文档站（VitePress，独立的 pnpm 项目）
 └─ report/                           # pnpm monorepo 根
    ├─ .changeset/                 # changesets 配置与待发布的变更集
-   ├─ scripts/release/            # 发版脚本：VersionUpgrade、锁步与标签核对、产物契约、冒烟（smoke/ 是冒烟用的宿主项目模板）
+   ├─ scripts/release/            # 发版脚本：VersionUpgrade、锁步与标签核对、产物契约、预发布版跟上 latest、冒烟（smoke/ 是冒烟用的宿主项目模板）
    ├─ packages/
    │  ├─ core/                    # @xihan-report/core：模型层，纯 TS，不碰 DOM
    │  ├─ runtime/                 # @xihan-report/runtime：业务页面用的运行时元素；./xlsx 子入口把报表排成 @xihan-ui/xlsx 的工作表，./design 子入口给设计器画布复用计算与渲染
@@ -141,8 +141,8 @@ XiHan.ReportDesigner 是框架无关的报表设计器，以原生 Web Component
   3. `report/` 跑 `pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test`、`pnpm gate:publish`、`pnpm smoke --pack`，`docs/` 跑文档站门禁，再跑 `git diff --check`；全过再提交 `build: v<版本>`。
   4. 推 dev，等 dev 上的 CI 全绿。
   5. main 从 dev 快进（`git fetch . dev:main`，不是快进就停下查），推 main，等 main 上的 CI 全绿。
-  6. 在版本提交上打 `v<版本>` 标签并推送，Release 发包、冒烟、部署文档站；发完用 `npm view @xihan-report/designer dist-tags` 核对。
-- release.yml 先核对标签（在 main 的历史里；标签号等于包版本且与 `.changeset/pre.json` 一致，`check-release-tag.mjs`），再构建、`gate:publish`、`changeset publish`（带 provenance），然后 `scripts/release/smoke.mjs --version` 冒烟，最后调 `deploy-docs.yml` 部署文档站。deploy-docs 只部署已经发布的版本：当前版本有标签、main 上的包与标签一致、这个版本已在 npm 上。
+  6. 在版本提交上打 `v<版本>` 标签并推送，Release 发包、冒烟、部署文档站；发完用 `npm view @xihan-report/designer dist-tags` 核对（正式版发出前 `rc` 与 `latest` 都指这一版）。
+- release.yml 先核对标签（在 main 的历史里；标签号等于包版本且与 `.changeset/pre.json` 一致，`check-release-tag.mjs`），再构建、`gate:publish`、`changeset publish`（带 provenance），接着预发布版跟上 `latest`（`scripts/release/promote-latest.mjs`：预发布模式、且 npm 上这个包还没有正式版时，等取得到这一版再 `npm dist-tag add <包>@<版本> latest`；有正式版后不动），然后 `scripts/release/smoke.mjs --version` 冒烟，最后调 `deploy-docs.yml` 部署文档站。deploy-docs 只部署已经发布的版本：当前版本有标签、main 上的包与标签一致、这个版本已在 npm 上。
 - npm 包的版本不建 GitHub Release。
 - main 只接收发版；两次发版之间挑进 main 的纯文档修正，进了 main 以后立刻把 main 合回 dev。
 - 合并 main、打标签、发布都只在用户明确要求时执行。

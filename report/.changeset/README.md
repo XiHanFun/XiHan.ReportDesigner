@@ -48,6 +48,6 @@ git tag v1.0.0 && git push origin v1.0.0
 
 标签推上去后 Release 工作流先把关两条：标签指向的提交在 `main` 的历史里；标签号等于三个包的版本，且与预发布模式对得上（`scripts/release/check-release-tag.mjs`）。缺一拒发。过了再构建、核对产物（`pnpm gate:publish`）、把 npm 上还没有的版本发出去，然后在空项目里装刚发的版本做冒烟（`scripts/release/smoke.mjs`），最后部署文档站。
 
-预发布：`VersionUpgrade` 选 rc 等通道时执行 `changeset pre enter <通道>`，版本号带 `-rc.N` 后缀，npm 上打 `rc` 等 dist-tag，不占 `latest`；转正式版时选「正式版」，脚本执行 `changeset pre exit`。
+预发布：`VersionUpgrade` 选 rc 等通道时执行 `changeset pre enter <通道>`，版本号带 `-rc.N` 后缀，npm 上打 `rc` 等 dist-tag。正式版发出之前，Release 发完包还会把 `latest` 也指到这一版（`scripts/release/promote-latest.mjs`，可加 `--dry-run` 先看），宿主不写版本号也装到最新的候选版；npm 上有了正式版以后这一步不再动 `latest`。转正式版时选「正式版」，脚本执行 `changeset pre exit`。
 
 `VersionUpgrade` 不提交、不打标签、不推送；`-DryRun` 只打印这一次会做什么，不改任何文件。
