@@ -1,5 +1,22 @@
 # @xihan-report/designer
 
+## 1.0.0-rc.2
+
+### Minor Changes
+
+- eb2c610: **新增** `<xh-report-designer>` 的 `closable` 属性（同名 attribute）：开着时菜单栏最右端显示关闭钮，按下派发 `close`，由宿主关掉设计器或回到列表、有未保存的改动时先问。
+
+### Patch Changes
+
+- 1c7de4a: **修复** 卡片在不动的指针下挪走（拖动松手、方向键挪动、撤销与重做）后，画布上不再留下悬停框；移动指针时按指针下的卡片重画。
+- d3b1f47: **修复** 选中工具条上的钮（副本、复制、删除与扩展登记的命令）用指针按下时不再清掉选中，命令照常执行。
+- d3b1f47: **调整** 移动卡片与改卡片大小更流畅：手势途中只重画画布、选中框与状态栏，属性面板、页面结构、字段栏等在松手后更新一次。
+- b7c571d: **调整** 三个包对 `@xihan-ui/*` 的 peer 依赖提到 `^5.1.0`，项目里的 XiHan.UI 需要升到 5.1.0 或更高。
+- Updated dependencies [14254f6]
+- Updated dependencies [b7c571d]
+  - @xihan-report/runtime@1.0.0-rc.2
+  - @xihan-report/core@1.0.0-rc.2
+
 ## 1.0.0-rc.1
 
 ### Major Changes
