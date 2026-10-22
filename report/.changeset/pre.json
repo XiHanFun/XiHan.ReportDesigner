@@ -8,6 +8,12 @@
     "@xihan-report/playground": "0.0.0"
   },
   "changesets": [
-    "first-release"
+    "designer-closable",
+    "first-release",
+    "history-step-spacing",
+    "hover-follows-pointer",
+    "selection-toolbar-press",
+    "smoother-card-gestures",
+    "xihan-ui-5-1"
   ]
 }

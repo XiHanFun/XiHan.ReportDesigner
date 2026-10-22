@@ -1,7 +1,7 @@
 {
   "name": "@xihan-report/core",
   "type": "module",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-rc.2",
   "description": "XiHan Report Designer core — report schema, dataset descriptions, calculation and edit commands; pure TypeScript, no DOM.",
   "author": {
     "name": "XiHanFun",
