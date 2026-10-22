@@ -10,6 +10,15 @@
 
 本页记录 `@xihan-report/core`、`@xihan-report/runtime`、`@xihan-report/designer` 各版本使用者能感知的变更，每条标注 **新增 / 修复 / 调整 / 移除**。这几个包总是同一个版本号一起发布；逐包的完整记录见仓库里各包的 `CHANGELOG.md`。
 
+## v1.0.0-rc.2（2026-10-22）
+
+- **新增** `@xihan-report/designer`：`<xh-report-designer>` 的 `closable` 属性（同名 attribute）。开着时菜单栏最右端显示关闭钮，按下派发 `close`，由宿主关掉设计器或回到列表，有未保存的改动时先问。
+- **修复** `@xihan-report/designer`：选中工具条上的钮（副本、复制、删除与扩展登记的命令）用指针按下时不再清掉选中，命令照常执行。
+- **修复** `@xihan-report/designer`：卡片在不动的指针下挪走（拖动松手、方向键挪动、撤销与重做）后，画布上不再留下悬停框。
+- **修复** `@xihan-report/runtime`：简体与繁体中文的历史记录里，步骤名中的数目与前后的汉字之间加上空格，如「调整 7 个卡片的布局」。
+- **调整** `@xihan-report/designer`：移动卡片与改卡片大小更流畅，手势途中只重画画布、选中框与状态栏，面板在松手后更新一次。
+- **调整** 三个包对 `@xihan-ui/*` 的 peer 依赖提到 `^5.1.0`，项目里的 XiHan.UI 需要升到 5.1.0 或更高。
+
 ## v1.0.0-rc.1（2026-10-21）
 
 首次发布，以原生 Web Components 交付，不绑定前端框架。报表定义是纯 JSON，按数据集与参数取数后在浏览器里算出明细表、分组报表、交叉表与看板，看板的卡片能联动、表格能下钻，结果能导出 Excel。
@@ -707,16 +716,20 @@ export function wireLayout(designer: XhReportDesigner): void {
 
 画布有焦点时按 F10 把焦点交给菜单栏，左右键在菜单之间走，下键、Enter 或 Space 展开；再按 F10，或在菜单栏上按 Esc，回到画布。窄屏时菜单栏收成行首一颗「菜单」钮，各张菜单是它的子菜单。菜单栏常开，没有关掉它的开关；设置与帮助只在菜单栏里。
 
-宿主自己的操作（新建、预览、返回列表）写成一个扩展的命令，`placement` 写 `menubar:file` 就进「文件」菜单，写了 `toolbar` 也上工具栏；模板标题写成设计器的子元素 `slot="menubar-center"`，显示在整条菜单栏的正中，放不下时截断加省略号，再窄就藏起；保存状态写成 `slot="status-end"`，显示在状态栏右端、缩放比例的左边，状态栏在设置里关掉时跟着不显示；别的要常显的内容写 `slot="menubar-end"`，显示在菜单栏右边。连上文档之前写的与之后加的都一样。这样设计器外面不必另起一条操作条。
+宿主自己的操作（新建、预览）写成一个扩展的命令，`placement` 写 `menubar:file` 就进「文件」菜单，写了 `toolbar` 也上工具栏。要关掉设计器或回到列表时，在设计器上写 `closable`，菜单栏最右端出现一颗关闭钮，按下时设计器派发 `close`，设计器自己不做别的：宿主接着关掉或回到列表，有未保存的改动（`dirty` 为真）时先问一句；不必在「文件」菜单里另放「返回列表」。模板标题写成设计器的子元素 `slot="menubar-center"`，显示在整条菜单栏的正中，放不下时截断加省略号，再窄就藏起；保存状态写成 `slot="status-end"`，显示在状态栏右端、缩放比例的左边，状态栏在设置里关掉时跟着不显示；别的要常显的内容写 `slot="menubar-end"`，显示在菜单栏右边。连上文档之前写的与之后加的都一样。这样设计器外面不必另起一条操作条。
 
 ```ts
 designer.extensions = [{
   id: 'acme.host',
   commands: [
     { id: 'acme.new', label: '新建', shortcut: ['Mod', 'Alt', 'N'], placement: ['menubar:file'], run: () => location.assign('/reports/new') },
-    { id: 'acme.back', label: '返回列表', placement: ['menubar:file', 'toolbar'], run: () => history.back() },
   ],
 }]
+designer.closable = true
+designer.addEventListener('close', async () => {
+  if (!designer.dirty || await confirmLeave())
+    history.back()
+})
 const title = document.createElement('span')
 title.slot = 'menubar-center'
 title.textContent = '销售看板 · SALES-01'
@@ -2381,6 +2394,7 @@ viewer.addEventListener('loading-change', (event) => {
 | `readonly` | `readonly` | `boolean \| undefined` | 只读：可选择、浏览与预览，不能修改；缺省可修改。attribute 写 "false" 是可修改，其余写法是只读。 |
 | `mode` | `mode` | `ReportDesignerMode \| undefined` | design 或 preview，缺省 design。 |
 | `autoTour` | `auto-tour` | `boolean \| undefined` | 第一次铺好画布、设计器显示出来（画布有宽度）后自动开始新手引导，缺省开；设置里记过 help.tourDone（走完、跳过或关上过一次）时不再自动开始。写 false 关掉，start-tour 命令、帮助页的「开始引导」与 startTour() 照样能开始。同名 attribute auto-tour，写 "false" 是关。 |
+| `closable` | `closable` | `boolean \| undefined` | 在菜单栏最右端显示关闭钮，按下派发 close；缺省不显示。同名 attribute closable，写 "false" 是不显示。 |
 | `defaultLayout` | — | `DesignerLayout \| undefined` | 面板布局的缺省：设置里还没有 layout.panels 时用它，「恢复默认布局」也回到它；不给时各面板停在登记的位置，全部显示。面板 id 见 REPORT_DESIGNER_PANELS，另有扩展登记的面板。用户挪了面板、改了显隐或大小，整份布局写进设置的 layout.panels（DESIGNER_SETTING_KEYS.layout）并派发 settings-change。 |
 | `datasetEditing` | `dataset-editing` | `ReportDatasetEditing \| undefined` | 缺省 fields。 |
 | `settings` | — | `DesignerSettings \| undefined` | 设置的值：扁平的键值，键是「分区 id.条目 id」，如 general.theme；没写的键取条目的缺省值。赋值即生效；用户在设置对话框里改了以后设计器换成新的一份并派发 settings-change。 |
@@ -2454,6 +2468,7 @@ viewer.addEventListener('loading-change', (event) => {
 | `history-change` | `HistorySnapshot` | 撤销历史变了：执行（含并入上一步）、撤销、重做、跳转、装载、清空与保存之后都派发，拖动等事务进行中不派发。detail 是此刻的 historyState。 |
 | `issues-change` | `{ issues: readonly ValidationIssue[] }` | 报表的校验问题变了。 |
 | `save` | `Record<string, never>` | 在画布上按了 Ctrl+S（macOS 上 ⌘S），或点了「文件」菜单的「保存」（命令 save）；保存由宿主做，存好后调 markSaved()。 |
+| `close` | `Record<string, never>` | 按了菜单栏最右端的关闭钮（closable 开着时）。设计器自己不做别的，关掉或回到列表、有未保存的改动时先问，都由宿主做。 |
 | `mode-change` | `{ mode: ReportDesignerMode }` | 在设计与预览之间切换了。 |
 | `card-dblclick` | `{ id: string }` | 双击了一张卡片。 |
 | `card-contextmenu` | `{ id: string, x: number, y: number }` | 可取消；不取消时弹内建右键菜单。 |

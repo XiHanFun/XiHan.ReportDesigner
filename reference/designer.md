@@ -26,6 +26,7 @@
 | `readonly` | `readonly` | `boolean \| undefined` | 只读：可选择、浏览与预览，不能修改；缺省可修改。attribute 写 "false" 是可修改，其余写法是只读。 |
 | `mode` | `mode` | `ReportDesignerMode \| undefined` | design 或 preview，缺省 design。 |
 | `autoTour` | `auto-tour` | `boolean \| undefined` | 第一次铺好画布、设计器显示出来（画布有宽度）后自动开始新手引导，缺省开；设置里记过 help.tourDone（走完、跳过或关上过一次）时不再自动开始。写 false 关掉，start-tour 命令、帮助页的「开始引导」与 startTour() 照样能开始。同名 attribute auto-tour，写 "false" 是关。 |
+| `closable` | `closable` | `boolean \| undefined` | 在菜单栏最右端显示关闭钮，按下派发 close；缺省不显示。同名 attribute closable，写 "false" 是不显示。 |
 | `defaultLayout` | — | `DesignerLayout \| undefined` | 面板布局的缺省：设置里还没有 layout.panels 时用它，「恢复默认布局」也回到它；不给时各面板停在登记的位置，全部显示。面板 id 见 REPORT_DESIGNER_PANELS，另有扩展登记的面板。用户挪了面板、改了显隐或大小，整份布局写进设置的 layout.panels（DESIGNER_SETTING_KEYS.layout）并派发 settings-change。 |
 | `datasetEditing` | `dataset-editing` | `ReportDatasetEditing \| undefined` | 缺省 fields。 |
 | `settings` | — | `DesignerSettings \| undefined` | 设置的值：扁平的键值，键是「分区 id.条目 id」，如 general.theme；没写的键取条目的缺省值。赋值即生效；用户在设置对话框里改了以后设计器换成新的一份并派发 settings-change。 |
@@ -99,6 +100,7 @@
 | `history-change` | `HistorySnapshot` | 撤销历史变了：执行（含并入上一步）、撤销、重做、跳转、装载、清空与保存之后都派发，拖动等事务进行中不派发。detail 是此刻的 historyState。 |
 | `issues-change` | `{ issues: readonly ValidationIssue[] }` | 报表的校验问题变了。 |
 | `save` | `Record<string, never>` | 在画布上按了 Ctrl+S（macOS 上 ⌘S），或点了「文件」菜单的「保存」（命令 save）；保存由宿主做，存好后调 markSaved()。 |
+| `close` | `Record<string, never>` | 按了菜单栏最右端的关闭钮（closable 开着时）。设计器自己不做别的，关掉或回到列表、有未保存的改动时先问，都由宿主做。 |
 | `mode-change` | `{ mode: ReportDesignerMode }` | 在设计与预览之间切换了。 |
 | `card-dblclick` | `{ id: string }` | 双击了一张卡片。 |
 | `card-contextmenu` | `{ id: string, x: number, y: number }` | 可取消；不取消时弹内建右键菜单。 |

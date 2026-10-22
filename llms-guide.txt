@@ -325,16 +325,20 @@ export function wireLayout(designer: XhReportDesigner): void {
 
 画布有焦点时按 F10 把焦点交给菜单栏，左右键在菜单之间走，下键、Enter 或 Space 展开；再按 F10，或在菜单栏上按 Esc，回到画布。窄屏时菜单栏收成行首一颗「菜单」钮，各张菜单是它的子菜单。菜单栏常开，没有关掉它的开关；设置与帮助只在菜单栏里。
 
-宿主自己的操作（新建、预览、返回列表）写成一个扩展的命令，`placement` 写 `menubar:file` 就进「文件」菜单，写了 `toolbar` 也上工具栏；模板标题写成设计器的子元素 `slot="menubar-center"`，显示在整条菜单栏的正中，放不下时截断加省略号，再窄就藏起；保存状态写成 `slot="status-end"`，显示在状态栏右端、缩放比例的左边，状态栏在设置里关掉时跟着不显示；别的要常显的内容写 `slot="menubar-end"`，显示在菜单栏右边。连上文档之前写的与之后加的都一样。这样设计器外面不必另起一条操作条。
+宿主自己的操作（新建、预览）写成一个扩展的命令，`placement` 写 `menubar:file` 就进「文件」菜单，写了 `toolbar` 也上工具栏。要关掉设计器或回到列表时，在设计器上写 `closable`，菜单栏最右端出现一颗关闭钮，按下时设计器派发 `close`，设计器自己不做别的：宿主接着关掉或回到列表，有未保存的改动（`dirty` 为真）时先问一句；不必在「文件」菜单里另放「返回列表」。模板标题写成设计器的子元素 `slot="menubar-center"`，显示在整条菜单栏的正中，放不下时截断加省略号，再窄就藏起；保存状态写成 `slot="status-end"`，显示在状态栏右端、缩放比例的左边，状态栏在设置里关掉时跟着不显示；别的要常显的内容写 `slot="menubar-end"`，显示在菜单栏右边。连上文档之前写的与之后加的都一样。这样设计器外面不必另起一条操作条。
 
 ```ts
 designer.extensions = [{
   id: 'acme.host',
   commands: [
     { id: 'acme.new', label: '新建', shortcut: ['Mod', 'Alt', 'N'], placement: ['menubar:file'], run: () => location.assign('/reports/new') },
-    { id: 'acme.back', label: '返回列表', placement: ['menubar:file', 'toolbar'], run: () => history.back() },
   ],
 }]
+designer.closable = true
+designer.addEventListener('close', async () => {
+  if (!designer.dirty || await confirmLeave())
+    history.back()
+})
 const title = document.createElement('span')
 title.slot = 'menubar-center'
 title.textContent = '销售看板 · SALES-01'
