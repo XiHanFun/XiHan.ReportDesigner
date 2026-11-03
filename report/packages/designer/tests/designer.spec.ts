@@ -771,15 +771,17 @@ describe('<xh-report-designer>：编辑', () => {
     await designer.updateComplete
     expect(['pie', 'a', 'b'].map(issue)).toEqual([null, null, null])
 
-    // 拖动卡片松手后按新位置重新校验
-    designer.extensions = [{ id: 'low', rules: [document => (document.body as DashboardView).cards.filter(item => item.layout.y >= 4).map(item => ({ code: 'low.card', path: ['body', 'cards', (document.body as DashboardView).cards.indexOf(item), 'layout'] }))] }]
+    // 拖动卡片松手后按新位置重新校验；扩展规则的警告照警告标出与计数
+    designer.extensions = [{ id: 'low', rules: [document => (document.body as DashboardView).cards.filter(item => item.layout.y >= 4).map(item => ({ code: 'low.card', path: ['body', 'cards', (document.body as DashboardView).cards.indexOf(item), 'layout'], severity: 'warning' as const }))] }]
     await designer.updateComplete
     placeGrid(designer)
     transform(designer, 'start', 'move', 'a', { x: 400, y: 0, width: 400, height: 80 })
     transform(designer, 'move', 'move', 'a', { x: 10, y: 170, width: 400, height: 80 })
     transform(designer, 'end', 'move', 'a', { x: 10, y: 170, width: 400, height: 80 })
     await designer.updateComplete
-    expect(['pie', 'a', 'b'].map(issue)).toEqual([null, 'error', null])
+    expect(['pie', 'a', 'b'].map(issue)).toEqual([null, 'warning', null])
+    const counts = designer.querySelectorAll('[data-region="issues"] [data-part="filter"] [data-severity]')
+    expect([...counts].map(item => item.textContent)).toEqual(['0 errors', '1 warning'])
     designer.extensions = []
 
     designer.schema = { ...board, body: { type: 'table', dataset: 'sales', columns: [{ id: 'c', field: 'ghost' }] } }

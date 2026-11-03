@@ -80,10 +80,10 @@ export class Checker {
     this.sink.report(code, path, params ? { params } : undefined)
   }
 
-  /** 记下别处查出的问题：扩展种类的校验、扩展数据与追加属性的检查。 */
+  /** 记下别处查出的问题：扩展种类的校验、扩展规则、扩展数据与追加属性的检查；问题自带的 target、severity 与 params 照留。 */
   add(issues: readonly SchemaIssue[]): void {
-    for (const issue of issues)
-      this.sink.report(issue.code as ValidationIssueCode, issue.path, issue.params ? { params: issue.params } : undefined)
+    for (const { code, path, ...details } of issues)
+      this.sink.report(code as ValidationIssueCode, path, details)
   }
 
   private missing(owner: JsonObject, key: string, path: JsonPath, required: boolean | undefined): boolean {

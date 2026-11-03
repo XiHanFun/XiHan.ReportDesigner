@@ -133,6 +133,25 @@ describe('validateDocument：种类与扩展', () => {
       ['owner.untitled', ['title']],
     ])
   })
+
+  it('扩展种类与规则给出的问题保留自己的 severity 与 target：没写 target 的按路径补上，没写 severity 的是 error', () => {
+    const audit: ReportCoreExtension = {
+      id: '@acme/audit',
+      cards: { 'audit.note': { data: 'none', validate: (_card, check) => [{ code: 'audit.empty', path: [...check.path, 'text'], severity: 'warning' }] } },
+      rules: [() => [
+        { code: 'audit.low', path: ['body', 'cards', 0, 'layout'], severity: 'warning' },
+        { code: 'audit.owner', path: ['title'], target: { kind: 'owner', id: 'finance' }, severity: 'warning' },
+        { code: 'audit.stale', path: ['body', 'cards', 0, 'layout'], target: { kind: 'region', id: 'east' } },
+      ]],
+    }
+    const issues = validateDocument(withCards([{ id: 'memo', kind: 'audit.note', layout: { x: 0, y: 0, w: 4, h: 2 } }]), { extensions: [audit] })
+    expect(issues).toEqual([
+      { code: 'audit.empty', path: ['body', 'cards', 0, 'text'], target: { kind: 'card', id: 'memo' }, severity: 'warning' },
+      { code: 'audit.low', path: ['body', 'cards', 0, 'layout'], target: { kind: 'card', id: 'memo' }, severity: 'warning' },
+      { code: 'audit.owner', path: ['title'], target: { kind: 'owner', id: 'finance' }, severity: 'warning' },
+      { code: 'audit.stale', path: ['body', 'cards', 0, 'layout'], target: { kind: 'region', id: 'east' }, severity: 'error' },
+    ])
+  })
 })
 
 describe('按种类计算', () => {

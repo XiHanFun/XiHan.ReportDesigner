@@ -798,8 +798,8 @@ function targetOf(document: unknown, path: JsonPath): SchemaIssueTarget | undefi
 
 /**
  * 校验报表文档，返回全部问题；没有问题时为空数组。不会抛出。
- * 问题的 path 只用对象属性名与数组下标；落在带 id（或 name）的数组项里时，target 给出最内层那一项的 kind 与键。
- * 报表的问题都是 error。
+ * 问题的 path 只用对象属性名与数组下标；落在带 id（或 name）的数组项里时，target 给出最内层那一项的 kind 与键，问题自带 target 的不改。
+ * 内建的问题都是 error；扩展种类与规则给出的问题照它自己写的 severity，没写的是 error。
  */
 export function validateDocument(document: unknown, options: ValidateOptions = {}): ValidationIssue[] {
   const c = new Checker()
@@ -808,6 +808,8 @@ export function validateDocument(document: unknown, options: ValidateOptions = {
   else
     c.report('invalid-type', [], { expected: 'object' })
   const located = c.issues.map((issue) => {
+    if (issue.target)
+      return issue
     const target = targetOf(document, issue.path)
     return target ? { ...issue, target } : issue
   })
