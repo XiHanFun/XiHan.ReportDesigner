@@ -90,7 +90,7 @@ import { createReportEditor, writeReportClipboard } from './editor'
 import { createReportDesignerModel, DESIGNER_INTERNALS, REPORT_DESIGNER_EXTENSION, REPORT_MENU_LAYOUT, REPORT_SELECTION_LAYOUT, reportMenubarLayout, reportToolbarLayout } from './extensions'
 import { planDatasetImport, planFieldImport, planParameterImport } from './field-import'
 import { cellSize, cellToRect, centeredCell, clipCell, measureGrid, rectToCell } from './grid-geometry'
-import { IssuesPanel, reportIssueItems } from './issues-panel'
+import { issueMarks, IssuesPanel, reportIssueItems } from './issues-panel'
 import { PropertiesPanel } from './properties-panel'
 import { REPORT_VERSION } from './version'
 import { fieldList, Wells, wellsOwner, withFilledBindings } from './wells'
@@ -1218,6 +1218,22 @@ export class XhReportDesigner extends XhReactiveElement {
     emitEvent(this, 'issues-change', { issues })
   }
 
+  /** 把问题标记落到画布上：看板上有问题的卡片、不是看板时有问题的主体视图带 data-issue，取值为最严重的一级。 */
+  #markIssues(layers: Layers, document: ReportDocument): void {
+    const marks = issueMarks(document, this.#issues)
+    const mark = (element: HTMLElement, severity: string | undefined): void => {
+      if (severity === undefined)
+        element.removeAttribute('data-issue')
+      else
+        element.setAttribute('data-issue', severity)
+    }
+    for (const section of layers.content.querySelectorAll<HTMLElement>('[data-part="card"]'))
+      mark(section, marks.cards.get(section.dataset.card ?? ''))
+    const view = layers.content.querySelector<HTMLElement>(':scope > [data-part="view"]')
+    if (view)
+      mark(view, marks.body)
+  }
+
   #ensureLayers(): Layers {
     if (this.#layers?.frame.parentElement === this)
       return this.#layers
@@ -1595,6 +1611,7 @@ export class XhReportDesigner extends XhReactiveElement {
     const dashboard = document.body.type === 'dashboard' ? document.body : undefined
     layers.empty.hidden = !dashboard || dashboard.cards.length > 0
     layers.empty.textContent = t.emptyDashboard
+    this.#markIssues(layers, document)
     this.#renderSelection()
   }
 

@@ -5,7 +5,7 @@
 
 import type { DashboardView, ReportDocument } from '@xihan-report/core'
 import { describe, expect, it } from 'vitest'
-import { issueSelection } from '../src/issues-panel'
+import { issueMarks, issueSelection } from '../src/issues-panel'
 
 const board: ReportDocument = {
   schemaVersion: 1,
@@ -67,5 +67,32 @@ describe('问题路径换成选择', () => {
   it('主体不是看板时指向主体视图的列表项', () => {
     const table: ReportDocument = { ...board, body: { type: 'table', dataset: 'sales', columns: [{ id: 'c', field: 'region' }] } }
     expect(issueSelection(table, { code: 'unknown-field', path: ['body', 'columns', 0, 'field'] })).toEqual({ cards: [], item: { list: 'columns', id: 'c' } })
+  })
+})
+
+describe('画布上的问题标记', () => {
+  it('看板：卡片里与联动上的问题标在卡片上，取最严重的一级；数据集、参数与看板网格上的问题不标', () => {
+    const linked: ReportDocument = { ...board, body: { ...(board.body as DashboardView), links: [{ id: 'l', card: 't', dimension: 'region', targets: [] }] } }
+    const marks = issueMarks(linked, [
+      { code: 'required', path: ['body', 'cards', 0, 'chart', 'series', 0, 'y'], severity: 'warning' },
+      { code: 'required', path: ['body', 'cards', 0, 'query', 'measures', 0, 'field'] },
+      { code: 'required', path: ['body', 'cards', 0, 'title'], severity: 'warning' },
+      { code: 'required', path: ['body', 'links', 0, 'targets'], severity: 'warning' },
+      { code: 'required', path: ['datasets', 0, 'fields', 1, 'type'] },
+      { code: 'required', path: ['parameters', 0, 'type'] },
+      { code: 'required', path: ['body', 'grid', 'columns'] },
+    ])
+    expect([...marks.cards]).toEqual([['trend', 'error'], ['t', 'warning']])
+    expect(marks.body).toBeUndefined()
+  })
+
+  it('主体不是看板时，主体里的问题标在主体视图上，取最严重的一级', () => {
+    const table: ReportDocument = { ...board, body: { type: 'table', dataset: 'sales', columns: [{ id: 'c', field: 'region' }] } }
+    expect(issueMarks(table, [{ code: 'required', path: ['datasets', 0, 'id'] }]).body).toBeUndefined()
+    expect(issueMarks(table, [{ code: 'unknown-field', path: ['body', 'columns', 0, 'field'], severity: 'warning' }]).body).toBe('warning')
+    expect(issueMarks(table, [
+      { code: 'unknown-field', path: ['body', 'columns', 0, 'field'] },
+      { code: 'unknown-field', path: ['body', 'columns', 0, 'field'], severity: 'warning' },
+    ])).toEqual({ cards: new Map(), body: 'error' })
   })
 })

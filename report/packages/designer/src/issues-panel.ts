@@ -8,10 +8,12 @@
 
 import type { DashboardCard, ItemList, ReportBody, ReportDocument, ValidationIssue } from '@xihan-report/core'
 import type { ReportDesignerTranslations } from '@xihan-report/runtime'
+import type { IssueSeverity } from '@xihan-ui/designer-kit/schema'
 import type { DesignerIssueItem, DesignerIssuesEventMap, XhDesignerIssuesElement } from '@xihan-ui/designer-shell'
 import type { ReportSelection } from './editor'
 import { bodyQuery, cardQuery, cardView, isDataView } from '@xihan-report/core'
 import { isPlainObject } from '@xihan-ui/core/json'
+import { issueSeverity } from '@xihan-ui/designer-kit/schema'
 import { createGeneratedElement } from '@xihan-ui/web-components/authoring'
 
 const ITEM_LISTS: readonly ItemList[] = ['columns', 'groups', 'rows', 'measures', 'dimensions', 'series']
@@ -101,6 +103,32 @@ export function issueSelection(document: unknown, issue: ValidationIssue): Repor
   }
   const card = rest[0] === 'cards' ? itemAt(body.cards, rest[1]) : undefined
   return stringOf(card, 'id') === undefined ? NOTHING : cardSelection(card as DashboardCard, rest.slice(2))
+}
+
+/** 画布上的问题标记：看板上卡片 id → 落在卡片里最严重的一级；不是看板时 body 是落在主体视图里最严重的一级。 */
+export interface IssueMarks {
+  readonly cards: ReadonlyMap<string, IssueSeverity>
+  readonly body: IssueSeverity | undefined
+}
+
+/** 按问题路径把问题归到画布上的卡片或主体视图，各取最严重的一级；数据集、参数与看板本身上的问题不在画布上标。 */
+export function issueMarks(document: ReportDocument, issues: readonly ValidationIssue[]): IssueMarks {
+  const cards = new Map<string, IssueSeverity>()
+  let body: IssueSeverity | undefined
+  const dashboard = document.body.type === 'dashboard'
+  for (const issue of issues) {
+    if (issue.path[0] !== 'body')
+      continue
+    const severity = issueSeverity(issue)
+    if (!dashboard) {
+      body = body === 'error' ? body : severity
+      continue
+    }
+    const card = issueSelection(document, issue).cards[0]
+    if (card !== undefined && cards.get(card) !== 'error')
+      cards.set(card, severity)
+  }
+  return { cards, body }
 }
 
 /** 问题所在对象的名字：卡片、数据集、字段或参数的标题，没有时取 id。 */

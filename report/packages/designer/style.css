@@ -98,6 +98,27 @@ xh-report-designer [data-part='surface'] [data-part='card'] {
   cursor: default;
 }
 
+/* 问题标记：有问题的卡片、不是看板时有问题的主体视图，右上角内侧一颗圆点，按最严重的一级着色 */
+xh-report-designer [data-part='surface'] :is([data-part='card'], [data-part='view']) {
+  position: relative;
+}
+
+xh-report-designer [data-part='surface'] :is([data-part='card'], [data-part='view'])[data-issue]::after {
+  content: '';
+  position: absolute;
+  inset-block-start: var(--xh-space-1);
+  inset-inline-end: var(--xh-space-1);
+  inline-size: var(--xh-space-1_5);
+  block-size: var(--xh-space-1_5);
+  border-radius: var(--xh-radius-full);
+  background: var(--xh-fg-danger);
+  pointer-events: none;
+}
+
+xh-report-designer [data-part='surface'] :is([data-part='card'], [data-part='view'])[data-issue='warning']::after {
+  background: var(--xh-fg-warning);
+}
+
 /* 设计态里卡片内容只看不点：指针一律落到卡片外壳上，用来选择与拖动 */
 xh-report-designer [data-part='surface'] :is([data-part='card-body'], [data-part='view']) {
   pointer-events: none;

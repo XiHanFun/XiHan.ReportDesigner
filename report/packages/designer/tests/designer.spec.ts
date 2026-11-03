@@ -755,6 +755,42 @@ describe('<xh-report-designer>：编辑', () => {
     expect(designer.getSelection()).toEqual({ cards: ['pie'] })
   })
 
+  it('画布上有问题的卡片带 data-issue，问题消失后去掉；主体不是看板时标在主体视图上', async () => {
+    const designer = await mount()
+    const issue = (id: string): string | null => designer.querySelector(`[data-part="card"][data-card="${id}"]`)!.getAttribute('data-issue')
+    expect(['pie', 'a', 'b'].map(issue)).toEqual([null, null, null])
+    designer.execute([{ type: 'updateCard', id: 'pie', changes: [{ path: ['chart', 'nameField'], value: 'ghost' }] }])
+    await designer.updateComplete
+    expect(['pie', 'a', 'b'].map(issue)).toEqual(['error', null, null])
+    // 改标题会重建卡片外壳，问题没变也照样标着
+    designer.execute([{ type: 'updateCard', id: 'pie', changes: [{ path: ['title'], value: '各区域占比' }] }])
+    await designer.updateComplete
+    expect(['pie', 'a', 'b'].map(issue)).toEqual(['error', null, null])
+    designer.undo()
+    designer.undo()
+    await designer.updateComplete
+    expect(['pie', 'a', 'b'].map(issue)).toEqual([null, null, null])
+
+    // 拖动卡片松手后按新位置重新校验
+    designer.extensions = [{ id: 'low', rules: [document => (document.body as DashboardView).cards.filter(item => item.layout.y >= 4).map(item => ({ code: 'low.card', path: ['body', 'cards', (document.body as DashboardView).cards.indexOf(item), 'layout'] }))] }]
+    await designer.updateComplete
+    placeGrid(designer)
+    transform(designer, 'start', 'move', 'a', { x: 400, y: 0, width: 400, height: 80 })
+    transform(designer, 'move', 'move', 'a', { x: 10, y: 170, width: 400, height: 80 })
+    transform(designer, 'end', 'move', 'a', { x: 10, y: 170, width: 400, height: 80 })
+    await designer.updateComplete
+    expect(['pie', 'a', 'b'].map(issue)).toEqual([null, 'error', null])
+    designer.extensions = []
+
+    designer.schema = { ...board, body: { type: 'table', dataset: 'sales', columns: [{ id: 'c', field: 'ghost' }] } }
+    await designer.updateComplete
+    const view = (): string | null => designer.querySelector('[data-part="surface"] [data-part="view"]')!.getAttribute('data-issue')
+    expect(view()).toBe('error')
+    designer.execute([{ type: 'updateItem', list: 'columns', id: 'c', changes: [{ path: ['field'], value: 'region' }] }])
+    await designer.updateComplete
+    expect(view()).toBeNull()
+  })
+
   it('切到预览态：画布换成查看器，交给它当前的报表与取数回调，外框只登记菜单栏、工具栏与画布；切换时派发 mode-change', async () => {
     const designer = await mount()
     const modes = events(designer, 'mode-change')
