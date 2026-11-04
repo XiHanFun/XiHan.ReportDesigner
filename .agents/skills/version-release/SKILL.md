@@ -11,7 +11,6 @@ description: 为 XiHan.ReportDesigner 定版本、消费变更集、续 rc 预�
 - 三个公开包 `@xihan-report/core`、`runtime`、`designer` 经 changesets 的 `fixed` 组锁步同版；版本真源是三包的 `version`，预发布状态在 `report/.changeset/pre.json`。
 - 标签写 `v<版本>`（如 `v1.0.0-rc.2`），打在对应发布分支历史里的提交上（预览版 `preview`，正式版 `main`），标签号等于三包版本、预发布通道与 `pre.json` 一致：本地用 `RELEASE_TAG=<标签> node scripts/release/check-release-tag.mjs` 核，Release 工作流开头也核这两条。
 - 发布分支：预览版（带 `-rc.N` 这类预发布后缀）从 `preview` 发，正式版从 `main` 发，都由 `dev` 快进。预览版沿用 `rc` 通道：已经发到 `1.0.0-rc.2`，按 semver `preview` 排在 `rc` 之前，换名字版本号会倒退。
-- 预览版现在还发不出去：`release.yml` 的 guard 只放行 `main` 上的标签，`ci.yml` 也不跑 `preview`（见 `AGENTS.md`「发版」）。
 - 推送、合并 main 或 preview、打标签、发布都要用户当时明确同意；同意一次只管这一次。
 
 ## 准备版本

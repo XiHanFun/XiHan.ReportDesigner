@@ -23,7 +23,7 @@ pnpm changeset
 | --- | --- |
 | 写变更集；`VersionUpgrade` 定版本、生成各包 CHANGELOG | 人，在本地 |
 | 文档站「更新日志」页（`docs/changelog.md`） | 人，与升版本同一笔 |
-| 合并 main、打标签 | 人，手工 |
+| 快进到发布分支、打标签 | 人，手工 |
 | 发到 npm、发布后冒烟、部署文档站 | `.github/workflows/release.yml` |
 
 changesets 自己打标签的行为已用 `--no-git-tag` 关掉；一次发版对应一个自己打的 `v<版本>` 标签。npm 包的版本不建 GitHub Release。
@@ -40,13 +40,13 @@ scripts/release/VersionUpgrade.bat          # Windows；其它平台用 pwsh scr
 git commit -m "build: v1.0.0"
 ```
 
-提交合进 `main` 后，在那个提交上打标签并推送：
+提交快进到发布分支（预览版 `preview`，正式版 `main`）后，在那个提交上打标签并推送：
 
 ```bash
 git tag v1.0.0 && git push origin v1.0.0
 ```
 
-标签推上去后 Release 工作流先把关两条：标签指向的提交在 `main` 的历史里；标签号等于三个包的版本，且与预发布模式对得上（`scripts/release/check-release-tag.mjs`）。缺一拒发。过了再构建、核对产物（`pnpm gate:publish`）、把 npm 上还没有的版本发出去，然后在空项目里装刚发的版本做冒烟（`scripts/release/smoke.mjs`），最后部署文档站。
+标签推上去后 Release 工作流先把关两条：标签指向的提交在发布分支的历史里（带预发布后缀的看 `preview`，不带的看 `main`）；标签号等于三个包的版本，且与预发布模式对得上（`scripts/release/check-release-tag.mjs`）。缺一拒发。过了再构建、核对产物（`pnpm gate:publish`）、把 npm 上还没有的版本发出去，然后在空项目里装刚发的版本做冒烟（`scripts/release/smoke.mjs`），最后部署文档站。
 
 预发布：`VersionUpgrade` 选 rc 等通道时执行 `changeset pre enter <通道>`，版本号带 `-rc.N` 后缀，npm 上打 `rc` 等 dist-tag。正式版发出之前，Release 发完包还会把 `latest` 也指到这一版（`scripts/release/promote-latest.mjs`，可加 `--dry-run` 先看），宿主不写版本号也装到最新的候选版；npm 上有了正式版以后这一步不再动 `latest`。转正式版时选「正式版」，脚本执行 `changeset pre exit`。
 

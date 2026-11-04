@@ -37,7 +37,7 @@ const packages = await publishablePackages()
 const mismatched = packages.filter(pkg => pkg.version !== version)
 if (mismatched.length > 0) {
   problems.push(`标签 ${tag} 要发的是 ${version}，这些包的 package.json 不是这个号：${mismatched.map(pkg => `${pkg.name}@${pkg.version}`).join('、')}。`
-    + '先跑 VersionUpgrade 把版本提到位并合进 main，再在那个提交上打标签。')
+    + '先跑 VersionUpgrade 把版本提到位并快进到发布分支，再在那个提交上打标签。')
 }
 if (prerelease === undefined && pre !== null) {
   problems.push(`标签 ${tag} 是正式版号，${PRE_PATH} 还在预发布模式（tag=${pre.tag}）：发出去的会是 ${version}-${pre.tag}.N。`
