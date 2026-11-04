@@ -9,8 +9,10 @@ description: 为 XiHan.ReportDesigner 定版本、消费变更集、续 rc 预�
 
 - 工作区无冲突、没有进行中的 merge / rebase，在 `dev` 上做；detached HEAD 不发版。
 - 三个公开包 `@xihan-report/core`、`runtime`、`designer` 经 changesets 的 `fixed` 组锁步同版；版本真源是三包的 `version`，预发布状态在 `report/.changeset/pre.json`。
-- 标签写 `v<版本>`（如 `v1.0.0-rc.2`），打在 `main` 历史里的提交上，标签号等于三包版本、预发布通道与 `pre.json` 一致：本地用 `RELEASE_TAG=<标签> node scripts/release/check-release-tag.mjs` 核，Release 工作流开头也核这两条。
-- 推送、合并 main、打标签、发布都要用户当时明确同意；同意一次只管这一次。
+- 标签写 `v<版本>`（如 `v1.0.0-rc.2`），打在对应发布分支历史里的提交上（预览版 `preview`，正式版 `main`），标签号等于三包版本、预发布通道与 `pre.json` 一致：本地用 `RELEASE_TAG=<标签> node scripts/release/check-release-tag.mjs` 核，Release 工作流开头也核这两条。
+- 发布分支：预览版（带 `-rc.N` 这类预发布后缀）从 `preview` 发，正式版从 `main` 发，都由 `dev` 快进。预览版沿用 `rc` 通道：已经发到 `1.0.0-rc.2`，按 semver `preview` 排在 `rc` 之前，换名字版本号会倒退。
+- 预览版现在还发不出去：`release.yml` 的 guard 只放行 `main` 上的标签，`ci.yml` 也不跑 `preview`（见 `AGENTS.md`「发版」）。
+- 推送、合并 main 或 preview、打标签、发布都要用户当时明确同意；同意一次只管这一次。
 
 ## 准备版本
 
@@ -18,14 +20,14 @@ description: 为 XiHan.ReportDesigner 定版本、消费变更集、续 rc 预�
 2. 在 `report/` 跑 `scripts/release/VersionUpgrade.bat`（或 `pwsh scripts/release/VersionUpgrade.ps1`），不替用户预选通道与级别。参数：`-Channel keep|alpha|beta|rc|release`、`-Level derived|major|minor|patch`（强制级别要同时给 `-Reason`，理由会进 CHANGELOG）、`-Yes` 跳过确认、`-DryRun` 只打印计划。rc 号怎么推、怎么续与转正见 [references/rc-numbering.md](references/rc-numbering.md)。
 3. 核对三包同版、各包 `CHANGELOG.md`、`pre.json` 与被消费的变更集；同一笔在 `docs/changelog.md` 补这一版的一节，日期写计划发布那天（导航上的版本号取 core 的版本，不用改）。
 4. 门禁全跑：`report/` 的 `pnpm lint`、`build`、`typecheck`、`test`、`gate:publish`、`smoke --pack`，`docs/` 的 `gate:gen`、`check:examples`、`lint`、`typecheck`、`build`，再 `git diff --check`。全过才提交 `build: v<版本>`。
-5. 推 dev，等 CI 全绿；`git fetch . dev:main` 把 main 快进到 dev（不是快进就停下查），推 main，等 CI 全绿。推上去的提交不再 amend 或 rebase。
+5. 推 dev，等 CI 全绿；把发布分支快进到 dev（预览版 `git fetch . dev:preview`，正式版 `git fetch . dev:main`，不是快进就停下查），推发布分支，等 CI 全绿。推上去的提交不再 amend 或 rebase。
 
 ## 发布
 
-用户明确要求后，在 main 的版本提交上打附注标签并推送：
+用户明确要求后，在发布分支的版本提交上打附注标签并推送：
 
 ```bash
-git tag -a v<版本> -m "v<版本>" main
+git tag -a v<版本> -m "v<版本>" <preview 或 main>
 git push origin v<版本>
 ```
 
@@ -54,6 +56,6 @@ npm view @xihan-report/designer dist-tags
 
 ## 文档站部署
 
-- 文档站随 Release 部署。`deploy-docs.yml` 只部署已经发布的版本：当前版本有标签、main 上的包与标签一致、npm 上查得到；不满足时跳过部署，不是失败。
+- 文档站随 Release 部署。`deploy-docs.yml` 只部署已经发布的版本：当前版本有标签、main 上的包与标签一致、npm 上查得到；不满足时跳过部署，不是失败。预览版不进 main，所以发布时跳过部署。
 - 两次发版之间挑进 main 的纯文档修正，推到 main 后（改了 `docs/` 或 `report/`）也会触发部署；进了 main 以后立刻把 main 合回 dev。
 - 部署后打开 https://report.docs.xihanfun.com 看导航上的版本号、「更新日志」与 `llms.txt`。`docs/public/CNAME`、`docs/public/.nojekyll` 与部署工作流属于站点契约，不删。
