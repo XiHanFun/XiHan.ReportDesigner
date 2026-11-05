@@ -1,97 +1,100 @@
 <div align="center">
+
 <h1>XiHan.ReportDesigner</h1>
 
-<p><b>快速、轻量、高效、用心的框架无关报表设计器</b></p>
-
-<p>以 Web Components 交付，可视化设计数据报表与看板，数据由使用方通过回调提供</p>
-
-<p><a href="./README.md">English</a> | <b>简体中文</b></p>
+<h3>快速、轻量、高效、用心的框架无关报表设计器</h3>
 
 <p>
+  <a href="https://github.com/XiHanFun/XiHan.ReportDesigner/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/XiHanFun/XiHan.ReportDesigner/ci.yml?branch=dev&style=flat-square&label=CI" /></a>
+  <a href="https://www.npmjs.com/package/@xihan-report/designer"><img alt="npm" src="https://img.shields.io/npm/v/@xihan-report/designer?style=flat-square&logo=npm&logoColor=white&color=cb3837" /></a>
+  <a href="./LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/XiHanFun/XiHan.ReportDesigner?style=flat-square&color=green" /></a>
   <a href="https://github.com/XiHanFun/XiHan.ReportDesigner/stargazers"><img alt="GitHub Stars" src="https://img.shields.io/github/stars/XiHanFun/XiHan.ReportDesigner?style=flat-square&logo=github&label=Stars&color=1f6feb" /></a>
   <a href="https://gitee.com/XiHanFun/XiHan.ReportDesigner"><img alt="Gitee Stars" src="https://gitee.com/XiHanFun/XiHan.ReportDesigner/badge/star.svg" /></a>
   <a href="https://gitcode.com/XiHanFun/XiHan.ReportDesigner"><img alt="GitCode Stars" src="https://gitcode.com/XiHanFun/XiHan.ReportDesigner/star/badge.svg" /></a>
 </p>
 
 <p>
-  <img alt="Web Components" src="https://img.shields.io/badge/Web_Components-29ABE2?style=flat-square&logo=webcomponentsdotorg&logoColor=white" />
-  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" />
-  <a href="https://www.npmjs.com/package/@xihan-report/designer"><img alt="npm" src="https://img.shields.io/npm/v/@xihan-report/designer?style=flat-square&logo=npm&logoColor=white" /></a>
-  <a href="./LICENSE"><img alt="License" src="https://img.shields.io/github/license/XiHanFun/XiHan.ReportDesigner?style=flat-square&color=green" /></a>
+  <a href="https://report.docs.xihanfun.com"><b>文档</b></a> ·
+  <a href="#快速开始"><b>快速开始</b></a> ·
+  <a href="https://report.docs.xihanfun.com/changelog"><b>更新日志</b></a>
 </p>
 
-<p>
-  <a href="https://report.docs.xihanfun.com"><img alt="Docs" src="https://img.shields.io/badge/Docs-report.docs.xihanfun.com-2496ED?style=flat-square&logo=readthedocs&logoColor=white" /></a>
-  <a href="https://deepwiki.com/XiHanFun/XiHan.ReportDesigner"><img alt="Ask DeepWiki" src="https://deepwiki.com/badge.svg" /></a>
-  <a href="https://qm.qq.com/q/qYp1Urv3z2"><img alt="QQ Group" src="https://img.shields.io/badge/QQ_Group-462371834-EB1923?style=flat-square&logo=tencentqq&logoColor=white" /></a>
-</p>
+<p><a href="./README.md">English</a> | <b>简体中文</b></p>
 
 </div>
 
-## 简介
+XiHan.ReportDesigner 是框架无关的报表设计器，以 Web Components 交付，可视化设计数据报表与看板，数据由使用方经回调提供，属曦寒懿（XiHanFun）开源生态。
 
-XiHan.ReportDesigner 是一款框架无关的报表设计器，以原生 Web Components 交付，Vue、React、Angular 或不使用框架的页面都能直接使用。属于曦寒懿（XiHanFun）开源生态。
+## 特性
 
-## 设计原则
+| 特性 | 说明 |
+| --- | --- |
+| 框架无关 | 原生 Web Components，适用于 Vue、React、Angular 与无框架页面 |
+| 零第三方依赖 | 运行时不引入第三方包 |
+| 模板即数据 | 模板为 JSON，不含也不执行代码 |
+| 数据自主 | 组件不发网络请求，数据、存储与权限经回调交由使用方 |
+| 报表与看板 | 明细、透视与看板查看，支持导出 xlsx |
 
-- **框架无关** - 以原生 Web Components 交付，不绑定任何前端框架
-- **零第三方依赖** - 运行时不引入任何第三方包
-- **模板即数据** - 模板只是 JSON，不含也不执行任何代码，导入模板不会带来脚本注入
-- **数据由使用方掌控** - 组件不发网络请求，数据、存储与权限都经回调交给使用方
+## 快速开始
+
+```bash
+pnpm add @xihan-report/core @xihan-report/runtime @xihan-ui/styles
+```
+
+```ts
+import { defineReportViewer } from '@xihan-report/runtime'
+import '@xihan-ui/styles/index.css'
+import '@xihan-report/runtime/style.css'
+
+defineReportViewer()
+
+const viewer = document.createElement('xh-report-viewer')
+viewer.dataProvider = dataProvider
+viewer.schema = schema
+document.body.append(viewer)
+```
+
+报表定义与取数回调的写法见[快速开始](https://report.docs.xihanfun.com/quickstart)。
 
 ## 包结构
 
 | 包 | 说明 |
 | --- | --- |
-| `@xihan-report/core` | 模型层：报表 schema、数据集描述、计算与编辑命令，纯 TypeScript，不依赖 DOM |
-| `@xihan-report/runtime` | 运行时：业务页面使用的报表与看板查看；`/xlsx` 子入口把报表排成工作表，由 `@xihan-ui/xlsx` 写出 |
-| `@xihan-report/designer` | 设计器：可视化报表设计器 |
+| `@xihan-report/core` | 模型层：报表 schema、数据集描述、计算与编辑命令，不依赖 DOM |
+| `@xihan-report/runtime` | 运行时：报表与看板查看，`/xlsx` 子入口导出 |
+| `@xihan-report/designer` | 设计器：可视化报表设计 |
 
-依赖方向为 `designer → runtime → core`。业务页面只需要 runtime，设计器只在需要编辑模板的地方加载。
+依赖方向为 `designer → runtime → core`，业务页面仅需 `runtime`。
 
 ## 本地开发
 
-需要 Node.js 24+ 与 pnpm 11+。
+需 Node.js 24+ 与 pnpm 11+，开发预览页位于 `http://localhost:5193`。
 
 ```bash
 cd report
 pnpm install
-pnpm build
-```
-
-其余命令：`pnpm typecheck`、`pnpm test`、`pnpm lint`。
-
-开发预览页（报表查看器与设计器的演示，不是产品）：在 `report/` 下启动，打开 http://localhost:5193 。
-
-```bash
 pnpm dev
 ```
 
-## 相关项目
+## 生态
 
-- [XiHan.Framework](https://github.com/XiHanFun/XiHan.Framework) - .NET 微内核开发框架
-- [XiHan.UI](https://github.com/XiHanFun/XiHan.UI) - 框架无关 Headless UI 组件库
-- [XiHan.BasicApp](https://github.com/XiHanFun/XiHan.BasicApp) - 基于 XiHan.Framework 和 XiHan.UI 的超高颜值通用中后台内核
-- [XiHan.PrintDesigner](https://github.com/XiHanFun/XiHan.PrintDesigner) - 框架无关打印设计器
-- [XiHan.FlowDesigner](https://github.com/XiHanFun/XiHan.FlowDesigner) - 框架无关流程设计器
-- [XiHan.FormDesigner](https://github.com/XiHanFun/XiHan.FormDesigner) - 框架无关表单设计器
+| 项目 | 说明 |
+| --- | --- |
+| [XiHan.Framework](https://github.com/XiHanFun/XiHan.Framework) | .NET 微内核开发框架 |
+| [XiHan.UI](https://github.com/XiHanFun/XiHan.UI) | 框架无关 Headless UI 组件库 |
+| [XiHan.BasicApp](https://github.com/XiHanFun/XiHan.BasicApp) | 基于 XiHan.Framework 和 XiHan.UI 的超高颜值通用中后台内核 |
+| [XiHan.FlowDesigner](https://github.com/XiHanFun/XiHan.FlowDesigner) | 框架无关流程设计器 |
+| [XiHan.FormDesigner](https://github.com/XiHanFun/XiHan.FormDesigner) | 框架无关表单设计器 |
+| [XiHan.PrintDesigner](https://github.com/XiHanFun/XiHan.PrintDesigner) | 框架无关打印设计器 |
 
-## 贡献
+## 文档
 
-欢迎提交 Issue 和 Pull Request。提交遵循 conventional commits 规范，改动需通过 CI 的 lint、类型检查、构建与测试。
+[查看器](https://report.docs.xihanfun.com/guide/viewer) · [设计器](https://report.docs.xihanfun.com/guide/designer) · [看板](https://report.docs.xihanfun.com/guide/dashboard) · [更新日志](https://report.docs.xihanfun.com/changelog)
 
-## 支持&赞助
+## 参与
 
-如果此项目对你的开发有助益，也欢迎请作者一杯咖啡。
+欢迎提交 [Issue](https://github.com/XiHanFun/XiHan.ReportDesigner/issues) 与 Pull Request，提交遵循 Conventional Commits，改动须通过 CI 门禁。交流：QQ 群 [462371834](https://qm.qq.com/q/qYp1Urv3z2)。支持项目：[赞助页](https://docs.xihanfun.com/cosmos/sponsor)。
 
-官方赞助页 https://docs.xihanfun.com/cosmos/sponsor
+## 许可证
 
-## 版权&授权
-
-Copyright (c) 2021-Present XiHanFun and contributors.
-
-本项目采用 MIT 授权，详见 [License](./LICENSE)
-
-XiHan.ReportDesigner 名称、界面视觉设计与原创视觉表达归作者所有，第三方服务分别遵循其各自授权与服务条款。
-
-项目仅供学习参考，作者不承担任何软件的使用风险。
+[MIT](./LICENSE) © 2021-Present XiHanFun and contributors。XiHan.ReportDesigner 的名称、界面视觉设计与原创视觉表达归作者所有。
