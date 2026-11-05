@@ -69,7 +69,7 @@ pnpm dev
 
 ## 相关项目
 
-- [XiHan.Framework](https://github.com/XiHanFun/XiHan.Framework) - .NET 模块化开发框架
+- [XiHan.Framework](https://github.com/XiHanFun/XiHan.Framework) - .NET 微内核开发框架
 - [XiHan.UI](https://github.com/XiHanFun/XiHan.UI) - 框架无关 Headless UI 组件库
 - [XiHan.BasicApp](https://github.com/XiHanFun/XiHan.BasicApp) - 基于 XiHan.Framework 和 XiHan.UI 的超高颜值通用中后台内核
 - [XiHan.PrintDesigner](https://github.com/XiHanFun/XiHan.PrintDesigner) - 框架无关打印设计器

@@ -69,7 +69,7 @@ pnpm dev
 
 ## Related projects
 
-- [XiHan.Framework](https://github.com/XiHanFun/XiHan.Framework) - .NET modular development framework
+- [XiHan.Framework](https://github.com/XiHanFun/XiHan.Framework) - .NET microkernel development framework
 - [XiHan.UI](https://github.com/XiHanFun/XiHan.UI) - Framework-agnostic headless UI component library
 - [XiHan.BasicApp](https://github.com/XiHanFun/XiHan.BasicApp) - A polished general-purpose admin core built on XiHan.Framework and XiHan.UI
 - [XiHan.PrintDesigner](https://github.com/XiHanFun/XiHan.PrintDesigner) - Framework-agnostic print designer
