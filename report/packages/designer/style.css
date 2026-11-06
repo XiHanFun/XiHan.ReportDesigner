@@ -266,7 +266,7 @@ xh-report-designer [data-part='well'] [data-xh-part='item'] {
   gap: var(--xh-space-1);
   align-items: center;
   min-inline-size: 0;
-  border-radius: var(--xh-radius-sm);
+  border-radius: var(--xh-shape-inset);
 }
 
 xh-report-designer [data-part='well'] [data-xh-part='item'][data-selected] {
@@ -293,8 +293,7 @@ xh-report-designer [data-part='well-link-tags'] {
   gap: var(--xh-space-1);
 }
 
-xh-report-designer [data-part='well-link-tags'] > xh-tag[data-selected] {
-  border-radius: var(--xh-radius-sm);
+xh-report-designer [data-part='well-link-tags'] > xh-tag[data-selected] > [data-xh-part='root'] {
   outline: var(--xh-ring-width) solid var(--xh-border-control-focus);
 }
 
