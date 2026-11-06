@@ -108,7 +108,7 @@ XiHan.ReportDesigner 是框架无关的报表设计器，以原生 Web Component
 - runtime 是业务页面使用的元素，体积敏感；设计器专用的代码不进 runtime。
 - 所有包源码不得 import 任何前端框架（ESLint 已拦截）。
 - 运行时依赖只允许 `@xihan-report/*` 与 `@xihan-ui/*`；引入任何其他依赖之前先征得维护者同意。
-- 三个公开包对 `@xihan-ui/*` 写 `peerDependencies`（`^5.0.0`，由宿主装唯一的一份），开发时另写一份 `devDependencies`（`catalog:`）；版本范围只在 `report/pnpm-workspace.yaml` 的 catalog 里改。UI 新加的能力要等 UI 发版才用得上。
+- 三个公开包对 `@xihan-ui/*` 写 `peerDependencies`（`^5.2.0`，由宿主装唯一的一份），开发时另写一份 `devDependencies`（`catalog:`）；升级 UI 时 `report/pnpm-workspace.yaml` 的 catalog 与各包的 peer 范围一起改。UI 新加的能力要等 UI 发版才用得上。
 
 ## 硬性约定
 

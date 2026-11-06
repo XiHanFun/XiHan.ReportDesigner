@@ -338,7 +338,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | `about?` | `readonly { readonly label: string; readonly value: string; }[]` | 「关于」页里的几行，如附加包的版本与授权；各款把它们接在自己那几行后面。 |
 | `cardRenderers?` | `Readonly<Record<string, ReportCardRenderer>>` | 卡片的渲染，键是卡片种类名。 |
 | `cards?` | `Readonly<Record<string, ReportCardKind<never, unknown>>>` | 卡片种类：键是种类名，扩展登记的带点、以扩展 id 的末段开头。 |
-| `commands?` | `readonly DesignerCommand<ReportDesignerContext>[]` | 命令：工具栏按钮、右键菜单项与快捷键共用；命令 id 与快捷键不能与内置或别的扩展的重名。 |
+| `commands?` | `readonly DesignerCommand<ReportDesignerContext>[]` | 命令：工具栏按钮、上下文菜单项与快捷键共用；命令 id 与快捷键不能与内置或别的扩展的重名。 |
 | `controls?` | `Readonly<Record<string, ControlKind>>` | 新的编辑方式，键是 control.kind，不能与内建的重名。 |
 | `dataProvider?` | `ReportDataMiddleware` | 取数中间件，按扩展顺序一层层包在宿主的 dataProvider 外面，后登记的在最外。 |
 | `documentProperties?` | `readonly ReportPropertyDescriptor[]` | 文档级属性，path 相对文档本身，没选中任何对象时属性面板显示它们。 |
@@ -388,7 +388,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | `panel?(context: ReportDesignerContext): DesignerCommandPanel<ReportDesignerContext>` | 弹层命令：每次打开时建出放进弹层的面板。 |
 | `run?(context: ReportDesignerContext): void` | 执行命令；按钮、菜单项与快捷键都只在命令此刻可用时调用它。弹层命令与菜单命令可以不给：工具栏上点它们是打开弹层或菜单，不调 run；给了 run，快捷键按下时调它（通常调工具栏的 open 打开同一份）。 |
 | `select?(value: string, context: ReportDesignerContext): void` | 菜单命令的条目被选中时调用，value 是条目的 value；写成命令 id 的项选中时执行那条命令，不调它。 |
-| `visible?(context: ReportDesignerContext): boolean` | 不给即总是存在；返回 false 时这条命令此刻不存在：工具栏、菜单栏、右键菜单与菜单命令里都不列它，快捷键不触发，执行也不跑（如只在开发者模式下才有的调试入口）。 |
+| `visible?(context: ReportDesignerContext): boolean` | 不给即总是存在；返回 false 时这条命令此刻不存在：工具栏、菜单栏、上下文菜单与菜单命令里都不列它，快捷键不触发，执行也不跑（如只在开发者模式下才有的调试入口）。 |
 
 ### ReportDesignerContext {#reportdesignercontext}
 
