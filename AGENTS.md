@@ -8,15 +8,17 @@ XiHan.ReportDesigner 是框架无关的报表设计器，以原生 Web Component
 
 ### 技术栈
 
-| 技术 | 要求 | 用途 |
-| --- | --- | --- |
-| Node.js | 24+ | 脚本、构建与测试 |
-| pnpm | 11+ | 工作区包管理 |
-| TypeScript | 6.x | 类型与源码 |
-| tsdown | 0.22 | 库打包（ESM only） |
-| Vitest | 4.x | 单元测试 |
-| Web Components | Light DOM | 对外交付形态 |
-| ESLint + oxlint | @antfu/eslint-config | Lint |
+| 技术 | 用途 |
+| --- | --- |
+| Node.js | 脚本、构建与测试 |
+| pnpm | 工作区包管理 |
+| TypeScript | 类型与源码 |
+| tsdown | 库打包（ESM only） |
+| Vitest | 单元测试 |
+| Web Components（Light DOM） | 对外交付形态 |
+| ESLint + oxlint（@antfu/eslint-config） | Lint |
+
+Node.js 与 pnpm 的最低版本见 `report/package.json` 的 `engines`，其余依赖的版本见 `report/pnpm-workspace.yaml` 的 catalog。
 
 ## 开始前必须做
 
@@ -108,7 +110,7 @@ XiHan.ReportDesigner 是框架无关的报表设计器，以原生 Web Component
 - runtime 是业务页面使用的元素，体积敏感；设计器专用的代码不进 runtime。
 - 所有包源码不得 import 任何前端框架（ESLint 已拦截）。
 - 运行时依赖只允许 `@xihan-report/*` 与 `@xihan-ui/*`；引入任何其他依赖之前先征得维护者同意。
-- 三个公开包对 `@xihan-ui/*` 写 `peerDependencies`（`^5.2.0`，由宿主装唯一的一份），开发时另写一份 `devDependencies`（`catalog:`）；升级 UI 时 `report/pnpm-workspace.yaml` 的 catalog 与各包的 peer 范围一起改。UI 新加的能力要等 UI 发版才用得上。
+- 三个公开包对 `@xihan-ui/*` 写 `peerDependencies`（范围与 catalog 相同，由宿主装唯一的一份），开发时另写一份 `devDependencies`（`catalog:`）；升级 UI 时 `report/pnpm-workspace.yaml` 的 catalog 与各包的 peer 范围一起改。UI 新加的能力要等 UI 发版才用得上。
 
 ## 硬性约定
 
@@ -132,7 +134,7 @@ XiHan.ReportDesigner 是框架无关的报表设计器，以原生 Web Component
 
 做法照 XiHan.UI：changesets 记变更，发布分支上的 `v<版本>` 标签触发 `.github/workflows/release.yml` 发 npm。说明见 `report/.changeset/README.md`。
 
-- 发布分支：预览版（带 `-rc.N` 这类预发布后缀的版本）从 `preview` 发，正式版从 `main` 发，都由 `dev` 快进，只接收发版。预览版沿用 `rc` 通道：已经发到 `1.0.0-rc.2`，按 semver `preview` 排在 `rc` 之前，换名字版本号会倒退。
+- 发布分支：预览版（带 `-rc.N` 这类预发布后缀的版本）从 `preview` 发，正式版从 `main` 发，都由 `dev` 快进，只接收发版。预览版沿用已发过的 `rc` 通道：按 semver `preview` 排在 `rc` 之前，换名字版本号会倒退。
 - `deploy-docs.yml` 只认 main 上的版本：预览版发布时跳过部署文档站，不算失败。
 - 三个公开包经 changesets 的 `fixed` 组锁步同版；`scripts/release/check-version-lock.mjs` 核对。
 - 使用者能感知的改动附一份变更集（`pnpm changeset`），中文、官方口径；CI、测试、文档站、脚本、README 不写。

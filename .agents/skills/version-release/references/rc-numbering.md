@@ -2,7 +2,7 @@
 
 changesets 预发布号 `-rc.N` 里的 N 不记在 `pre.json`，按包**当前的** `version` 推：当前版本没有预发布后缀时 N=0，是 `x.y.z-rc.k` 时 N=k+1，fixed 组取组里最大的。基线同样取当前 `version`，再按变更集里最高的级别 `semver.inc`；`1.0.0-rc.k` 升 major、minor 还是 patch 都得 `1.0.0`。
 
-所以 1.0.0 的 rc 期间，每次定版本都落在 `1.0.0-rc.<下一个号>`。
+所以同一个正式号的 rc 期间，每次定版本都落在 `<正式号>-rc.<下一个号>`。
 
 ## 续 rc
 
@@ -12,11 +12,11 @@ changesets 预发布号 `-rc.N` 里的 N 不记在 `pre.json`，按包**当前�
 pwsh scripts/release/VersionUpgrade.ps1 -Channel keep -Level derived -Yes
 ```
 
-`1.0.0-rc.1` 续出 `1.0.0-rc.2`。用掉的变更集记进 `pre.json` 的 `changesets`，文件留在目录里。
+`x.y.z-rc.k` 续出 `x.y.z-rc.<k+1>`。用掉的变更集记进 `pre.json` 的 `changesets`，文件留在目录里。
 
 ## 转正
 
-`-Channel release` 退出预发布：出 `1.0.0`，`pre.json` 与预发布期间留着的变更集（含 `first-release.md`）一并删掉，各包 CHANGELOG 依次是 1.0.0 与之前各个 rc 的节。标签 `v1.0.0`。
+`-Channel release` 退出预发布：出 `x.y.z`，`pre.json` 与预发布期间留着的变更集（如首发的 `first-release.md`）一并删掉，各包 CHANGELOG 依次是 x.y.z 与之前各个 rc 的节。标签 `v<x.y.z>`。
 
 ## 从 0.0.0 首发直接落到 rc.1（已做过）
 
