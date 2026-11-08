@@ -237,12 +237,11 @@ describe('<xh-report-designer>：画布', () => {
 describe('<xh-report-designer>：画布上的表格', () => {
   it('主体视图的表格以报表标题命名，表格卡片以卡片标题命名', async () => {
     const designer = await mount({ provider: () => {} })
+    const tableName = (): string | null | undefined => designer.querySelector('[data-part="surface"] xh-table [data-xh-part="root"]')?.getAttribute('aria-label')
     designer.schema = { ...board, title: '区域明细', body: { type: 'table', dataset: 'sales', columns: [{ id: 'region', field: 'region' }] } }
-    await settle()
-    expect(designer.querySelector('[data-part="surface"] xh-table [data-xh-part="root"]')!.getAttribute('aria-label')).toBe('区域明细')
+    await vi.waitFor(() => expect(tableName()).toBe('区域明细'), { timeout: 5000 })
     designer.schema = { ...board, body: { type: 'dashboard', grid: { columns: 12, rowHeight: 40 }, cards: [{ id: 't', kind: 'table', title: '区域列表', layout: { x: 0, y: 0, w: 6, h: 4 }, view: { type: 'table', dataset: 'sales', columns: [{ id: 'region', field: 'region' }] } }] } }
-    await settle()
-    expect(designer.querySelector('[data-part="surface"] xh-table [data-xh-part="root"]')!.getAttribute('aria-label')).toBe('区域列表')
+    await vi.waitFor(() => expect(tableName()).toBe('区域列表'), { timeout: 5000 })
   })
 
   it('画布上的表格视图与卡片内容是 inert：表格行、图例与图形不占 Tab 位，点在卡片内容上落到卡片外壳', async () => {
