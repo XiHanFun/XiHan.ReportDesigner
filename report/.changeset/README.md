@@ -24,9 +24,9 @@ pnpm changeset
 | 写变更集；`VersionUpgrade` 定版本、生成各包 CHANGELOG | 人，在本地 |
 | 文档站「更新日志」页（`docs/changelog.md`） | 人，与升版本同一笔 |
 | 快进到发布分支、打标签 | 人，手工 |
-| 发到 npm、发布后冒烟、部署文档站 | `.github/workflows/release.yml` |
+| 发到 npm、建 GitHub Release、发布后冒烟、部署文档站 | `.github/workflows/release.yml` |
 
-changesets 自己打标签的行为已用 `--no-git-tag` 关掉；一次发版对应一个自己打的 `v<版本>` 标签。npm 包的版本不建 GitHub Release。
+changesets 自己打标签的行为已用 `--no-git-tag` 关掉；一次发版对应一个自己打的 `v<版本>` 标签。每个标签由 release.yml 建同名的 GitHub Release，说明取文档站更新日志 `docs/changelog.md` 的这一版（`scripts/release/release-notes.mjs`）。
 
 ## 发一个版本
 

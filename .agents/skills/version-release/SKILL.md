@@ -30,7 +30,7 @@ git tag -a v<版本> -m "v<版本>" <preview 或 main>
 git push origin v<版本>
 ```
 
-Release 工作流（`.github/workflows/release.yml`）依次是：核对标签 → 发到 npm（构建、`gate:publish`、`changeset publish` 带 provenance，凭组织级 `NPM_TOKEN`）→ 预发布版跟上 `latest`（`scripts/release/promote-latest.mjs`：预发布模式、且 npm 上这个包还没有正式版时，等取得到这一版再 `npm dist-tag add <包>@<版本> latest`；有正式版后不动）→ 发布后冒烟（`smoke.mjs --version` 在空项目里装刚发的版本、类型检查与打包）→ 部署文档站（调 `deploy-docs.yml`）。只看 `gh run view <run-id>` 的摘要，要日志时只取失败的 job。npm 包的版本不建 GitHub Release。
+Release 工作流（`.github/workflows/release.yml`）依次是：核对标签 → 发到 npm（构建、`gate:publish`、`changeset publish` 带 provenance，凭组织级 `NPM_TOKEN`）→ 预发布版跟上 `latest`（`scripts/release/promote-latest.mjs`：预发布模式、且 npm 上这个包还没有正式版时，等取得到这一版再 `npm dist-tag add <包>@<版本> latest`；有正式版后不动）→ 建 GitHub Release（`release-notes.mjs` 取 `docs/changelog.md` 这一版的一节作说明，预发布版标成 Pre-release，与冒烟并行）→ 发布后冒烟（`smoke.mjs --version` 在空项目里装刚发的版本、类型检查与打包）→ 部署文档站（调 `deploy-docs.yml`）。只看 `gh run view <run-id>` 的摘要，要日志时只取失败的 job。
 
 发完核对：
 

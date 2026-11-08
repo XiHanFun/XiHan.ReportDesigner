@@ -1,7 +1,7 @@
 name: Release
 
 # 推 v<版本> 标签时：核对标签，构建并核对产物，把三个公开包发到 npm（带 provenance），在空项目里装刚发的版本冒烟，再部署文档站。
-# 版本号、各包 CHANGELOG、文档站的更新日志由人用 report/scripts/release/VersionUpgrade 定好并快进到发布分支（预览版 preview，正式版 main）；这里不提交、不建 GitHub Release。
+# 版本号、各包 CHANGELOG、文档站的更新日志由人用 report/scripts/release/VersionUpgrade 定好并快进到发布分支（预览版 preview，正式版 main）；这里不提交。发完 npm 后按文档站更新日志的这一版建同名 GitHub Release，预发布版标成 Pre-release。
 # 手动 Run workflow 时选中一个版本标签；选分支会被 guard 拦下。
 on:
   workflow_dispatch:
@@ -47,6 +47,8 @@ jobs:
           node-version: 24
       - name: 标签号与包版本、预发布模式对账
         run: node scripts/release/check-release-tag.mjs
+      - name: 更新日志里有这一版
+        run: node scripts/release/release-notes.mjs --check
 
   publish:
     name: 发到 npm
@@ -83,6 +85,33 @@ jobs:
         run: node scripts/release/promote-latest.mjs
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # 说明取文档站更新日志的这一版；重跑时这个标签的 Release 已经在，只更新标题与说明
+  github-release:
+    name: 建 GitHub Release
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: 按更新日志建这个标签的 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          notes="$RUNNER_TEMP/release-notes.md"
+          node scripts/release/release-notes.mjs --out "$notes"
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file "$notes"
+          else
+            prerelease=()
+            case "$GITHUB_REF_NAME" in *-*) prerelease=(--prerelease) ;; esac
+            gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --notes-file "$notes" "${prerelease[@]}"
+          fi
 
   smoke:
     name: 发布后冒烟
