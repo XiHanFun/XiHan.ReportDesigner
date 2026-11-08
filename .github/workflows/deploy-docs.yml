@@ -51,7 +51,7 @@ jobs:
             echo "::notice::v$version 还没有标签，等 Release 发完包再部署"
             exit 0
           fi
-          if ! git diff --quiet "v$version" HEAD -- report/packages report/pnpm-lock.yaml; then
+          if ! git diff --quiet "v$version" HEAD -- report/packages ':(exclude)report/packages/*/test/*' ':(exclude)report/packages/*/tests/*' report/pnpm-lock.yaml; then
             echo "::notice::main 上的报表各包与 v$version 不一致，等下一次发版再部署"
             exit 0
           fi
