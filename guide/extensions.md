@@ -89,6 +89,7 @@ export const goalCore: ReportCoreExtension = {
 
 - `properties` 按对象种类追加属性：`card:<种类>`、`chart:<图表类型>`、`series`、`metric`、`view:<视图类型>`、`column`、`dimension`、`measure`、`field`、`parameter`、`link` 等，追加在内置之后，与内置的同路径时抛错；`documentProperties` 追加在报表本身上。
 - `issueText` 给出自己问题码的说明，设计器的问题列表照样显示。
+- `rules` 查整份报表，问题与内置校验的一起给出。种类的 `validate` 与 `rules` 给出的问题可写 `severity: 'warning'` 标成警告，没写的是错误；可写 `target` 指明所在对象，没写的按路径归到最内层的带键对象。
 - 主体视图种类 `views` 写法相同，取数形状只能是 `query` 或 `none`。
 
 报表里用到扩展登记的种类，而元素没装这个扩展时，校验报 `unknown-kind`：查看器显示「报表定义有问题」，设计器里卡片原样保留、画种类名占位，不会丢数据。

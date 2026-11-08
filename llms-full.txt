@@ -10,6 +10,20 @@
 
 本页记录 `@xihan-report/core`、`@xihan-report/runtime`、`@xihan-report/designer` 各版本使用者能感知的变更，每条标注 **新增 / 修复 / 调整 / 移除**。这几个包总是同一个版本号一起发布；逐包的完整记录见仓库里各包的 `CHANGELOG.md`。
 
+## v1.0.0（2026-11-08）
+
+首个正式版。设计器画布上带问题的卡片有了常驻的问题标记，扩展给出的问题保留自己写的级别；所依赖的 XiHan.UI 升到 5.4.0，外观随之变化。
+
+::: warning 升级须知
+- 三个包对 `@xihan-ui/*` 的 peer 依赖改为 `^5.4.0`：项目里的 XiHan.UI 需要升到 5.4.0 或更高。
+- 缺省品牌色换成偏紫的靛蓝；要保留原来的蓝色，在主题根上写 `data-brand="indigo"`。
+:::
+
+- **修复** `@xihan-report/core`：扩展的校验规则（`rules`）与扩展种类的 `validate` 给出的问题，经 `validateDocument` 后保留自己写的 `severity` 与 `target`。以前写成 `warning` 的问题一律成了错误，查看器因此不取数、显示「报表定义有问题」，设计器也按错误计数与着色。没写 `severity` 的仍是 `error`，没带 `target` 的仍按路径补上所在的带键对象。
+- **修复** `@xihan-report/designer`：画布上带问题的卡片有常驻的问题标记。卡片里（含它的查询、视图、图表系列与联动）有问题时，卡片带 `data-issue`（`error` 或 `warning`），右上角画一颗按最严重的一级着色的圆点；主体是明细表、分组报表或交叉表时标在主体视图上。数据集、字段与报表参数的问题照旧列在问题列表里。选中、悬停和只读时圆点都在，问题消失后随之去掉。
+- **调整** 设计器的外观随 XiHan.UI 变化：圆角、聚焦环与面板分组的箭头位置都有调整；工具栏的设计 / 预览切换，问题面板的筛选和属性面板里的按钮组，选中项改为实心主色、字反白。
+- **调整** 工具栏钮的提示压在下拉或菜单上面时，按空白处会一并收起；按下带提示的钮后，提示不再重新弹出。
+
 ## v1.0.0-rc.2（2026-10-22）
 
 - **新增** `@xihan-report/designer`：`<xh-report-designer>` 的 `closable` 属性（同名 attribute）。开着时菜单栏最右端显示关闭钮，按下派发 `close`，由宿主关掉设计器或回到列表，有未保存的改动时先问。
@@ -589,7 +603,7 @@ designer.addEventListener('save', () => {
 | 画布 | 中间 | — | 看板的卡片可以框选、拖动与改大小，落在网格上；可以缩放，见下文「缩放」 |
 | 选中工具条 | 选中框上方 | — | 选中卡片时浮出：创建副本、复制与删除，见下文「命令与菜单」 |
 | 尺寸徽标 | 选中框下方 | — | 选中卡片时常驻，写宽 × 高（格）；选中一张时可以直接改，见下文 |
-| 问题 | 画布下方 | `issues` | 校验问题，点一条选中出问题的对象；错误与警告的条数在面板头上，点一下只看或不看这一级 |
+| 问题 | 画布下方 | `issues` | 校验问题，点一条选中出问题的对象；错误与警告的条数在面板头上，点一下只看或不看这一级。画布上有问题的卡片（不是看板时是主体视图）带 `data-issue`，右上角常驻一颗按最严重的一级着色的圆点 |
 | 字段栏 | 右栏上面 | `wells` | 选中卡片（或主体视图）的维度、度量、系列、列与分组，可以拖进字段、拖动换序 |
 | 属性 | 右栏中间 | `properties` | 选中对象的属性；选中多张卡片时编辑共同的属性 |
 | 历史记录 | 右栏下面，缺省隐藏 | `history` | 打开报表以来的每一步，见下文「撤销历史」 |
@@ -995,6 +1009,7 @@ export const goalCore: ReportCoreExtension = {
 
 - `properties` 按对象种类追加属性：`card:<种类>`、`chart:<图表类型>`、`series`、`metric`、`view:<视图类型>`、`column`、`dimension`、`measure`、`field`、`parameter`、`link` 等，追加在内置之后，与内置的同路径时抛错；`documentProperties` 追加在报表本身上。
 - `issueText` 给出自己问题码的说明，设计器的问题列表照样显示。
+- `rules` 查整份报表，问题与内置校验的一起给出。种类的 `validate` 与 `rules` 给出的问题可写 `severity: 'warning'` 标成警告，没写的是错误；可写 `target` 指明所在对象，没写的按路径归到最内层的带键对象。
 - 主体视图种类 `views` 写法相同，取数形状只能是 `query` 或 `none`。
 
 报表里用到扩展登记的种类，而元素没装这个扩展时，校验报 `unknown-kind`：查看器显示「报表定义有问题」，设计器里卡片原样保留、画种类名占位，不会丢数据。
@@ -3089,7 +3104,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | `about?` | `readonly { readonly label: string; readonly value: string; }[]` | 「关于」页里的几行，如附加包的版本与授权；各款把它们接在自己那几行后面。 |
 | `cardRenderers?` | `Readonly<Record<string, ReportCardRenderer>>` | 卡片的渲染，键是卡片种类名。 |
 | `cards?` | `Readonly<Record<string, ReportCardKind<never, unknown>>>` | 卡片种类：键是种类名，扩展登记的带点、以扩展 id 的末段开头。 |
-| `commands?` | `readonly DesignerCommand<ReportDesignerContext>[]` | 命令：工具栏按钮、右键菜单项与快捷键共用；命令 id 与快捷键不能与内置或别的扩展的重名。 |
+| `commands?` | `readonly DesignerCommand<ReportDesignerContext>[]` | 命令：工具栏按钮、上下文菜单项与快捷键共用；命令 id 与快捷键不能与内置或别的扩展的重名。 |
 | `controls?` | `Readonly<Record<string, ControlKind>>` | 新的编辑方式，键是 control.kind，不能与内建的重名。 |
 | `dataProvider?` | `ReportDataMiddleware` | 取数中间件，按扩展顺序一层层包在宿主的 dataProvider 外面，后登记的在最外。 |
 | `documentProperties?` | `readonly ReportPropertyDescriptor[]` | 文档级属性，path 相对文档本身，没选中任何对象时属性面板显示它们。 |
@@ -3139,7 +3154,7 @@ declare function createReportDesignerModel(extensions: readonly ReportDesignerEx
 | `panel?(context: ReportDesignerContext): DesignerCommandPanel<ReportDesignerContext>` | 弹层命令：每次打开时建出放进弹层的面板。 |
 | `run?(context: ReportDesignerContext): void` | 执行命令；按钮、菜单项与快捷键都只在命令此刻可用时调用它。弹层命令与菜单命令可以不给：工具栏上点它们是打开弹层或菜单，不调 run；给了 run，快捷键按下时调它（通常调工具栏的 open 打开同一份）。 |
 | `select?(value: string, context: ReportDesignerContext): void` | 菜单命令的条目被选中时调用，value 是条目的 value；写成命令 id 的项选中时执行那条命令，不调它。 |
-| `visible?(context: ReportDesignerContext): boolean` | 不给即总是存在；返回 false 时这条命令此刻不存在：工具栏、菜单栏、右键菜单与菜单命令里都不列它，快捷键不触发，执行也不跑（如只在开发者模式下才有的调试入口）。 |
+| `visible?(context: ReportDesignerContext): boolean` | 不给即总是存在；返回 false 时这条命令此刻不存在：工具栏、菜单栏、上下文菜单与菜单命令里都不列它，快捷键不触发，执行也不跑（如只在开发者模式下才有的调试入口）。 |
 
 ### ReportDesignerContext {#reportdesignercontext}
 
@@ -3292,7 +3307,7 @@ const REPORT_SELECTION_LAYOUT = {
 
 校验问题由 `validateDocument`、查看器的 `issues` 与设计器的问题列表给出，参数取值的问题由 `resolveParameters` 与查看器给出。问题不带文案，只有问题码、路径与参数；下表的说明来自中文语言包 `reportZhCN`，其中的 {名} 是参数，实际文案只含问题给出的参数。
 
-报表的问题都是错误级：有问题的报表定义查看器不取数，显示「报表定义有问题」；参数取值有问题时显示「报表参数缺少或取值不合格」。
+内建的问题都是错误级；扩展种类与校验规则给出的问题照它自己写的 `severity`，没写的是错误级。报表定义有错误级问题时查看器不取数，显示「报表定义有问题」；参数取值有问题时显示「报表参数缺少或取值不合格」。
 
 ## 通用问题码
 
